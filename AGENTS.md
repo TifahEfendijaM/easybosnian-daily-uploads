@@ -2,7 +2,7 @@
 
 Only operate on `TifahEfendijaM/easybosnian-daily-uploads`. Verify the exact repository and its private visibility before every repository operation. Do not read or modify any other user repository. Cloudflare identifiers are unique to `tifahefendijam-easybosnian-daily-uploads-v1`; never import old project state.
 
-The user's later instruction on 2026-10-02 overrides the initial attached prompt's schedule and approval gates: preparation is **17:00 daily**, pipeline **17:10 daily**, Europe/Sarajevo. The user authorized daily Instagram publication and waived unpublished preview and separate live-test runs. Do not require those approvals again. No scheduled retry.
+The user's latest instruction on 2026-10-02 stopped the unfinished 17:00 preparation and deferred both schedules by about two hours. It overrides the initial attached prompt's schedule and approval gates: preparation is **19:09 daily**, pipeline **19:19 daily**, Europe/Sarajevo. The user authorized daily Instagram publication and waived unpublished preview and separate live-test runs. Do not require those approvals again. No scheduled retry.
 
 Use only the supplied `docs/master-prompt.md`, this chat's instructions and the attached original `assets/watermark.png`. Free Cloudflare Workers AI FLUX only; no paid API, paid fallback, R2 checkout, or auto-upgrade. Bundle Inter with its license. Python draws exact reviewed instructional text.
 

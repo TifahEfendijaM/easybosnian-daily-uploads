@@ -21,5 +21,5 @@ binding = "IMAGES"
 id = "REPLACE_WITH_NEW_NAMESPACE_ID"
 
 [triggers]
-# Monitoring only. Exactly one check runs at Sarajevo 17:50, according to DST.
-crons = ["50 15 * * *", "50 16 * * *"]
+# Monitoring only. Exactly one check runs at Sarajevo 19:59, according to DST.
+crons = ["59 17 * * *", "59 18 * * *"]

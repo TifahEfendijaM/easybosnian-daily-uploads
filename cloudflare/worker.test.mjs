@@ -21,11 +21,11 @@ test('project identity rejects cross-project binding',async()=>{
   const r=await worker.fetch(new Request('https://example.test/health'),{PROJECT_ID:'wrong'});
   assert.equal(r.status,503);
 });
-test('watchdog only runs at Sarajevo 17:50 in both seasons',async()=>{
+test('watchdog only runs at Sarajevo 19:59 in both seasons',async()=>{
   let reads=0;
   const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_enabled":false}'})};}}};
-  await watchdog(env,new Date('2026-07-01T15:50:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-07-01T16:50:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-12-01T16:50:00Z')); assert.equal(reads,2);
-  await watchdog(env,new Date('2026-12-01T15:50:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-07-01T17:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-07-01T18:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-12-01T18:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-12-01T17:59:00Z')); assert.equal(reads,2);
 });

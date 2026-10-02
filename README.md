@@ -6,9 +6,9 @@ Every day, a tool-enabled preparation task researches and reviews one new theme 
 
 ## Current authorized schedule
 
-- Preparation: **17:00 daily, Europe/Sarajevo**.
-- Pipeline: **17:10 daily, Europe/Sarajevo**, including daylight saving changes.
-- No scheduled retry. A monitoring-only Cloudflare check runs at 17:50; it cannot generate or publish.
+- Preparation: **19:09 daily, Europe/Sarajevo**.
+- Pipeline: **19:19 daily, Europe/Sarajevo**, including daylight saving changes.
+- No scheduled retry. A monitoring-only Cloudflare check runs at 19:59; it cannot generate or publish.
 - The user waived the original prompt's unpublished-preview and separate live-test gates on 2026-10-02. Daily posting is authorized. Setup still requires working provider credentials and monitoring.
 
 The preparation automation is local to this chat and needs the computer awake and the app running. GitHub Actions and Cloudflare run independently in the cloud. A saved automation does not prove successful GitHub writing: setup verifies an actual reviewed JSON save and read-back before activation. Cron timing can be delayed; ten minutes is not guaranteed. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. A late package is kept for a deliberate run; no retry is dispatched.
