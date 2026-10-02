@@ -18,7 +18,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,10 +35,12 @@ jobs:
       - name: Restore dedicated managed ChatGPT sign-in privately
         id: auth
         env:
+          EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: python -m easybosnian.cloud_prepare bootstrap
       - name: Verify cloud connection or prepare today's scheduled batch
         env:
+          EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           EASYBOSNIAN_WORKER_URL: ${{ secrets.EASYBOSNIAN_WORKER_URL }}
           EASYBOSNIAN_ADMIN_TOKEN: ${{ secrets.EASYBOSNIAN_ADMIN_TOKEN }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
@@ -54,6 +55,7 @@ jobs:
       - name: Persist refreshed ChatGPT sign-in for the next run
         if: always() && steps.auth.outcome == 'success'
         env:
+          EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
         run: python -m easybosnian.cloud_prepare persist
       - name: Record preparation result
