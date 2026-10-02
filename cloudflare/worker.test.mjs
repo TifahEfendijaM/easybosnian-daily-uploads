@@ -21,13 +21,13 @@ test('project identity rejects cross-project binding',async()=>{
   const r=await worker.fetch(new Request('https://example.test/health'),{PROJECT_ID:'wrong'});
   assert.equal(r.status,503);
 });
-test('watchdog only runs at Sarajevo 19:59 in both seasons',async()=>{
+test('watchdog only runs at Sarajevo 21:59 in both seasons',async()=>{
   let reads=0;
   const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_enabled":false}'})};}}};
-  await watchdog(env,new Date('2026-07-01T17:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-07-01T18:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-12-01T18:59:00Z')); assert.equal(reads,2);
-  await watchdog(env,new Date('2026-12-01T17:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-07-01T19:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-07-01T20:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-12-01T20:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-12-01T19:59:00Z')); assert.equal(reads,2);
 });
 
 test('email deferral requires verified GitHub reporting',()=>{
@@ -84,7 +84,7 @@ test('armed cloud schedule reports missing first preparation while publication i
       bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:null,
       run:async()=>({meta:{changes:1}})
     };}}};
-    await watchdog(env,new Date('2026-10-02T17:59:00Z'));
+    await watchdog(env,new Date('2026-10-02T19:59:00Z'));
     assert.equal(issues.length,3);
     assert.ok(issues.some(x=>x.title.includes('cloud preparation scheduling')));
     assert.ok(issues.every(x=>x.body.includes('nothing published')));

@@ -1,6 +1,6 @@
 # Cloud preparation
 
-The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 19:20 Europe/Sarajevo; `daily.yml` publishes at 19:30. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
+The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 19:20 Europe/Sarajevo; `daily.yml` publishes at 21:00. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
 
 Use a **separate cloud-only ChatGPT login**, never a copy of the desktop session. `scripts/cloud_auth_setup.py login` opens official browser sign-in with an isolated ignored credential directory. Complete sign-in yourself. `scripts/cloud_auth_setup.py save` stores managed authentication only in this exact private repository's `CODEX_AUTH_JSON` secret. Do not copy tokens into chat, commits or artifacts, or subsequently execute that credential on this Mac or another runner.
 
@@ -10,6 +10,6 @@ Manual dispatch is **connection verification only**. It checks Instagram infrast
 
 At the scheduled time, the wrapper resumes any same-date reservation. Otherwise the research agent reads the full prompt and durable instructions, private history and every queue package, performs source/semantic review, writes a draft and measures text fit. The wrapper independently validates, reserves, saves and reads back, then enables Cloudflare publication under the user's existing authorization. The separate publisher handles images and Instagram. A connection or code check never proves publication.
 
-Research is limited to seven minutes; workflow startup and cron can still be delayed. Late/incomplete batches report failure and are preserved without a retry or manual publication dispatch. Failure issues and the 19:59 monitoring-only Worker remain active; Healthchecks email setup is deferred. Private GitHub runners consume included Actions minutes; keep paid spending disabled. ChatGPT usage consumes the existing subscription's limits.
+Research is limited to seven minutes; workflow startup and cron can still be delayed. Late/incomplete batches report failure and are preserved without a retry or manual publication dispatch. Failure issues and the 21:59 monitoring-only Worker remain active; Healthchecks email setup is deferred. Private GitHub runners consume included Actions minutes; keep paid spending disabled. ChatGPT usage consumes the existing subscription's limits.
 
 Supported behavior: [official OpenAI CI/CD auth guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth), [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).

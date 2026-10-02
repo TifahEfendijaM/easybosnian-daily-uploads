@@ -61,10 +61,10 @@ async function alert(env,date,stage,error,publication,run) {
   }
 }
 export async function watchdog(env, now=new Date()) {
-  // UTC triggers in both seasons; only one executes the Sarajevo 19:59 health check.
+  // UTC triggers in both seasons; only one executes the Sarajevo 21:59 health check.
   // This function has no generation, workflow-dispatch, or publication capability.
   const fields=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Sarajevo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
-  if(fields.hour!=='19' || fields.minute!=='59') return;
+  if(fields.hour!=='21' || fields.minute!=='59') return;
   const config=await settings(env);
   // Monitor an armed cloud schedule even before its first package can enable publication.
   if(!config.daily_authorized || (!config.daily_enabled && !config.active_since)) return;
@@ -78,10 +78,10 @@ export async function watchdog(env, now=new Date()) {
   const sameDay=runs.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
   const preparationRuns=await github(env,'/actions/workflows/preparation.yml/runs?event=schedule&per_page=20');
   const preparationDay=preparationRuns.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
-  if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 19:59 Europe/Sarajevo. It may still start late.',publication,null);
+  if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 21:59 Europe/Sarajevo. It may still start late.',publication,null);
   if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,preparationDay[0]?.html_url);
-  if(!sameDay.length) await alert(env,date,'pipeline scheduling','No scheduled GitHub run started by 19:59 Europe/Sarajevo. It may still start late.',publication,null);
-  else if(!state.verified) await alert(env,date,state.failed_stage || 'publication verification','The scheduled run has not confirmed an actual Instagram publication by 19:59.',publication,sameDay[0].html_url);
+  if(!sameDay.length) await alert(env,date,'pipeline scheduling','No scheduled GitHub run started by 21:59 Europe/Sarajevo. It may still start late.',publication,null);
+  else if(!state.verified) await alert(env,date,state.failed_stage || 'publication verification','The scheduled run has not confirmed an actual Instagram publication by 21:59.',publication,sameDay[0].html_url);
   if(config.healthchecks_deferred!==true) await monitorPing(env.HC_WATCHDOG_URL);
 }
 export default {
