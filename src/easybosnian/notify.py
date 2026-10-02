@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .core import REPO, gh
 from .http import redact, request
+from .store import Store
 
 NEXT = {
     "preparation/queue save": "Inspect the ChatGPT task result, repository access and reserved history; prepare a reviewed package, then deliberately run the existing batch.",
@@ -17,7 +18,9 @@ NEXT = {
 }
 
 
-def heartbeat(name, status="success", message=""):
+def heartbeat(name, status="success", message="", force=False):
+    if not force and Store().call("GET", "/v1/config").get("healthchecks_deferred") is True:
+        return "deferred by user; GitHub failure reporting remains active"
     url = os.environ.get("HC_" + name.upper() + "_URL")
     if not url:
         raise RuntimeError("Missing free external dead-man monitor: " + name)

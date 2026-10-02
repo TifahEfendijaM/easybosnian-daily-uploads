@@ -11,12 +11,13 @@ from pathlib import Path
 
 from PIL import Image
 
-from .core import ROOT, REPO, PROJECT, digest, gh, read_json, today, verify_repository, write_json
+from .core import ROOT, REPO, PROJECT, digest, gh, read_json, today, verify_repository, write_json, publication_monitoring_ready
 from .http import redact
 from .meta import Instagram, Facebook
 from .notify import heartbeat, failure
 from .pipeline import pipeline
 from .render import render
+from .readiness import check_infrastructure
 from .store import Store
 from .validate import reservations, validate
 
@@ -148,14 +149,20 @@ def activate(action,date=None):
     if action=="test-monitoring":
         # Check both external pings and the independent Worker's notification access.
         report=failure(today(),"scheduling","Notification self-test: no pipeline failure and no post","nothing published")
-        heartbeat("pipeline","fail",report)
-        heartbeat("preparation","fail",report)
+        heartbeat("pipeline","fail",report,force=True)
+        heartbeat("preparation","fail",report,force=True)
         store.call("POST","/v1/monitoring/check")
-        config["monitoring_ready"]=True
+        config.update(monitoring_ready=True,github_monitoring_ready=True,healthchecks_deferred=False)
+    elif action=="defer-healthchecks":
+        # This explicit user choice retains verified GitHub alerts without claiming email readiness.
+        result=store.call("POST","/v1/monitoring/check",{"healthchecks":False})
+        if result.get("repository")!=REPO or result.get("github_notification_check")!="accepted":
+            raise ValueError("GitHub monitoring access has not been verified")
+        config.update(healthchecks_deferred=True,github_monitoring_ready=True)
     elif action=="enable-daily":
         # The user explicitly authorized daily posting and waived preview/live-test gates.
         config.update(daily_authorized=True,daily_enabled=True,active_since=today())
-        if not config.get("preparation_verified") or not config.get("monitoring_ready"): raise ValueError("First verify preparation save/read-back and notification delivery")
+        if not config.get("preparation_verified") or not publication_monitoring_ready(config): raise ValueError("First verify preparation save/read-back and the selected failure reporting setup")
         gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","true")
     elif action=="disable-daily":
         config["daily_enabled"]=False
@@ -170,6 +177,7 @@ def main():
     subs=parser.add_subparsers(dest="command",required=True)
     subs.add_parser("create-repository")
     subs.add_parser("history")
+    subs.add_parser("check-infrastructure")
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser("pipeline"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
@@ -177,10 +185,11 @@ def main():
     p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["NOTIFY_GITHUB_TOKEN","HC_WATCHDOG_URL"])
     subs.add_parser("authorize-instagram")
     subs.add_parser("verify-facebook")
-    p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","enable-daily","disable-daily"]); p.add_argument("--date")
+    p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","defer-healthchecks","enable-daily","disable-daily"]); p.add_argument("--date")
     args=parser.parse_args()
     if args.command=="create-repository": create_repository()
     elif args.command=="history": print(json.dumps(Store().history(),ensure_ascii=False,indent=2))
+    elif args.command=="check-infrastructure": print(json.dumps(check_infrastructure(),indent=2))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
     elif args.command=="pipeline": pipeline(args.date,args.mode)

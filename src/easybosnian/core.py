@@ -58,3 +58,9 @@ def gh(*args, input_text=None):
         raise RuntimeError("GitHub operation failed; check account access and repository permissions")
     return result.stdout
 
+
+def publication_monitoring_ready(config):
+    return config.get("monitoring_ready") is True or (
+        config.get("healthchecks_deferred") is True
+        and config.get("github_monitoring_ready") is True
+    )

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .core import ROOT, REPO, digest, read_json, today, write_json, verify_repository
+from .core import ROOT, REPO, digest, read_json, today, write_json, verify_repository, publication_monitoring_ready
 from .http import redact, request
 from .meta import Instagram
 from .notify import failure, heartbeat
@@ -75,12 +75,11 @@ def pipeline(date=None, mode="preview"):
             raise ValueError("GitHub queue and immutable Cloudflare package differ or preparation has not finished")
         validate(package,store.history())
         if mode=="live":
-            scheduled=os.getenv("GITHUB_EVENT_NAME")=="schedule"
             allowed = config.get("daily_enabled") and config.get("daily_authorized")
             if not allowed:
                 raise ValueError("Daily publishing is authorized but account/preparation setup has not been activated")
-            if not config.get("monitoring_ready"):
-                raise ValueError("Configure free failure notifications before daily publishing")
+            if not publication_monitoring_ready(config):
+                raise ValueError("Verify failure reporting or the user's deferred Healthchecks setup before daily publishing")
         output=ROOT / "build" / date
         output.mkdir(parents=True,exist_ok=True)
         if state.get("verified"):

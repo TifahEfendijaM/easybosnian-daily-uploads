@@ -1,5 +1,7 @@
 # Where failures appear
 
+The user explicitly deferred Healthchecks on 2026-10-02 until Instagram works. During this phase, protected configuration records `healthchecks_deferred: true` and independently verified `github_monitoring_ready: true`; `monitoring_ready` stays false. Preparation, pipeline and watchdog skip Healthchecks requests. Immediate failures and the 19:59 Worker monitor still create private GitHub issues, with Actions logs/artifacts and this chat's scheduled result available. Email receipt is not claimed. If the monitoring Worker itself never starts, its missing signal cannot yet be detected through Healthchecks; that remaining coverage is deferred, not reported as complete.
+
 Use a free Healthchecks account with email enabled. Configure three named checks in **Europe/Sarajevo**:
 
 | Check | Expected signal | Grace |

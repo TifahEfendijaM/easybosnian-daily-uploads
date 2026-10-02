@@ -22,4 +22,15 @@ jobs:
       - run: python -m pip install -e .
       - run: python -m unittest discover -s tests -v
       - run: node --test cloudflare/worker.test.mjs
-
+      - name: Verify deployed infrastructure and Instagram credentials without publishing
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EASYBOSNIAN_WORKER_URL: ${{ secrets.EASYBOSNIAN_WORKER_URL }}
+          EASYBOSNIAN_ADMIN_TOKEN: ${{ secrets.EASYBOSNIAN_ADMIN_TOKEN }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_TOKEN_ISSUED_AT: ${{ secrets.INSTAGRAM_TOKEN_ISSUED_AT }}
+          META_GRAPH_VERSION: ${{ secrets.META_GRAPH_VERSION }}
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
+        run: easybosnian check-infrastructure

@@ -31,9 +31,19 @@ async function settings(env) {return JSON.parse((await env.DB.prepare('SELECT va
 async function github(env,path,method='GET',body) {
   // All operations are anchored to one fixed private repository.
   if (env.GITHUB_REPOSITORY!==REPO) throw Error('Repository identity mismatch');
-  const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{method,headers:{Authorization:`Bearer ${env.NOTIFY_GITHUB_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':PROJECT,'Content-Type':'application/json'},body:body ? JSON.stringify(body):undefined});
+  const headers={Authorization:`Bearer ${env.NOTIFY_GITHUB_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':PROJECT,'Content-Type':'application/json'};
+  const base=`https://api.github.com/repos/${REPO}`;
+  const identity=await fetch(base,{headers});
+  if(!identity.ok) throw Error(`GitHub ${identity.status}; check notification token access`);
+  const repository=await identity.json();
+  if(repository.full_name!==REPO || repository.private!==true) throw Error('Target repository is not exact/private');
+  if(!path && method==='GET') return repository;
+  const r=await fetch(base+path,{method,headers,body:body ? JSON.stringify(body):undefined});
   if(!r.ok) throw Error(`GitHub ${r.status}; check notification token access`);
   return r.json();
+}
+export function publicationMonitoringReady(config) {
+  return config.monitoring_ready===true || (config.healthchecks_deferred===true && config.github_monitoring_ready===true);
 }
 async function monitorPing(url, suffix='',body='') {
   if(!url || !url.startsWith('https://hc-ping.com/')) throw Error('External monitor missing');
@@ -68,7 +78,7 @@ export async function watchdog(env, now=new Date()) {
   if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,sameDay[0]?.html_url);
   if(!sameDay.length) await alert(env,date,'pipeline scheduling','No scheduled GitHub run started by 19:59 Europe/Sarajevo. It may still start late.',publication,null);
   else if(!state.verified) await alert(env,date,state.failed_stage || 'publication verification','The scheduled run has not confirmed an actual Instagram publication by 19:59.',publication,sameDay[0].html_url);
-  await monitorPing(env.HC_WATCHDOG_URL);
+  if(config.healthchecks_deferred!==true) await monitorPing(env.HC_WATCHDOG_URL);
 }
 export default {
   async fetch(req,env) {
@@ -88,21 +98,25 @@ export default {
         return response({project:PROJECT,batches:result.results.map(x=>({date:x.date,theme:JSON.parse(x.package_json).theme,words:JSON.parse(x.package_json).words,reservation_keys:JSON.parse(x.reservation_keys),state:JSON.parse(x.state)}))});
       }
       if(path==='/v1/monitoring/check' && req.method==='POST') {
+        const options=req.headers.get('Content-Type')?.includes('application/json') ? await req.json() : {};
+        if(Object.keys(options).some(k=>k!=='healthchecks') || (options.healthchecks!==undefined && typeof options.healthchecks!=='boolean')) return response({error:'Invalid monitoring check option'},400);
+        const checkHealthchecks=options.healthchecks!==false;
         const repository=await github(env,'');
         if(repository.full_name!==REPO || !repository.private) throw Error('Target repository is not exact/private');
         await github(env,'/actions/workflows/daily.yml/runs?per_page=1');
-        await alert(env,new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'}),'monitoring setup','Notification self-test; no pipeline failure and no post.','nothing published',null);
-        await monitorPing(env.HC_WATCHDOG_URL,'/fail','EasyBosnian monitoring self-test; nothing published.');
-        return response({repository:REPO,notification_check:'accepted',email_receipt:'check your verified Healthchecks and GitHub email inboxes'});
+        await alert(env,new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'}),checkHealthchecks?'monitoring setup':'GitHub monitoring setup','Notification self-test; no pipeline failure and no post.','nothing published',null);
+        if(checkHealthchecks) await monitorPing(env.HC_WATCHDOG_URL,'/fail','EasyBosnian monitoring self-test; nothing published.');
+        return response({repository:REPO,github_notification_check:'accepted',healthchecks_check:checkHealthchecks?'accepted':'deferred',email_receipt:checkHealthchecks?'check your verified Healthchecks and GitHub email inboxes':'Healthchecks email setup deferred by user; private GitHub issue reporting tested'});
       }
       if(path==='/v1/config') {
         if(req.method==='GET') return response(await settings(env));
         if(req.method==='PUT') {
           const p=await req.json();
-          const allowed=['daily_enabled','daily_authorized','preparation_verified','monitoring_ready','active_since'];
+          const allowed=['daily_enabled','daily_authorized','preparation_verified','monitoring_ready','github_monitoring_ready','healthchecks_deferred','active_since'];
           if(Object.keys(p).some(k=>!allowed.includes(k))) return response({error:'Unknown activation field'},400);
+          if(Object.entries(p).some(([k,v])=>k==='active_since' ? typeof v!=='string' || (v!=='' && !DATE.test(v)) : typeof v!=='boolean')) return response({error:'Invalid activation field type'},400);
           if(p.daily_enabled) {
-            if(!p.daily_authorized || !p.preparation_verified || !p.monitoring_ready) return response({error:'Account, preparation or monitoring setup incomplete'},409);
+            if(p.daily_authorized!==true || p.preparation_verified!==true || !publicationMonitoringReady(p)) return response({error:'Account, preparation or monitoring setup incomplete'},409);
           }
           await env.DB.prepare('UPDATE settings SET value=? WHERE id=1').bind(JSON.stringify(p)).run();
           return response(p);
