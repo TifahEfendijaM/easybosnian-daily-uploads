@@ -1,6 +1,7 @@
 import argparse
 import base64
 import getpass
+import importlib.util
 import json
 import os
 import re
@@ -133,6 +134,14 @@ def authorize_instagram():
     print("Instagram credentials stored in exact repository secrets; no post was made")
 
 
+def set_worker_secret(name):
+    verify_repository(remote=True)
+    value=getpass.getpass(f"Enter {name} privately (hidden): ").strip()
+    spec=importlib.util.spec_from_file_location('easybosnian_cloudflare_setup',ROOT/'scripts/cloudflare_deploy.py')
+    setup=importlib.util.module_from_spec(spec); spec.loader.exec_module(setup)
+    setup.put_worker_secret(name,value)
+
+
 def activate(action,date=None):
     verify_repository(remote=True)
     store=Store(); config=store.call("GET","/v1/config")
@@ -165,6 +174,7 @@ def main():
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser("pipeline"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
     p=subs.add_parser("set-secret"); p.add_argument("name"); p.add_argument("--local",action="store_true")
+    p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["NOTIFY_GITHUB_TOKEN","HC_WATCHDOG_URL"])
     subs.add_parser("authorize-instagram")
     subs.add_parser("verify-facebook")
     p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","enable-daily","disable-daily"]); p.add_argument("--date")
@@ -175,6 +185,7 @@ def main():
     elif args.command=="prepare": prepare(args.path)
     elif args.command=="pipeline": pipeline(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
+    elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
     elif args.command=="activation": activate(args.action,args.date)

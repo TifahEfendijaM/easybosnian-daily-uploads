@@ -8,7 +8,7 @@ Sign GitHub CLI in as TifahEfendijaM using its browser/device flow. The setup he
 
 For unattended token refresh, create a fine-grained personal access token restricted to **only easybosnian-daily-uploads**, with repository **Secrets: read/write** and **Contents: read** (metadata is automatic). Store it using the hidden prompt: `easybosnian set-secret GH_SECRETS_TOKEN`. Choose a duration you can maintain, record its expiry and replace it privately before expiry. If refresh is due and this token is missing/expired, publishing stops and reports authorization failure.
 
-For the monitoring Worker, create a separate fine-grained token restricted to the same repository, with **Actions: read** and **Issues: read/write**. Enter it privately as the Cloudflare `NOTIFY_GITHUB_TOKEN` secret. It only reads runs and opens failure issues in the fixed target repository. No other repository is queried.
+For the monitoring Worker, create a separate fine-grained token restricted to the same repository, with **Actions: read** and **Issues: read/write**. Enter it privately with `easybosnian set-worker-secret NOTIFY_GITHUB_TOKEN`. The helper checks this project's deployed Worker and bindings before storing the Cloudflare secret; it never prints the value. It only reads runs and opens failure issues in the fixed target repository. No other repository is queried.
 
 ## Cloudflare
 

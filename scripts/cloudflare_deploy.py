@@ -6,6 +6,7 @@ import re
 import secrets
 import subprocess
 import time
+import tomllib
 from pathlib import Path
 
 from easybosnian.core import ROOT, PROJECT, REPO, gh, verify_repository, write_json
@@ -43,6 +44,36 @@ def save_local(name,value):
     lines=[x for x in lines if not x.startswith(name+'=')]
     lines.append(name+'='+value)
     path.write_text('\n'.join(lines)+'\n'); path.chmod(0o600)
+
+
+def put_worker_secret(name,value):
+    verify_repository(remote=True)
+    if name not in ('NOTIFY_GITHUB_TOKEN','HC_WATCHDOG_URL'):
+        raise ValueError('Only this project monitoring secrets are supported')
+    if not value or any(c.isspace() for c in value):
+        raise ValueError('Enter one complete credential without spaces')
+    if name=='NOTIFY_GITHUB_TOKEN' and not value.startswith('github_pat_'):
+        raise ValueError('Use the newly generated fine-grained GitHub token')
+    if name=='HC_WATCHDOG_URL' and not re.fullmatch(r'https://hc-ping\.com/[a-f0-9-]{36}',value):
+        raise ValueError('Use the private Healthchecks ping URL')
+    state=json.loads((ROOT/'cloudflare/deployment.json').read_text())
+    if state.get('project')!=PROJECT or not state.get('worker_deployed') or not state.get('free_workers_verified'):
+        raise ValueError('This project free deployment has not been verified')
+    config=tomllib.loads((ROOT/'cloudflare/wrangler.toml').read_text())
+    if config.get('name')!=NAME or config.get('account_id')!=state['account_id']:
+        raise ValueError('Worker configuration belongs to another project')
+    if config.get('vars',{}).get('PROJECT_ID')!=PROJECT or config.get('vars',{}).get('GITHUB_REPOSITORY')!=REPO:
+        raise ValueError('Worker project/repository identity mismatch')
+    token=auth_token()
+    actual=cf(token,state['account_id'],'GET',f'/workers/scripts/{NAME}/settings')
+    bindings={b['name']:b for b in actual.get('bindings',[])}
+    if bindings.get('DB',{}).get('id')!=state['database_id'] or bindings.get('IMAGES',{}).get('namespace_id')!=state['kv_id']:
+        raise ValueError('Worker bindings do not match this project deployment')
+    wrangler('secret','put',name,'--config','wrangler.toml',input_text=value)
+    checked=cf(token,state['account_id'],'GET',f'/workers/scripts/{NAME}/settings')
+    if not any(b.get('name')==name and b.get('type')=='secret_text' for b in checked.get('bindings',[])):
+        raise ValueError('Cloudflare did not confirm the monitoring secret binding')
+    print(name+' saved privately to this project Worker; no post was made')
 
 
 def deploy(account,free_confirmed=False,free_evidence=None):
