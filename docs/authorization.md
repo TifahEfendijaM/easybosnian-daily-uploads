@@ -4,7 +4,7 @@ Only use the exact private repository **TifahEfendijaM/easybosnian-daily-uploads
 
 ## GitHub
 
-Sign GitHub CLI in as TifahEfendijaM using its browser/device flow. The setup helper checks the exact owner/repository and private visibility before every GitHub API operation. Keep Actions enabled, and set the Actions spending budget to $0 with usage blocked at the limit. The preparation automation uses this authorized local login to save queue files.
+Sign GitHub CLI in as TifahEfendijaM using its browser/device flow. The setup helper checks the exact owner/repository and private visibility before every GitHub API operation. Keep Actions enabled, and set the Actions spending budget to $0 with usage blocked at the limit. Cloud preparation uses the native workflow token with Contents write and Issues write. Its separate managed ChatGPT sign-in and private refresh storage are described in [cloud preparation](cloud-preparation.md).
 
 For unattended token refresh, create a fine-grained personal access token restricted to **only easybosnian-daily-uploads**, with repository **Secrets: read/write** and **Contents: read** (metadata is automatic). Store it using the hidden prompt: `easybosnian set-secret GH_SECRETS_TOKEN`. Choose a duration you can maintain, record its expiry and replace it privately before expiry. If refresh is due and this token is missing/expired, publishing stops and reports authorization failure.
 

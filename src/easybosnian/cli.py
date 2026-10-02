@@ -98,7 +98,7 @@ def prepare(path):
         heartbeat("preparation",message=f"Batch {date}; reviewed JSON saved and read back in {REPO}; nothing published")
         print(f"Saved reviewed JSON for {date}; package hash {h}; nothing published")
     except Exception as error:
-        report=failure(date,stage,error,"nothing published")
+        report=failure(date,stage,error,"nothing published",os.getenv("GITHUB_RUN_URL"))
         try: heartbeat("preparation","fail",report)
         except Exception: print("Preparation notification could not be delivered; inspect Scheduled and GitHub issue/logs")
         raise RuntimeError(redact(error)) from None
@@ -163,7 +163,11 @@ def activate(action,date=None):
         # The user explicitly authorized daily posting and waived preview/live-test gates.
         config.update(daily_authorized=True,daily_enabled=True,active_since=today())
         if not config.get("preparation_verified") or not publication_monitoring_ready(config): raise ValueError("First verify preparation save/read-back and the selected failure reporting setup")
-        gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","true")
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            if os.getenv("DAILY_POSTING_ENABLED") != "true":
+                raise ValueError("Arm the authorized scheduled pipeline variable before cloud activation")
+        else:
+            gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","true")
     elif action=="disable-daily":
         config["daily_enabled"]=False
         gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","false")

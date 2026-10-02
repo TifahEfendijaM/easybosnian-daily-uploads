@@ -6,6 +6,8 @@ from .http import redact, request
 from .store import Store
 
 NEXT = {
+    "cloud ChatGPT authorization": "Complete a fresh dedicated cloud-only Codex browser login, store CODEX_AUTH_JSON privately in this exact repository, then run the connection check. Do not copy the desktop session or use a paid API fallback.",
+    "cloud ChatGPT credential persistence": "Check the repository-restricted GH_SECRETS_TOKEN expiry and Secrets write access. Reseed the cloud-only ChatGPT sign-in if updated credentials were lost; never restore stale tokens or dispatch publishing automatically.",
     "preparation/queue save": "Inspect the ChatGPT task result, repository access and reserved history; prepare a reviewed package, then deliberately run the existing batch.",
     "validation": "Correct the unqueued package or reconcile the immutable queued package with the reviewer; do not bypass answer/history checks.",
     "FLUX generation": "Check the Cloudflare Free quota and model status; deliberately rerun this batch to reuse existing backgrounds.",

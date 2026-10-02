@@ -11,7 +11,7 @@ Every day, a tool-enabled preparation task researches and reviews one new theme 
 - No scheduled retry. A monitoring-only Cloudflare check runs at 19:59; it cannot generate or publish.
 - The user waived the original prompt's unpublished-preview and separate live-test gates on 2026-10-02. Daily posting is authorized. The user then deferred Healthchecks until after Instagram works; verified GitHub issue reporting is used during that phase.
 
-The preparation automation is local to this chat and needs the computer awake and the app running. GitHub Actions and Cloudflare run independently in the cloud. A saved automation does not prove successful GitHub writing: setup verifies an actual reviewed JSON save and read-back before activation. Cron timing can be delayed; ten minutes is not guaranteed. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. A late package is kept for a deliberate run; no retry is dispatched.
+Both preparation and publishing run on private GitHub cloud runners, independently of the Mac, after the dedicated cloud ChatGPT sign-in is verified. Preparation uses the existing ChatGPT subscription through the official Codex CLI, with no paid API key. Its serialized workflow restores and persists refreshed credentials in private secrets. A connection check proves ChatGPT access, private history and GitHub write/read-back without preparing a batch or publishing. The first real reviewed package save/read-back enables Cloudflare's publication gate. Cron timing can be delayed; ten minutes is not guaranteed. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. A late package is kept for a deliberate run; no retry is dispatched.
 
 ## Architecture and privacy
 
@@ -27,7 +27,7 @@ Publication intent is saved before the publish request. Completed backgrounds, c
 
 ## Setup and operation
 
-See [authorization guide](docs/authorization.md), [failure reporting](docs/failures.md), [free limits](docs/free-limits.md), and [daily preparation instructions](docs/preparation-task.md). The attached original prompt is preserved in `docs/master-prompt.md`; `AGENTS.md` records the user's later authoritative changes.
+See [authorization guide](docs/authorization.md), [cloud preparation](docs/cloud-preparation.md), [failure reporting](docs/failures.md), [free limits](docs/free-limits.md), and [daily preparation instructions](docs/preparation-task.md). The attached original prompt is preserved in `docs/master-prompt.md`; `AGENTS.md` records the user's later authoritative changes.
 
 The latest verified setup progress and remaining authorizations are recorded in [deployment status](docs/deployment-status.md).
 

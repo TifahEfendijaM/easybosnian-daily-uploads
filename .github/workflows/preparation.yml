@@ -1,0 +1,77 @@
+name: EasyBosnian cloud ChatGPT preparation
+on:
+  schedule:
+    - cron: '9 19 * * *'
+      timezone: Europe/Sarajevo
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: easybosnian-cloud-chatgpt-single-session
+  cancel-in-progress: false
+jobs:
+  preparation:
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || vars.CLOUD_PREPARATION_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install project and pinned official Codex CLI
+        run: |
+          python -m pip install -e .
+          npm install --global @openai/codex@0.160.0
+      - name: Restore dedicated managed ChatGPT sign-in privately
+        id: auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: python -m easybosnian.cloud_prepare bootstrap
+      - name: Verify cloud connection or prepare today's scheduled batch
+        env:
+          EASYBOSNIAN_WORKER_URL: ${{ secrets.EASYBOSNIAN_WORKER_URL }}
+          EASYBOSNIAN_ADMIN_TOKEN: ${{ secrets.EASYBOSNIAN_ADMIN_TOKEN }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_TOKEN_ISSUED_AT: ${{ secrets.INSTAGRAM_TOKEN_ISSUED_AT }}
+          META_GRAPH_VERSION: ${{ secrets.META_GRAPH_VERSION }}
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
+          HC_PREPARATION_URL: ${{ secrets.HC_PREPARATION_URL }}
+          DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
+          PREPARATION_MODE: ${{ github.event_name == 'schedule' && 'prepare' || 'verify' }}
+        run: python -m easybosnian.cloud_prepare "$PREPARATION_MODE"
+      - name: Persist refreshed ChatGPT sign-in for the next run
+        if: always() && steps.auth.outcome == 'success'
+        env:
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
+        run: python -m easybosnian.cloud_prepare persist
+      - name: Record preparation result
+        if: always()
+        run: |
+          if [ -f build/preparation-result.json ]; then
+            cat build/preparation-result.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f build/failure.txt ]; then
+            cat build/failure.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve safe private result only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easybosnian-preparation-${{ github.run_id }}
+          path: |
+            build/preparation-result.json
+            build/failure.txt
+          retention-days: 7
+          if-no-files-found: ignore
