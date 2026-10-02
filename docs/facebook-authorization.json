@@ -5,8 +5,9 @@
   "expires_at": 0,
   "data_access_expires_at": 1798758969,
   "verified_at": "2026-10-02T23:24:35.181469+00:00",
-  "publication": "nothing published during authorization",
+  "publication": "no post created during app publication or authorization",
   "consent": "only the selected current Page",
-  "public_app_checklist": "pending",
-  "publisher_enabled": false
+  "public_app_checklist": "complete; Meta confirmed Published",
+  "publisher_enabled": true,
+  "app_published_at": "2026-10-02T23:34:42.008089+00:00"
 }
