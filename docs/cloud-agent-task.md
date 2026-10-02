@@ -10,7 +10,10 @@ history and every current GitHub queue package in build/preparation-context.json
 Do not inspect other repositories, credentials, auth directories, personal files or prior chats.
 Do not call GitHub/Cloudflare/Instagram APIs, save a queue/reservation, activate posting, generate
 images, dispatch a workflow or publish. Do not modify tracked project source, instructions or schema.
-The wrapper performs the reserve/save/read-back/activation steps after your review succeeds.
+The wrapper performs the reserve/save/read-back/activation steps after your review succeeds. The
+repository's private-access guard was already performed by the trusted wrapper; do not repeat Git
+or GitHub operations from this credential-free research child. Local source/context reads and the
+permitted unreserved build files are your work for this stage.
 
 Perform all semantic novelty, Bosnian research, source-opening, caption, quiz-secrecy, palette/layout
 and FLUX prompt checks in docs/preparation-task.md steps 3–7. Use live web search; open relevant
@@ -27,5 +30,9 @@ Review novelty against context['queued_packages'] as well as history. Do not sel
 for an already reserved date; the wrapper handles resume before invoking you.
 
 Work within seven minutes. If reliable research or any required review is incomplete, stop with a
-clear explanation and do not write a falsely reviewed final draft. Finish with a short completion
-status and draft path, without printing quiz answers. You must not claim anything was published.
+clear failure result and do not write a falsely reviewed final draft. Read the final-response contract
+in build/cloud-agent-result-schema.json. Only after the exact draft exists and every required review,
+validation and measured-fit check passes, return {"status":"ready","reason":"none"}. Otherwise return
+{"status":"blocked","reason":"<one allowed reason from the schema>"}; choose the specific stage
+that prevented completion. Do not return an acknowledgement or an intention to work as completion.
+Do not put quiz answers or free-form research into this status result. You must not claim publication.
