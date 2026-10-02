@@ -38,12 +38,17 @@ class HandoffTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);(root/"build").mkdir()
             (root/"build/preparation-result.json").write_text(json.dumps(result()))
-            event=root/"event.json";event.write_text(json.dumps({"schedule":"0 20 * * *"}))
+            event=root/"event.json";event.write_text(json.dumps({"schedule":"0 5 * * *"}))
             output=root/"outputs"
             env={"GITHUB_ACTIONS":"true","GITHUB_EVENT_NAME":"schedule","GITHUB_EVENT_PATH":str(event),"GITHUB_OUTPUT":str(output)}
             with patch.dict(os.environ,env),patch("easybosnian.handoff.ROOT",root),patch("easybosnian.handoff.today",return_value=DATE),patch("easybosnian.handoff.verify_repository"):
                 main()
             self.assertEqual(output.read_text(),f"batch_date={DATE}\npackage_hash={'a'*64}\n")
+            output.unlink()
+            event.write_text(json.dumps({"schedule":"0 20 * * *"}))
+            with patch.dict(os.environ,env),patch("easybosnian.handoff.ROOT",root),patch("easybosnian.handoff.today",return_value=DATE),patch("easybosnian.handoff.verify_repository"):
+                with self.assertRaises(ValueError): main()
+            self.assertFalse(output.exists())
 
     def test_recovery_requires_both_explicit_selection_and_authorization(self):
         with tempfile.TemporaryDirectory() as temp:

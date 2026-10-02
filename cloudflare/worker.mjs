@@ -55,17 +55,17 @@ async function alert(env,date,stage,error,publication,run) {
   const inserted=await env.DB.prepare('INSERT OR IGNORE INTO alerts(date,stage) VALUES(?,?)').bind(date,stage).run();
   if(!inserted.meta.changes) return;
   try {
-    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No GitHub run exists. Inspect the 20:00 cloud preparation schedule and account authorization.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
+    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No GitHub run exists. Inspect the 05:00 cloud preparation schedule and account authorization.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
   } catch(e) {
     await env.DB.prepare('DELETE FROM alerts WHERE date=? AND stage=?').bind(date,stage).run();
     throw e;
   }
 }
 export async function watchdog(env, now=new Date()) {
-  // UTC triggers in both seasons; only one executes the Sarajevo 21:59 health check.
+  // UTC triggers in both seasons; only one executes the Sarajevo 06:59 health check.
   // This function has no generation, workflow-dispatch, or publication capability.
   const fields=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Sarajevo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
-  if(fields.hour!=='21' || fields.minute!=='59') return;
+  if(fields.hour!=='06' || fields.minute!=='59') return;
   const config=await settings(env);
   // Monitor an armed cloud schedule even before its first package can enable publication.
   if(!config.daily_authorized || (!config.daily_enabled && !config.active_since)) return;
@@ -78,12 +78,12 @@ export async function watchdog(env, now=new Date()) {
   const preparationRuns=await github(env,'/actions/workflows/preparation.yml/runs?event=schedule&per_page=20');
   const preparationDay=preparationRuns.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
   const dailyRun=preparationDay[0];
-  if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 21:59 Europe/Sarajevo. It may still start late.',publication,null);
+  if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 06:59 Europe/Sarajevo. It may still start late.',publication,null);
   if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,dailyRun?.html_url);
   // The reusable publisher is a job within preparation's run, not a second cron run.
   if(r && dailyRun && !state.verified) {
     const stage=state.failed_stage || (state.run_url ? 'publication verification' : 'preparation/publication handoff');
-    await alert(env,date,stage,'The daily preparation and completion-based pipeline have not confirmed an actual Instagram publication by 21:59. Inspect the preparation, three-minute delay and publication jobs.',publication,dailyRun.html_url);
+    await alert(env,date,stage,'The daily preparation and completion-based pipeline have not confirmed an actual Instagram publication by 06:59. Inspect the preparation, three-minute delay and publication jobs.',publication,dailyRun.html_url);
   }
   if(config.healthchecks_deferred!==true) await monitorPing(env.HC_WATCHDOG_URL);
 }

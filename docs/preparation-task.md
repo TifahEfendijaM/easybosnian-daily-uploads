@@ -1,6 +1,6 @@
-# Daily preparation task — 20:00 Europe/Sarajevo
+# Daily preparation task — 05:00 Europe/Sarajevo
 
-Operate exclusively in the current checkout of the fresh private repository TifahEfendijaM/easybosnian-daily-uploads. Read AGENTS.md, docs/master-prompt.md and this durable prompt. The user's later requests override the initial attachment: daily preparation at 20:00, pipeline after successful preparation plus a three-minute wait, Europe/Sarajevo; no preview/live-test approval gates, no scheduled retry, and both steps in the cloud. This task prepares content; the separate GitHub pipeline publishes it.
+Operate exclusively in the current checkout of the fresh private repository TifahEfendijaM/easybosnian-daily-uploads. Read AGENTS.md, docs/master-prompt.md and this durable prompt. The user's later requests override the initial attachment: daily preparation at 05:00, pipeline after successful preparation plus a three-minute wait, Europe/Sarajevo; no preview/live-test approval gates, no scheduled retry, and both steps in the cloud. This task prepares content; the separate GitHub pipeline publishes it.
 
 Cloud execution: `python -m easybosnian.cloud_prepare prepare` is the trusted wrapper. It verifies infrastructure and private history, reads every current GitHub queue package and resumes any same-date reservation. Only for a fresh date does it invoke the research agent with `docs/cloud-agent-task.md` and the complete `build/preparation-context.json`. That agent performs steps 3–7 and writes/validates a draft only. The wrapper alone performs steps 1, 2, 8 and failure reporting. The agent has no provider/admin/publishing/GitHub credentials. Do not attempt the wrapper's API or activation steps from the research agent.
 

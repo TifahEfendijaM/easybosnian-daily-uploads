@@ -55,13 +55,13 @@ test('project identity rejects cross-project binding',async()=>{
   const r=await worker.fetch(new Request('https://example.test/health'),{PROJECT_ID:'wrong'});
   assert.equal(r.status,503);
 });
-test('watchdog only runs at Sarajevo 21:59 in both seasons',async()=>{
+test('watchdog only runs at Sarajevo 06:59 in both seasons',async()=>{
   let reads=0;
   const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_enabled":false}'})};}}};
-  await watchdog(env,new Date('2026-07-01T19:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-07-01T20:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-12-01T20:59:00Z')); assert.equal(reads,2);
-  await watchdog(env,new Date('2026-12-01T19:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-07-01T04:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-07-01T05:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-12-01T05:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-12-01T04:59:00Z')); assert.equal(reads,2);
 });
 
 test('email deferral requires verified GitHub reporting',()=>{
@@ -118,7 +118,7 @@ test('armed cloud schedule reports missing first preparation while publication i
       bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:null,
       run:async()=>({meta:{changes:1}})
     };}}};
-    await watchdog(env,new Date('2026-10-02T19:59:00Z'));
+    await watchdog(env,new Date('2026-10-02T04:59:00Z'));
     assert.equal(issues.length,2);
     assert.ok(issues.some(x=>x.title.includes('cloud preparation scheduling')));
     assert.ok(issues.every(x=>x.body.includes('nothing published')));
@@ -131,7 +131,7 @@ test('confirmed reusable publication does not require a separate pipeline cron r
   globalThis.fetch=async(url,options={})=>{
     assert.ok(url.startsWith('https://api.github.com/repos/'+REPO));
     if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true});
-    if(url.includes('/actions/workflows/preparation.yml/runs')) return Response.json({workflow_runs:[{created_at:'2026-10-02T18:00:00Z',status:'completed',conclusion:'success',html_url:'https://github.com/'+REPO+'/actions/runs/123'}]});
+    if(url.includes('/actions/workflows/preparation.yml/runs')) return Response.json({workflow_runs:[{created_at:'2026-10-02T03:00:00Z',status:'completed',conclusion:'success',html_url:'https://github.com/'+REPO+'/actions/runs/123'}]});
     if(url.endsWith('/issues')) {issues.push(JSON.parse(options.body));return Response.json({number:1});}
     throw Error('A separate scheduled publisher must not be queried');
   };
@@ -141,7 +141,7 @@ test('confirmed reusable publication does not require a separate pipeline cron r
       bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:{state:JSON.stringify({verified:true})},
       run:async()=>({meta:{changes:1}})
     };}}};
-    await watchdog(env,new Date('2026-10-02T19:59:00Z'));
+    await watchdog(env,new Date('2026-10-02T04:59:00Z'));
     assert.equal(issues.length,0);
   } finally {globalThis.fetch=original;}
 });
