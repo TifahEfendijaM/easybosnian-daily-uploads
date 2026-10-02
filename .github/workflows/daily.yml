@@ -10,6 +10,10 @@ on:
         description: Immutable package hash verified by the preparation wrapper
         required: true
         type: string
+      mode:
+        description: Mode for the explicitly authorized handoff
+        type: string
+        default: live
   workflow_dispatch:
     inputs:
       mode:

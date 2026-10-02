@@ -50,3 +50,5 @@ Code checks: `python -m unittest discover -s tests -v` and `node --test cloudfla
 Facebook: select the exact EasyBosnian Page through independent Pages authorization, store its Page ID/token separately, verify the Page identity and then add a publisher with separate publication state. No Facebook posting is enabled in this version.
 
 TikTok: research is documented in `docs/authorization.md`. Public unattended posting is not promised; official audit and creator-control requirements restrict internal one-account utilities. No TikTok API publisher or paid service is configured.
+
+If a scheduled trigger is missing, manual preparation dispatch defaults to verify. The explicit recover_today mode prepares and publishes today with the same batch/hash checks and three-minute handoff; select it deliberately under the existing daily publication authorization; routine connection checks still cannot publish. It is not a timer or automatic retry.

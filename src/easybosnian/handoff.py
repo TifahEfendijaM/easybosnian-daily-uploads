@@ -26,11 +26,15 @@ def reviewed_result(result, date):
 
 def main():
     verify_repository(remote=True)
-    if os.getenv("GITHUB_ACTIONS") != "true" or os.getenv("GITHUB_EVENT_NAME") != "schedule":
-        raise ValueError("Only successful scheduled preparation can approve an automatic handoff")
+    event_name=os.getenv("GITHUB_EVENT_NAME")
+    recovery=event_name=="workflow_dispatch" and os.getenv("PREPARATION_RECOVERY_AUTHORIZED")=="true"
+    if os.getenv("GITHUB_ACTIONS") != "true" or (event_name != "schedule" and not recovery):
+        raise ValueError("Only scheduled preparation or an explicitly authorized recovery can approve a handoff")
     event=read_json(os.environ["GITHUB_EVENT_PATH"])
-    if event.get("schedule") != "0 20 * * *":
+    if event_name=="schedule" and event.get("schedule") != "0 20 * * *":
         raise ValueError("Preparation schedule does not match the current daily authorization")
+    if recovery and event.get("inputs",{}).get("mode")!="recover_today":
+        raise ValueError("The recovery event was not explicitly selected; publishing is not due")
     approved=reviewed_result(read_json(ROOT/"build/preparation-result.json"),today())
     if approved is None:
         print("This batch is already verified published; no second pipeline is due")

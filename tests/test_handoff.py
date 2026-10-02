@@ -45,6 +45,20 @@ class HandoffTests(unittest.TestCase):
                 main()
             self.assertEqual(output.read_text(),f"batch_date={DATE}\npackage_hash={'a'*64}\n")
 
+    def test_recovery_requires_both_explicit_selection_and_authorization(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/"build").mkdir()
+            (root/"build/preparation-result.json").write_text(json.dumps(result()))
+            event=root/"event.json";output=root/"outputs"
+            env={"GITHUB_ACTIONS":"true","GITHUB_EVENT_NAME":"workflow_dispatch","GITHUB_EVENT_PATH":str(event),"GITHUB_OUTPUT":str(output),"PREPARATION_RECOVERY_AUTHORIZED":"true"}
+            with patch.dict(os.environ,env),patch("easybosnian.handoff.ROOT",root),patch("easybosnian.handoff.today",return_value=DATE),patch("easybosnian.handoff.verify_repository"):
+                event.write_text(json.dumps({"inputs":{"mode":"verify"}}))
+                with self.assertRaises(ValueError): main()
+                self.assertFalse(output.exists())
+                event.write_text(json.dumps({"inputs":{"mode":"recover_today"}}))
+                main()
+            self.assertEqual(output.read_text(),f"batch_date={DATE}\npackage_hash={'a'*64}\n")
+
     def test_mismatched_handoff_stops_before_artwork_or_publication(self):
         package={"date":DATE}
         record={"state":{},"package":package,"hash":digest(package)}
