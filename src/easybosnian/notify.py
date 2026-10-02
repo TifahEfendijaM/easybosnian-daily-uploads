@@ -6,6 +6,17 @@ from .http import redact, request
 from .store import Store
 
 NEXT = {
+    "Facebook authorization": "Privately reauthorize only the EasyBosnian Page with pages_show_list, pages_read_engagement and pages_manage_posts; verify its saved Page ID and long-lived Page token.",
+    "Facebook publishing": "Inspect the EasyBosnian Page and saved Facebook post/photo IDs. Use read-only Facebook reconciliation; do not repeat an uncertain publication request.",
+    "Facebook photo upload": "Inspect the saved unpublished Facebook photo IDs and upload intents. An uncertain upload must not be blindly repeated.",
+    "Facebook publication verification": "Use read-only Facebook reconciliation; check the exact Page, caption, three photo IDs and actual permalink.",
+    "Facebook validation": "Inspect the immutable reviewed batch and handed-off hash; never bypass history or quiz secrecy checks.",
+    "Facebook storage": "Check this project's private Cloudflare assets and temporary public final-image URLs. Reuse the saved artwork.",
+    "Instagram Stories authorization": "Verify @easy_bosnian and its Instagram Login content-publishing authorization; do not reuse Facebook Page credentials.",
+    "Instagram Stories validation": "Stories wait for the exact daily Instagram carousel to be independently verified; inspect its saved publication result.",
+    "Instagram Stories publishing": "Inspect each saved Story container, publish intent and media ID. Reconcile known IDs read-only; never repost a Story with an uncertain response.",
+    "Instagram Stories verification": "Check saved Story IDs on @easy_bosnian and their Story permalinks. Use read-only reconciliation; Highlights require manual addition in Instagram.",
+    "Instagram Stories rendering": "Reuse the exact published slides, padded to 1080×1920 without cropping or changing text; inspect private storage and measured fit.",
     "cloud preparation infrastructure authorization": "Inspect the read-only infrastructure check in this exact repository. Verify private Cloudflare access, Instagram identity, and repository-restricted credential persistence access. Do not change content reservations or dispatch publication.",
     "cloud ChatGPT authorization": "Complete a fresh dedicated cloud-only Codex browser login, store CODEX_AUTH_JSON privately in this exact repository, then run the connection check. Do not copy the desktop session or use a paid API fallback.",
     "cloud ChatGPT credential persistence": "Check the repository-restricted GH_SECRETS_TOKEN expiry and Secrets write access. Reseed the cloud-only ChatGPT sign-in if updated credentials were lost; never restore stale tokens or dispatch publishing automatically.",

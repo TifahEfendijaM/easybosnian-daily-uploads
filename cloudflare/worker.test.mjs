@@ -2,6 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker,{canonical,reservationKeys,watchdog,PROJECT,REPO,publicationMonitoringReady} from './worker.mjs';
 
+test('Facebook and Story publication uncertainty cannot be erased by Instagram state updates',async()=>{
+  const before={platforms:{facebook:{publish_intent:true,cards:{quiz:{upload_intent:true,photo_id:'123'}}},instagram_stories:{publish_intent:true,cards:{quiz:{publish_intent:true,media_id:'456',verified:true}}}}};
+  let writes=0;
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){return {bind(){return this;},first:async()=>({state:JSON.stringify(before),revision:0}),run:async()=>{writes++;return {meta:{changes:1}};}};}}};
+  const send=async state=>worker.fetch(new Request('https://example.test/v1/batches/2026-10-03',{method:'PATCH',headers:{Authorization:'Bearer private','Content-Type':'application/json'},body:JSON.stringify({revision:0,state})}),env);
+  for(const mutate of [s=>delete s.platforms.facebook,s=>s.platforms.facebook.cards.quiz.photo_id='different',s=>delete s.platforms.instagram_stories.cards.quiz.publish_intent,s=>s.platforms.instagram_stories.cards.quiz.media_id='different',s=>s.platforms.instagram_stories.cards.quiz.verified=false]) {
+    const next=structuredClone(before);mutate(next);
+    assert.equal((await send(next)).status,409);
+  }
+  assert.equal(writes,0);
+  const next=structuredClone(before);next.media_id='instagram-feed';next.verified=true;
+  assert.equal((await send(next)).status,200);
+  assert.equal(writes,1);
+});
+
+test('only final card and Story JPEGs can be exposed, not private backgrounds or TikTok exports',async()=>{
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(){return {bind(){return this;},first:async()=>({})};}},IMAGES:{get:async()=>new Uint8Array(100),put:async()=>{}}};
+  for(const [name,status] of [['quiz-card.jpg',200],['quiz-story.jpg',200],['quiz-tiktok.jpg',404],['quiz-background.jpg',404]]) {
+    const r=await worker.fetch(new Request('https://example.test/v1/expose/2026-10-03/'+name,{method:'POST',headers:{Authorization:'Bearer private'}}),env);
+    assert.equal(r.status,status);
+  }
+});
+
 test('aliases normalize and reserve distinctly',()=>{
   assert.equal(canonical('Kišobran'),canonical('kisobran'));
   const keys=reservationKeys({theme:{equivalence_keys:['Kišni dan']},words:[{lemma:'kišobran',equivalence_keys:['umbrella','kišobran']}]});

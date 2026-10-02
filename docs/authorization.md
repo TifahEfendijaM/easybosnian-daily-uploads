@@ -38,17 +38,36 @@ Official sources:
 - [Business Login token exchange and refresh](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login)
 - [Instagram publishing reference](https://developers.facebook.com/documentation/instagram-platform/content-publishing)
 
-## Facebook — after Instagram works
+## Facebook — current setup priority
 
 Use an independent Facebook Pages login through the personal account that manages the Page. Request **pages_show_list**, **pages_read_engagement** and **pages_manage_posts**. Obtain a supported long-lived user token, call `/me/accounts?fields=id,name,tasks,access_token`, and select the exact **EasyBosnian** Page by name and its confirmed Page ID. Store **FACEBOOK_PAGE_ID** and **FACEBOOK_PAGE_TOKEN** separately in this repository's secrets. Verify the authorized Page ID/name before a Facebook publisher is enabled; never reuse an Instagram token here.
 
-Use the same Meta app only if its allowed use cases/products support the independent Pages route; otherwise create a separate Business app for Pages. App Review/Advanced Access requirements depend on the roles and app configuration. Long-lived Page tokens may lack a scheduled expiry but can still be revoked by role/password/security changes; do not promise permanent credentials. The current Instagram pipeline never calls Facebook publishing and never requires a Page link.
+The existing project app **EasyBosnian Daily Uploads (1987873818544936)** supports Pages, and its Pages use case was added on 2026-10-03. Keep using this app. The separate Pages publisher is implemented and remains disabled until independent Page authorization finishes. App Review/Advanced Access and public app requirements depend on the actual roles/configuration. Long-lived Page tokens may lack a scheduled expiry but can still be revoked by role/password/security changes; do not promise permanent credentials. Instagram still never requires a Page link.
+
+Use Graph API Explorer with this exact app and only the three permissions above. Authorize only the EasyBosnian Page. Record its confirmed Page ID. Enter the generated Facebook **user** token and this app's secret into `easybosnian authorize-facebook` using its hidden prompts. The helper exchanges the user token, finds the exact Page ID/name and publishing task, verifies the resulting long-lived **Page** token, stores only the Page token/ID in the exact repository, and arms Facebook. The app secret and user token are not saved. No test photo/post is created during authorization. Confirm Meta's public app requirements before claiming public distribution; a token or developer-only result does not prove public visibility.
+
+The daily handoff attempts Instagram and Facebook independently, reusing the same cached artwork. Facebook uploads the three photos unpublished as a staging step required by Meta, then creates one three-photo Page post. This is part of the actual daily publication, not a separate unpublished test. It saves intent before each write and independently reads back the Page, exact caption, three photo IDs and permalink. Timeouts never cause blind reposts. Use `easybosnian facebook --mode reconcile --date YYYY-MM-DD` for read-only reconciliation.
 
 [Official Pages API guide](https://developers.facebook.com/docs/pages-api/getting-started/)
 
-## TikTok — investigation only
+## Instagram Stories and Highlights
 
-TikTok's official Direct Post guide says unaudited clients' posts are restricted to private viewing. Its developer guidelines require a real creator-facing experience with user control and disallow clients limited to internal/private utilities. A single-brand unattended uploader may not qualify for a public-posting audit. Do not promise unattended public TikTok posting or add a paid service workaround. The renderer can export 1080×1920 files for a later approved/manual workflow; no TikTok token or posting code is enabled.
+The user requested all three published Instagram slides as Stories. The pipeline pads the exact published 1080×1350 cards to 1080×1920 without cropping, rewriting or changing their watermark. It posts only after independently verifying the daily feed carousel. Each Story has its own saved intent, container/media IDs, actual account/Story read-back and permalink. Partial or uncertain publication cannot be silently repeated. Known media IDs can be checked using `easybosnian stories --mode reconcile --date YYYY-MM-DD`.
+
+Meta's documented IG User operations do not include creating Highlights or adding Stories to them. This part requires a manual action in Instagram: add the quiz Story to **Pitanje dana**, the lesson to **Znaš li?**, and the word to **Riječ dana**. The private daily artifact includes these mappings and verified Story links, and never claims Highlight completion. Enable native Story archiving if you want to add them after their 24-hour visibility period.
+
+- [Publishing Stories](https://developers.facebook.com/documentation/instagram-platform/content-publishing)
+- [Story specifications](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media)
+- [Supported account operations](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user)
+
+## TikTok — manual export implemented; API approval unverified
+
+TikTok's official Direct Post guide says unaudited clients' posts are restricted to private viewing. Its developer guidelines require a real creator-facing experience with user control and explicitly disallow private utilities for accounts you or your team manages. Do not promise unattended public TikTok posting or add a paid service workaround. The daily handoff can export all three 1080×1920 cards plus the public caption for manual TikTok posting. It reuses the same cached FLUX backgrounds and preserves the user's requested logo. No TikTok token, app approval, API upload or publication is configured. The alternative Upload-to-inbox API requires an approved video.upload scope, account authorization and verified media domain; the creator must still complete the post inside TikTok. Its watermark restrictions must be resolved before any API route, rather than silently stripping the requested logo.
+
+TikTok's photo Direct Post API supports `auto_add_music` for recommended music; it has no parameter for selecting a particular track. Upload-to-inbox does not support that option, and music can be selected in TikTok while completing the post. Facebook's photo-post API has no music picker. Instagram's current Audio API supports searching/selecting authorized tracks for Reels through **Facebook Login**, which requires a linked Page; it is unavailable for our independent Instagram Login and image carousels. No music is added by this project.
 
 - [Direct Post getting started](https://developers.tiktok.com/docs/en/content-posting-api-get-started)
 - [Official content-sharing guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines)
+- [TikTok photo API and music option](https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post)
+- [TikTok upload-to-inbox requirements](https://developers.tiktok.com/docs/en/content-posting-api-get-started-upload-content)
+- [Instagram Audio API](https://developers.facebook.com/documentation/instagram-platform/content-publishing/audio-api)

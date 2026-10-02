@@ -1,4 +1,4 @@
-name: EasyBosnian daily Instagram pipeline
+name: EasyBosnian daily publishing and exports
 on:
   workflow_call:
     inputs:
@@ -35,7 +35,7 @@ jobs:
   pipeline:
     if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event_name == 'schedule' && github.event.schedule == '0 20 * * *' && inputs.package_hash != ''))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -45,6 +45,11 @@ jobs:
       INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
       INSTAGRAM_TOKEN_ISSUED_AT: ${{ secrets.INSTAGRAM_TOKEN_ISSUED_AT }}
       META_GRAPH_VERSION: ${{ secrets.META_GRAPH_VERSION }}
+      FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      FACEBOOK_POSTING_ENABLED: ${{ vars.FACEBOOK_POSTING_ENABLED }}
+      TIKTOK_EXPORT_ENABLED: ${{ vars.TIKTOK_EXPORT_ENABLED }}
+      INSTAGRAM_STORIES_ENABLED: ${{ vars.INSTAGRAM_STORIES_ENABLED }}
       GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
       HC_PIPELINE_URL: ${{ secrets.HC_PIPELINE_URL }}
       BATCH_DATE: ${{ inputs.batch_date }}
@@ -64,9 +69,9 @@ jobs:
       - name: Validate, generate, render and run selected mode
         run: |
           if [ -n "$BATCH_DATE" ]; then
-            easybosnian pipeline --mode "$RUN_MODE" --date "$BATCH_DATE"
+            easybosnian daily --mode "$RUN_MODE" --date "$BATCH_DATE"
           else
-            easybosnian pipeline --mode "$RUN_MODE"
+            easybosnian daily --mode "$RUN_MODE"
           fi
       - name: Record actual result
         if: always()
@@ -78,7 +83,11 @@ jobs:
           name: easybosnian-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/*/result.json
+            build/*/*-result.json
             build/*/*-card.jpg
+            build/*/*-tiktok.jpg
+            build/*/*-story.jpg
+            build/*/tiktok-caption.txt
             build/failure.txt
           retention-days: 7
           if-no-files-found: warn

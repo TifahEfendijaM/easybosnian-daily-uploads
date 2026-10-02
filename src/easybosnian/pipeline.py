@@ -7,6 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from .artwork import artwork
 from .core import ROOT, REPO, digest, read_json, today, write_json, verify_repository, publication_monitoring_ready
 from .http import redact, request
 from .meta import Instagram
@@ -100,32 +101,7 @@ def pipeline(date=None, mode="preview"):
         else:
             if state.get("publish_intent"):
                 raise ValueError("A previous publish request is uncertain. Use reconcile; ordinary reruns cannot publish again")
-            for card in package["cards"]:
-                kind=card["kind"]
-                item=state.setdefault("cards",{}).setdefault(kind,{})
-                background=output / f"{kind}-background.jpg"
-                rendered=output / f"{kind}-card.jpg"
-                if item.get("background_saved"):
-                    stage="storage"
-                    background.write_bytes(store.get_file(date,background.name))
-                else:
-                    stage="FLUX generation"
-                    # Convert provider output to JPEG without introducing text or logos.
-                    Image.open(io.BytesIO(provider().generate(card["background_prompt"],date,kind))).convert("RGB").save(background,"JPEG",quality=95)
-                    stage="storage"
-                    store.put_file(date,background.name,background.read_bytes())
-                    item["background_saved"]=True
-                    store.save(date,record)
-                if item.get("render_saved"):
-                    stage="storage"
-                    rendered.write_bytes(store.get_file(date,rendered.name))
-                else:
-                    stage="Pillow rendering"
-                    item["metrics"]=render(card,package["design_palette"],background,rendered)
-                    stage="storage"
-                    store.put_file(date,rendered.name,rendered.read_bytes())
-                    item["render_saved"]=True
-                    store.save(date,record)
+            output=artwork(store,date,record)
             if mode=="preview":
                 write_json(output / "result.json",{"status":"unpublished preview","package_hash":record["hash"],"batch":date})
                 if monitored: heartbeat("pipeline",message=f"Batch {date}; unpublished preview completed; {run_url or 'local'}")

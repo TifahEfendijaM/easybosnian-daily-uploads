@@ -13,7 +13,10 @@ from PIL import Image
 
 from .core import ROOT, REPO, PROJECT, digest, gh, read_json, today, verify_repository, write_json, publication_monitoring_ready
 from .http import redact
-from .meta import Instagram, Facebook
+from .meta import Instagram, Facebook, facebook_page_token
+from .facebook import pipeline_facebook, export_tiktok
+from .daily import daily
+from .stories import pipeline_stories
 from .notify import heartbeat, failure
 from .pipeline import pipeline
 from .render import render
@@ -143,6 +146,25 @@ def set_worker_secret(name):
     setup.put_worker_secret(name,value)
 
 
+def authorize_facebook():
+    verify_repository(remote=True)
+    os.environ["META_GRAPH_VERSION"] = input("Supported Graph version [v26.0]: ").strip() or "v26.0"
+    app_id = input("Facebook app ID [1987873818544936]: ").strip() or "1987873818544936"
+    if app_id != "1987873818544936":
+        raise ValueError("Use only this project's confirmed Pages-capable Meta app")
+    page_id = input("Confirmed EasyBosnian Facebook Page ID: ").strip()
+    token = getpass.getpass("Facebook user token with the three Page permissions (hidden): ").strip()
+    secret = getpass.getpass("This Meta app's secret, for long-lived exchange only (hidden): ").strip()
+    value, info = facebook_page_token(token, app_id, secret, page_id)
+    for name, content in (("FACEBOOK_PAGE_TOKEN", value), ("FACEBOOK_PAGE_ID", page_id)):
+        gh("secret", "set", name, "--repo", REPO, input_text=content)
+    # The user requested routine daily Facebook publishing. Enable only after identity,
+    # permissions and long-lived Page token are verified; no test post is made.
+    gh("variable", "set", "FACEBOOK_POSTING_ENABLED", "--repo", REPO, "--body", "true")
+    write_json(ROOT / "docs/facebook-authorization.json", {**info, "verified_at": datetime.now(timezone.utc).isoformat(), "publication": "nothing published during authorization"})
+    print("Verified EasyBosnian Page and stored its separate long-lived credentials; daily Facebook publishing armed; no post made")
+
+
 def activate(action,date=None):
     verify_repository(remote=True)
     store=Store(); config=store.call("GET","/v1/config")
@@ -185,9 +207,14 @@ def main():
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser("pipeline"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
+    p=subs.add_parser("daily"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
+    p=subs.add_parser("facebook"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
+    p=subs.add_parser("export-tiktok"); p.add_argument("--date",default=None)
+    p=subs.add_parser("stories"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
     p=subs.add_parser("set-secret"); p.add_argument("name"); p.add_argument("--local",action="store_true")
     p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["NOTIFY_GITHUB_TOKEN","HC_WATCHDOG_URL"])
     subs.add_parser("authorize-instagram")
+    subs.add_parser("authorize-facebook")
     subs.add_parser("verify-facebook")
     p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","defer-healthchecks","enable-daily","disable-daily"]); p.add_argument("--date")
     args=parser.parse_args()
@@ -197,9 +224,14 @@ def main():
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
     elif args.command=="pipeline": pipeline(args.date,args.mode)
+    elif args.command=="daily": daily(args.date,args.mode)
+    elif args.command=="facebook": pipeline_facebook(args.date,args.mode)
+    elif args.command=="export-tiktok": export_tiktok(args.date)
+    elif args.command=="stories": pipeline_stories(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()
+    elif args.command=="authorize-facebook": authorize_facebook()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
     elif args.command=="activation": activate(args.action,args.date)
 

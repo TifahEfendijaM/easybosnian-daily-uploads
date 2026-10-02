@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from .core import REPO, PROJECT, verify_repository
 from .http import request
-from .meta import Instagram
+from .meta import Instagram, Facebook
 from .store import Store
 
 
@@ -20,6 +20,15 @@ def check_infrastructure():
         raise ValueError("Cloudflare health/history does not belong to this project")
     config=store.call("GET", "/v1/config")
     info=Instagram().verify_account()
+    stories = "not requested"
+    if os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
+        if not isinstance(Instagram().stories().get("data"), list):
+            raise ValueError("Instagram did not confirm read access to the authorized account's Stories")
+        stories = "account Stories read access verified; no Story was created or published"
+    facebook = "disabled pending independent Page authorization"
+    if os.getenv("FACEBOOK_POSTING_ENABLED") == "true":
+        Facebook().verify_page()
+        facebook = "exact EasyBosnian Page token/identity verified; no post was made"
     issued=datetime.fromisoformat(os.environ["INSTAGRAM_TOKEN_ISSUED_AT"].replace("Z", "+00:00"))
     age=(datetime.now(timezone.utc)-issued).total_seconds()
     if age<0 or age>=60*86400:
@@ -35,6 +44,8 @@ def check_infrastructure():
         request("GET",base+path,headers=headers)
     return {"repository":REPO, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
+            "instagram_account_type":info["account_type"], "instagram_stories":stories,
+            "facebook":facebook,
             "renewal_access":"repository secrets and queue read access verified",
             "healthchecks":"deferred by user" if config.get("healthchecks_deferred") is True else "not deferred",
             "publication":"nothing published by this read-only check"}

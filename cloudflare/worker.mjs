@@ -1,7 +1,7 @@
 export const REPO = 'TifahEfendijaM/easybosnian-daily-uploads';
 export const PROJECT = 'tifahefendijam-easybosnian-daily-uploads-v1';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const NAME = /^(quiz|lesson|word)-(background|card)\.jpg$/;
+const NAME = /^(quiz|lesson|word)-(background|card|tiktok|story)\.jpg$/;
 const response = (data, status=200) => Response.json(data, {status, headers:{'Cache-Control':'no-store'}});
 export const canonical = s => s.toLowerCase().replaceAll('đ','d').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').trim().replace(/\s+/g,' ');
 export function reservationKeys(p) {
@@ -180,6 +180,20 @@ export default {
           // Publication uncertainty is durable and cannot be erased by an ordinary rerun.
           if(before.publish_intent && !p.state.publish_intent) throw Error('Publish intent cannot be erased');
           if(before.verified && (!p.state.verified || p.state.media_id!==before.media_id)) throw Error('Verified publication is immutable');
+          for(const [platform,old] of Object.entries(before.platforms||{})) {
+            const next=p.state.platforms?.[platform];
+            if(old.publish_intent && !next?.publish_intent) throw Error('Platform publication intent cannot be erased');
+            if(old.verified && (!next?.verified || next.post_id!==old.post_id)) throw Error('Verified platform publication is immutable');
+            if(old.page_id && next?.page_id!==old.page_id) throw Error('Platform Page identity is immutable');
+            for(const [kind,item] of Object.entries(old.cards||{})) {
+              const updated=next?.cards?.[kind];
+              if(item.upload_intent && !updated?.upload_intent) throw Error('Platform upload intent cannot be erased');
+              if(item.photo_id && updated?.photo_id!==item.photo_id) throw Error('Platform photo identity is immutable');
+              if(item.publish_intent && !updated?.publish_intent) throw Error('Story publication intent cannot be erased');
+              if(item.media_id && updated?.media_id!==item.media_id) throw Error('Story publication identity is immutable');
+              if(item.verified && !updated?.verified) throw Error('Verified Story is immutable');
+            }
+          }
           const saved=await env.DB.prepare('UPDATE batches SET state=?,revision=revision+1 WHERE date=? AND revision=?').bind(JSON.stringify(p.state),batch[1],p.revision).run();
           if(!saved.meta.changes) return response({error:'Revision conflict; reload saved state'},409);
           return response({revision:p.revision+1});
@@ -200,7 +214,7 @@ export default {
           await env.IMAGES.put(key,data,{expirationTtl:14*86400});
           return response({stored:true});
         }
-        if(kind==='expose' && req.method==='POST' && name.endsWith('-card.jpg')) {
+        if(kind==='expose' && req.method==='POST' && (name.endsWith('-card.jpg') || name.endsWith('-story.jpg'))) {
           const data=await env.IMAGES.get(key,{type:'arrayBuffer'});
           if(!data) return response({error:'Rendered asset not visible in KV yet; wait and deliberately rerun'},409);
           const id=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');

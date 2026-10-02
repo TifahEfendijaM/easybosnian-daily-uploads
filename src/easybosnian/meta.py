@@ -65,6 +65,8 @@ class Instagram:
             else:
                 os.environ["GH_TOKEN"] = original
         self.token = new_token
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = new_token
+        os.environ["INSTAGRAM_TOKEN_ISSUED_AT"] = stamp
 
     def child(self, url, alt):
         return self.call("POST", self.user_id + "/media", {"image_url": url, "is_carousel_item": "true", "alt_text": alt})["id"]
@@ -93,16 +95,87 @@ class Instagram:
     def recent(self):
         return self.call("GET", self.user_id + "/media", {"fields": "id,caption,permalink,timestamp,media_type", "limit": 50})["data"]
 
+    def story(self, url):
+        return self.call("POST", self.user_id + "/media", {"image_url": url, "media_type": "STORIES"})["id"]
+
+    def story_media(self, media_id):
+        return self.call("GET", media_id, {"fields": "id,media_type,media_product_type,permalink,timestamp"})
+
+    def stories(self):
+        return self.call("GET", self.user_id + "/stories", {"fields": "id", "limit": 100})
+
 
 class Facebook:
-    """Independent Pages authorization, deliberately unused by the Instagram pipeline."""
-    def __init__(self):
-        self.token = os.environ["FACEBOOK_PAGE_TOKEN"]
-        self.page_id = os.environ["FACEBOOK_PAGE_ID"]
-        self.base = "https://graph.facebook.com/" + os.environ["META_GRAPH_VERSION"]
+    """Independent Pages token and photo-feed publishing."""
+    def __init__(self, token=None, page_id=None):
+        self.token = token or os.environ["FACEBOOK_PAGE_TOKEN"]
+        self.page_id = page_id or os.environ["FACEBOOK_PAGE_ID"]
+        version = os.environ["META_GRAPH_VERSION"]
+        if not re.fullmatch(r"v\d+\.0", version) or not re.fullmatch(r"\d+", self.page_id):
+            raise ValueError("Invalid Facebook Page ID or supported Graph version")
+        self.base = "https://graph.facebook.com/" + version
+
+    def call(self, method, path, values=None):
+        headers = {"Authorization": "Bearer " + self.token}
+        url = self.base + "/" + path
+        if method == "GET":
+            return request(method, url + "?" + urlencode(values or {}), headers=headers)
+        return request(method, url, headers=headers, form=values or {})
 
     def verify_page(self):
-        page = request("GET", self.base + "/" + self.page_id + "?fields=id,name", headers={"Authorization": "Bearer " + self.token})
+        page = self.call("GET", "me", {"fields": "id,name"})
         if page["id"] != self.page_id or page["name"] != "EasyBosnian":
             raise ValueError("Facebook token does not authorize the exact selected EasyBosnian Page")
         return page
+
+    def photo(self, url, alt):
+        return self.call("POST", self.page_id + "/photos", {"url": url, "published": "false", "alt_text_custom": alt})["id"]
+
+    def publish(self, photos, caption):
+        if len(photos) != 3 or len(set(photos)) != 3:
+            raise ValueError("Facebook requires the three distinct reviewed photos")
+        return self.call("POST", self.page_id + "/feed", {"message": caption, "published": "true", "attached_media": json.dumps([{"media_fbid": p} for p in photos])})["id"]
+
+    def post(self, post_id):
+        return self.call("GET", post_id, {"fields": "id,from,message,is_published,permalink_url,attachments{type,target,subattachments{type,target}}"})
+
+    def recent(self, since):
+        return self.call("GET", self.page_id + "/published_posts", {"fields": "id,message,created_time", "since": since, "limit": 100})
+
+
+def facebook_page_token(user_token, app_id, app_secret, page_id):
+    """Exchange once; discover the exact Page. Never return/print other Pages."""
+    version = os.environ["META_GRAPH_VERSION"]
+    if not re.fullmatch(r"v\d+\.0", version) or not re.fullmatch(r"\d+", app_id) or not re.fullmatch(r"\d+", page_id):
+        raise ValueError("Invalid Facebook authorization identifiers")
+    base = "https://graph.facebook.com/" + version
+    exchange = request("GET", base + "/oauth/access_token?" + urlencode({"grant_type": "fb_exchange_token", "client_id": app_id, "client_secret": app_secret, "fb_exchange_token": user_token}))
+    token = exchange["access_token"]
+    headers = {"Authorization": "Bearer " + token}
+    permissions = request("GET", base + "/me/permissions", headers=headers)
+    granted = {p["permission"] for p in permissions["data"] if p["status"] == "granted"}
+    if not {"pages_show_list", "pages_read_engagement", "pages_manage_posts"} <= granted:
+        raise ValueError("Facebook login is missing one of the three required Page permissions")
+    after = None
+    for _ in range(20):
+        values = {"fields": "id,name,tasks,access_token", "limit": 100}
+        if after: values["after"] = after
+        pages = request("GET", base + "/me/accounts?" + urlencode(values), headers=headers)
+        for page in pages["data"]:
+            if str(page["id"]) == page_id:
+                if page["name"] != "EasyBosnian" or not {"CREATE_CONTENT", "MANAGE"}.intersection(page.get("tasks", [])):
+                    raise ValueError("Selected Page is not EasyBosnian or its publishing task is unavailable")
+                result = Facebook(page["access_token"], page_id)
+                result.verify_page()
+                debug = request("GET", base + "/debug_token?" + urlencode({"input_token": page["access_token"]}), headers={"Authorization": "Bearer " + app_id + "|" + app_secret})["data"]
+                if debug.get("is_valid") is not True or str(debug.get("app_id")) != app_id or debug.get("type") != "PAGE":
+                    raise ValueError("Meta did not verify an independent Page token for this app")
+                expires = debug.get("expires_at", 0)
+                if expires and expires - time.time() < 40 * 86400:
+                    raise ValueError("Page token is short-lived; complete the long-lived authorization flow")
+                return page["access_token"], {"page_id": page_id, "page_name": "EasyBosnian", "app_id": app_id, "expires_at": expires, "data_access_expires_at": debug.get("data_access_expires_at", 0)}
+        if not pages.get("paging", {}).get("next"): break
+        cursor = pages.get("paging", {}).get("cursors", {}).get("after")
+        if not cursor or cursor == after: raise ValueError("Facebook Page discovery pagination is incomplete")
+        after = cursor
+    raise ValueError("The exact selected EasyBosnian Page is not authorized")
