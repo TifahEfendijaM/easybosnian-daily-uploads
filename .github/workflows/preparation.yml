@@ -19,7 +19,8 @@ concurrency:
 jobs:
   preparation:
     if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.CLOUD_PREPARATION_ENABLED == 'true' && github.event.schedule == '0 20 * * *'))
-    runs-on: ubuntu-latest
+    # Pin the research host rather than inheriting changes to Linux sandbox support.
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     outputs:
       batch_date: ${{ steps.handoff.outputs.batch_date }}
