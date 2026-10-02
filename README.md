@@ -29,6 +29,8 @@ Publication intent is saved before the publish request. Completed backgrounds, c
 
 See [authorization guide](docs/authorization.md), [failure reporting](docs/failures.md), [free limits](docs/free-limits.md), and [daily preparation instructions](docs/preparation-task.md). The attached original prompt is preserved in `docs/master-prompt.md`; `AGENTS.md` records the user's later authoritative changes.
 
+The latest verified setup progress and remaining authorizations are recorded in [deployment status](docs/deployment-status.md).
+
 Install Python 3.11+ and `python -m pip install -e .`. The local setup uses the bundled runtime and a virtual environment outside this repository. Credentials are entered privately through provider flows or hidden local prompts, never through chat.
 
 ```text

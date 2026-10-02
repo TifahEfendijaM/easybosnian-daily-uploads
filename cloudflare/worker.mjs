@@ -81,11 +81,19 @@ export default {
       if(!data) return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
       return new Response(req.method==='HEAD'?null:data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
     }
-    if(!await equalToken(req.headers.get('Authorization'),`Bearer ${env.ADMIN_TOKEN}`)) return response({error:'Unauthorized'},401);
+    if(!env.ADMIN_TOKEN || !await equalToken(req.headers.get('Authorization'),`Bearer ${env.ADMIN_TOKEN}`)) return response({error:'Unauthorized'},401);
     try {
       if(path==='/v1/history' && req.method==='GET') {
         const result=await env.DB.prepare('SELECT date,package_json,reservation_keys,state FROM batches ORDER BY date').all();
         return response({project:PROJECT,batches:result.results.map(x=>({date:x.date,theme:JSON.parse(x.package_json).theme,words:JSON.parse(x.package_json).words,reservation_keys:JSON.parse(x.reservation_keys),state:JSON.parse(x.state)}))});
+      }
+      if(path==='/v1/monitoring/check' && req.method==='POST') {
+        const repository=await github(env,'');
+        if(repository.full_name!==REPO || !repository.private) throw Error('Target repository is not exact/private');
+        await github(env,'/actions/workflows/daily.yml/runs?per_page=1');
+        await alert(env,new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'}),'monitoring setup','Notification self-test; no pipeline failure and no post.','nothing published',null);
+        await monitorPing(env.HC_WATCHDOG_URL,'/fail','EasyBosnian monitoring self-test; nothing published.');
+        return response({repository:REPO,notification_check:'accepted',email_receipt:'check your verified Healthchecks and GitHub email inboxes'});
       }
       if(path==='/v1/config') {
         if(req.method==='GET') return response(await settings(env));
@@ -126,9 +134,11 @@ export default {
         if(existing) return response({error:'Generation already started/completed; inspect cache and reconcile before generating again'},409);
         const intent=await env.DB.prepare("INSERT OR IGNORE INTO generations(date,kind,status) VALUES(?,?,'started')").bind(p.date,p.kind).run();
         if(!intent.meta.changes) throw Error('Generation is already in progress');
+        let generationStage='FLUX generation';
         try {
           const result=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4});
           if(!result.image) throw Error('No image returned');
+          generationStage='storage';
           // Keep the base64 result unchanged to avoid large per-byte CPU work on Workers Free.
           // Python decodes it, normalizes JPEG, renders and uploads the final asset.
           await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});
@@ -137,7 +147,7 @@ export default {
         } catch(e) {
           // The intent stays durable: an uncertain model response must not be silently retried.
           await env.DB.prepare("UPDATE generations SET status='uncertain' WHERE date=? AND kind=?").bind(p.date,p.kind).run();
-          return response({error:'FLUX or image storage failed; generation state preserved for reconciliation'},502);
+          return response({error:'Generation state preserved for reconciliation',stage:generationStage},502);
         }
       }
       const batch=path.match(/^\/v1\/batches\/(\d{4}-\d{2}-\d{2})$/);

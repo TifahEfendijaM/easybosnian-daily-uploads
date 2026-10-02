@@ -163,6 +163,7 @@ def pipeline(date=None, mode="preview"):
         if monitored: heartbeat("pipeline",message=f"Batch {date}; confirmed published; {state['permalink']}")
         return state
     except Exception as error:
+        stage=getattr(error,"stage",None) or stage
         state=record["state"] if record else {}
         publication="confirmed published" if state.get("verified") else "published; verification pending" if state.get("media_id") else "uncertain" if state.get("publish_intent") else "nothing published"
         message=redact(error)

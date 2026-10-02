@@ -9,7 +9,9 @@ from urllib.request import Request, urlopen
 
 
 class SafeError(RuntimeError):
-    pass
+    def __init__(self,message,stage=None):
+        super().__init__(message)
+        self.stage=stage
 
 
 def redact(message):
@@ -36,9 +38,10 @@ def request(method, url, data=None, headers=None, form=None, raw=False, timeout=
         try:
             payload = json.loads(error.read())
             code = payload.get("error", {}).get("code") if isinstance(payload.get("error"), dict) else None
+            stage = payload.get("stage") if payload.get("stage") in ("FLUX generation","storage") else None
         except Exception:
-            code = None
-        raise SafeError(f"HTTP {error.code}; provider code {code or 'unavailable'}; inspect provider permissions/status") from None
+            code = None; stage = None
+        raise SafeError(f"HTTP {error.code}; provider code {code or 'unavailable'}; inspect provider permissions/status",stage) from None
     except (URLError, TimeoutError, OSError):
         raise SafeError("Network request failed or timed out; remote outcome may be uncertain") from None
     if raw:

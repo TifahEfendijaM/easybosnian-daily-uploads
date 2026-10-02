@@ -1,0 +1,10 @@
+{
+  "project": "tifahefendijam-easybosnian-daily-uploads-v1",
+  "account_id": "a480e6f6c5bb20c20f96afb031962c40",
+  "database_id": "d40605f4-ff3a-4247-9f52-48a22f839d0d",
+  "kv_id": "da9fd7f503c5402ea28ac7ad304002b5",
+  "worker_url": "https://easybosnian-daily-tifah-v1.easybosnian-a480e6f6c5bb.workers.dev",
+  "worker_deployed": true,
+  "free_workers_verified": true,
+  "free_plan_evidence": "Cloudflare Workers plans dashboard: Free marked Current plan, verified 2026-10-02"
+}

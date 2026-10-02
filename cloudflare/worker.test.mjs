@@ -11,6 +11,12 @@ test('private history never bypasses bearer auth',async()=>{
   const r=await worker.fetch(new Request('https://example.test/v1/history'),{PROJECT_ID:PROJECT,ADMIN_TOKEN:'private'});
   assert.equal(r.status,401);
 });
+test('private endpoints stay closed until the deployment credential exists',async()=>{
+  for(const token of ['Bearer undefined','Bearer null','Bearer ']) {
+    const r=await worker.fetch(new Request('https://example.test/v1/history',{headers:{Authorization:token}}),{PROJECT_ID:PROJECT});
+    assert.equal(r.status,401);
+  }
+});
 test('project identity rejects cross-project binding',async()=>{
   const r=await worker.fetch(new Request('https://example.test/health'),{PROJECT_ID:'wrong'});
   assert.equal(r.status,503);

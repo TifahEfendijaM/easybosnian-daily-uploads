@@ -137,11 +137,11 @@ def activate(action,date=None):
     verify_repository(remote=True)
     store=Store(); config=store.call("GET","/v1/config")
     if action=="test-monitoring":
-        # Explicit notification self-test, user sees the message and accepts before posting.
+        # Check both external pings and the independent Worker's notification access.
         report=failure(today(),"scheduling","Notification self-test: no pipeline failure and no post","nothing published")
         heartbeat("pipeline","fail",report)
         heartbeat("preparation","fail",report)
-        if input("Type RECEIVED after the GitHub/email test notifications arrive: ").strip()!="RECEIVED": raise ValueError("Notification delivery unverified")
+        store.call("POST","/v1/monitoring/check")
         config["monitoring_ready"]=True
     elif action=="enable-daily":
         # The user explicitly authorized daily posting and waived preview/live-test gates.

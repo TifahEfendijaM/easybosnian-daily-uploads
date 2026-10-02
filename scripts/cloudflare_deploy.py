@@ -5,10 +5,11 @@ import os
 import re
 import secrets
 import subprocess
+import time
 from pathlib import Path
 
 from easybosnian.core import ROOT, PROJECT, REPO, gh, verify_repository, write_json
-from easybosnian.http import request
+from easybosnian.http import SafeError, request
 
 NAME='easybosnian-daily-tifah-v1'
 RUNTIME=Path('/Users/fatih_efe/.cache/codex-runtimes/codex-primary-runtime/dependencies')
@@ -44,14 +45,14 @@ def save_local(name,value):
     path.write_text('\n'.join(lines)+'\n'); path.chmod(0o600)
 
 
-def deploy(account,free_confirmed=False):
+def deploy(account,free_confirmed=False,free_evidence=None):
     verify_repository(remote=True)
     if not re.fullmatch('[a-f0-9]{32}',account): raise ValueError('Invalid Cloudflare account ID')
     token=auth_token()
     try:
         subscriptions=cf(token,account,'GET','/subscriptions')
     except Exception:
-        if not free_confirmed: raise ValueError('Billing access unavailable: confirm the Workers Free plan before deploying') from None
+        if not free_confirmed and not free_evidence: raise ValueError('Billing access unavailable: verify the Workers Free plan before deploying') from None
         subscriptions=[]
     paid_workers=[s for s in subscriptions if 'workers' in str(s.get('rate_plan',{})).lower() and s.get('rate_plan',{}).get('id') not in ('workers_free','free')]
     if paid_workers: raise ValueError('This account has a paid Workers subscription; use a Workers Free account before deployment')
@@ -59,6 +60,19 @@ def deploy(account,free_confirmed=False):
     state_path=ROOT/'cloudflare/deployment.json'
     state=json.loads(state_path.read_text()) if state_path.exists() else {'project':PROJECT,'account_id':account}
     if state['project']!=PROJECT or state['account_id']!=account: raise ValueError('Deployment state belongs to a different project/account')
+    # Check this exact new name before creating resources or uploading code. A name
+    # collision must never overwrite another Worker, even in the same account.
+    try:
+        existing=cf(token,account,'GET',f'/workers/scripts/{NAME}/settings')
+    except SafeError as error:
+        if not str(error).startswith('HTTP 404;'): raise
+        existing=None
+    if existing is not None:
+        if not state.get('worker_deployed'):
+            raise ValueError('The new Worker name already exists without a verified deployment record; stop and reconcile instead of overwriting it')
+        bindings={item['name']:item for item in existing.get('bindings',[])}
+        if bindings.get('DB',{}).get('id')!=state.get('database_id') or bindings.get('IMAGES',{}).get('namespace_id')!=state.get('kv_id'):
+            raise ValueError('Worker bindings do not match this project deployment record')
     if not state.get('database_id'):
         database=cf(token,account,'POST','/d1/database',{'name':NAME})
         state['database_id']=database['uuid']; write_json(state_path,state)
@@ -76,6 +90,8 @@ def deploy(account,free_confirmed=False):
     match=re.search(r'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev',output)
     if not match: raise ValueError('Cloudflare did not return a deployed workers.dev endpoint')
     url=match.group(0)
+    state.update(worker_url=url,worker_deployed=True)
+    write_json(state_path,state)
     admin_path=ROOT/'.env'
     local=admin_path.read_text().splitlines() if admin_path.exists() else []
     existing=next((line.split('=',1)[1] for line in local if line.startswith('EASYBOSNIAN_ADMIN_TOKEN=')),None)
@@ -84,15 +100,23 @@ def deploy(account,free_confirmed=False):
     gh('secret','set','EASYBOSNIAN_ADMIN_TOKEN','--repo',REPO,input_text=admin)
     gh('secret','set','EASYBOSNIAN_WORKER_URL','--repo',REPO,input_text=url)
     save_local('EASYBOSNIAN_ADMIN_TOKEN',admin); save_local('EASYBOSNIAN_WORKER_URL',url)
-    info=request('GET',url+'/health')
+    # A new workers.dev route can briefly return 404 while deployment propagates.
+    # This checks availability only; it never starts or retries content generation.
+    for attempt in range(5):
+        try:
+            info=request('GET',url+'/health')
+            break
+        except SafeError as error:
+            if attempt==4 or not str(error).startswith('HTTP 404;'): raise
+            time.sleep(2)
     if info.get('project')!=PROJECT: raise ValueError('Deployed project identity check failed')
     history=request('GET',url+'/v1/history',headers={'Authorization':'Bearer '+admin})
     if history.get('project')!=PROJECT: raise ValueError('Private history check failed')
-    state.update(worker_url=url,free_workers_verified=True,free_plan_evidence='account subscriptions or explicit user confirmation')
+    state.update(worker_url=url,free_workers_verified=True,free_plan_evidence=free_evidence or 'account subscriptions or explicit user confirmation')
     write_json(state_path,state)
     print(json.dumps({'deployed':url,'project':PROJECT,'history_batches':len(history['batches']),'daily_posting':'waiting for Instagram and monitoring authorization'}))
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(); parser.add_argument('--account',required=True); parser.add_argument('--free-confirmed',action='store_true')
-    args=parser.parse_args(); deploy(args.account,args.free_confirmed)
+    parser=argparse.ArgumentParser(); parser.add_argument('--account',required=True); parser.add_argument('--free-confirmed',action='store_true'); parser.add_argument('--free-plan-evidence')
+    args=parser.parse_args(); deploy(args.account,args.free_confirmed,args.free_plan_evidence)
