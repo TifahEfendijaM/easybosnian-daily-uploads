@@ -8,6 +8,7 @@ from unittest.mock import patch, Mock
 from easybosnian.daily import daily
 from easybosnian.facebook import verify_post, reconcile, pipeline_facebook
 from easybosnian.meta import Facebook
+from easybosnian.cli import authorize_facebook
 
 
 DATE = "2026-10-03"
@@ -22,6 +23,21 @@ def post():
 
 
 class PlatformTests(unittest.TestCase):
+    def test_authorized_page_uses_its_actual_name_and_exact_id(self):
+        with patch.dict(os.environ, {"META_GRAPH_VERSION": "v26.0"}), patch("easybosnian.meta.request", return_value={"id": "1284422991426579", "name": "Easy Bosnian"}) as request:
+            fb = Facebook("fake-test-token", "1284422991426579")
+            self.assertEqual(fb.verify_page()["name"], "Easy Bosnian")
+            request.return_value = {"id": "different", "name": "Easy Bosnian"}
+            with self.assertRaises(ValueError): fb.verify_page()
+            request.return_value = {"id": "1284422991426579", "name": "Other Page"}
+            with self.assertRaises(ValueError): fb.verify_page()
+
+    def test_facebook_credentials_alone_do_not_arm_public_publishing(self):
+        with patch("easybosnian.cli.verify_repository"), patch("builtins.input", side_effect=["", "", ""]), patch("easybosnian.cli.getpass.getpass", return_value="fake-test-credential"), patch("easybosnian.cli.facebook_page_token", return_value=("fake-test-page-token", {})), patch("easybosnian.cli.gh") as gh, patch("easybosnian.cli.write_json"), patch("builtins.print"):
+            authorize_facebook()
+            self.assertEqual(gh.call_count, 2)
+            self.assertTrue(all(call.args[0] == "secret" for call in gh.call_args_list))
+
     def test_facebook_verifies_page_caption_each_photo_and_permalink(self):
         fb = Mock(page_id="42")
         fb.post.return_value = post()

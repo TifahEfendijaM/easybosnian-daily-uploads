@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker,{canonical,reservationKeys,watchdog,PROJECT,REPO,publicationMonitoringReady} from './worker.mjs';
 
+test('public privacy page never reads private storage and does not open history',async()=>{
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(){throw Error('Privacy must not read private storage');}}};
+  const get=await worker.fetch(new Request('https://example.test/privacy'),env);
+  assert.equal(get.status,200);
+  assert.match(get.headers.get('Content-Type'),/text\/html/);
+  assert.match(await get.text(),/Privacy policy/);
+  const head=await worker.fetch(new Request('https://example.test/privacy',{method:'HEAD'}),env);
+  assert.equal(await head.text(),'');
+  assert.equal((await worker.fetch(new Request('https://example.test/v1/history'),env)).status,401);
+});
+
 test('Facebook and Story publication uncertainty cannot be erased by Instagram state updates',async()=>{
   const before={platforms:{facebook:{publish_intent:true,cards:{quiz:{upload_intent:true,photo_id:'123'}}},instagram_stories:{publish_intent:true,cards:{quiz:{publish_intent:true,media_id:'456',verified:true}}}}};
   let writes=0;

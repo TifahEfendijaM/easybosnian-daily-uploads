@@ -124,7 +124,7 @@ class Facebook:
 
     def verify_page(self):
         page = self.call("GET", "me", {"fields": "id,name"})
-        if page["id"] != self.page_id or page["name"] != "EasyBosnian":
+        if page["id"] != self.page_id or page["name"] != "Easy Bosnian":
             raise ValueError("Facebook token does not authorize the exact selected EasyBosnian Page")
         return page
 
@@ -163,7 +163,7 @@ def facebook_page_token(user_token, app_id, app_secret, page_id):
         pages = request("GET", base + "/me/accounts?" + urlencode(values), headers=headers)
         for page in pages["data"]:
             if str(page["id"]) == page_id:
-                if page["name"] != "EasyBosnian" or not {"CREATE_CONTENT", "MANAGE"}.intersection(page.get("tasks", [])):
+                if page["name"] != "Easy Bosnian" or not {"CREATE_CONTENT", "MANAGE"}.intersection(page.get("tasks", [])):
                     raise ValueError("Selected Page is not EasyBosnian or its publishing task is unavailable")
                 result = Facebook(page["access_token"], page_id)
                 result.verify_page()
@@ -173,7 +173,7 @@ def facebook_page_token(user_token, app_id, app_secret, page_id):
                 expires = debug.get("expires_at", 0)
                 if expires and expires - time.time() < 40 * 86400:
                     raise ValueError("Page token is short-lived; complete the long-lived authorization flow")
-                return page["access_token"], {"page_id": page_id, "page_name": "EasyBosnian", "app_id": app_id, "expires_at": expires, "data_access_expires_at": debug.get("data_access_expires_at", 0)}
+                return page["access_token"], {"page_id": page_id, "page_name": "Easy Bosnian", "app_id": app_id, "expires_at": expires, "data_access_expires_at": debug.get("data_access_expires_at", 0)}
         if not pages.get("paging", {}).get("next"): break
         cursor = pages.get("paging", {}).get("cursors", {}).get("after")
         if not cursor or cursor == after: raise ValueError("Facebook Page discovery pagination is incomplete")

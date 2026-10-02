@@ -1,3 +1,4 @@
+import {privacy} from './privacy.mjs';
 export const REPO = 'TifahEfendijaM/easybosnian-daily-uploads';
 export const PROJECT = 'tifahefendijam-easybosnian-daily-uploads-v1';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -91,6 +92,7 @@ export default {
     const url=new URL(req.url), path=url.pathname;
     if(env.PROJECT_ID!==PROJECT) return response({error:'Project identifier mismatch'},503);
     if(path==='/health' && req.method==='GET') return response({project:PROJECT,status:'ok'});
+    if(path==='/privacy' && ['GET','HEAD'].includes(req.method)) return new Response(req.method==='HEAD'?null:privacy,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"}});
     const publicAsset=path.match(/^\/images\/([a-f0-9]{64})\.jpg$/);
     if(publicAsset && ['GET','HEAD'].includes(req.method)) {
       const data=await env.IMAGES.get('public:'+publicAsset[1],{type:'arrayBuffer'});

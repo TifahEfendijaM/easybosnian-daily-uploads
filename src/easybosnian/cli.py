@@ -152,17 +152,18 @@ def authorize_facebook():
     app_id = input("Facebook app ID [1987873818544936]: ").strip() or "1987873818544936"
     if app_id != "1987873818544936":
         raise ValueError("Use only this project's confirmed Pages-capable Meta app")
-    page_id = input("Confirmed EasyBosnian Facebook Page ID: ").strip()
+    page_id = input("Confirmed Easy Bosnian Page ID [1284422991426579]: ").strip() or "1284422991426579"
+    if page_id != "1284422991426579":
+        raise ValueError("Use only the Easy Bosnian Page selected in this project's confirmed consent")
     token = getpass.getpass("Facebook user token with the three Page permissions (hidden): ").strip()
     secret = getpass.getpass("This Meta app's secret, for long-lived exchange only (hidden): ").strip()
     value, info = facebook_page_token(token, app_id, secret, page_id)
     for name, content in (("FACEBOOK_PAGE_TOKEN", value), ("FACEBOOK_PAGE_ID", page_id)):
         gh("secret", "set", name, "--repo", REPO, input_text=content)
-    # The user requested routine daily Facebook publishing. Enable only after identity,
-    # permissions and long-lived Page token are verified; no test post is made.
-    gh("variable", "set", "FACEBOOK_POSTING_ENABLED", "--repo", REPO, "--body", "true")
+    # Credential verification alone does not establish that Meta's app can distribute
+    # public Page posts. Arm the separate publisher only after its app checklist is complete.
     write_json(ROOT / "docs/facebook-authorization.json", {**info, "verified_at": datetime.now(timezone.utc).isoformat(), "publication": "nothing published during authorization"})
-    print("Verified EasyBosnian Page and stored its separate long-lived credentials; daily Facebook publishing armed; no post made")
+    print("Verified EasyBosnian Page and stored its separate long-lived credentials; finish the Meta public-app checklist before arming Facebook; no post made")
 
 
 def activate(action,date=None):

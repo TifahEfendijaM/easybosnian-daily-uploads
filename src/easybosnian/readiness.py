@@ -26,9 +26,11 @@ def check_infrastructure():
             raise ValueError("Instagram did not confirm read access to the authorized account's Stories")
         stories = "account Stories read access verified; no Story was created or published"
     facebook = "disabled pending independent Page authorization"
-    if os.getenv("FACEBOOK_POSTING_ENABLED") == "true":
+    if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" or os.getenv("FACEBOOK_PAGE_TOKEN") or os.getenv("FACEBOOK_PAGE_ID"):
+        if not os.getenv("FACEBOOK_PAGE_TOKEN") or not os.getenv("FACEBOOK_PAGE_ID"):
+            raise ValueError("Facebook protected Page authorization is incomplete")
         Facebook().verify_page()
-        facebook = "exact EasyBosnian Page token/identity verified; no post was made"
+        facebook = "exact Easy Bosnian Page token/identity verified; " + ("daily publisher enabled" if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" else "daily publisher disabled pending Meta app checklist") + "; no post was made"
     issued=datetime.fromisoformat(os.environ["INSTAGRAM_TOKEN_ISSUED_AT"].replace("Z", "+00:00"))
     age=(datetime.now(timezone.utc)-issued).total_seconds()
     if age<0 or age>=60*86400:
