@@ -54,7 +54,7 @@ async function alert(env,date,stage,error,publication,run) {
   const inserted=await env.DB.prepare('INSERT OR IGNORE INTO alerts(date,stage) VALUES(?,?)').bind(date,stage).run();
   if(!inserted.meta.changes) return;
   try {
-    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No GitHub run exists. Inspect ChatGPT Scheduled for its preparation result.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
+    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No GitHub run exists. Inspect the 20:00 cloud preparation schedule and account authorization.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
   } catch(e) {
     await env.DB.prepare('DELETE FROM alerts WHERE date=? AND stage=?').bind(date,stage).run();
     throw e;
@@ -74,14 +74,16 @@ export async function watchdog(env, now=new Date()) {
   const publication=state.publish_intent && !state.verified ? 'uncertain' : state.verified ? 'confirmed published' : state.media_id ? 'published; verification pending' : 'nothing published';
   const repository=await github(env,'');
   if(repository.full_name!==REPO || !repository.private) throw Error('Target repository is not exact/private');
-  const runs=await github(env,'/actions/workflows/daily.yml/runs?event=schedule&per_page=20');
-  const sameDay=runs.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
   const preparationRuns=await github(env,'/actions/workflows/preparation.yml/runs?event=schedule&per_page=20');
   const preparationDay=preparationRuns.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
+  const dailyRun=preparationDay[0];
   if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 21:59 Europe/Sarajevo. It may still start late.',publication,null);
-  if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,preparationDay[0]?.html_url);
-  if(!sameDay.length) await alert(env,date,'pipeline scheduling','No scheduled GitHub run started by 21:59 Europe/Sarajevo. It may still start late.',publication,null);
-  else if(!state.verified) await alert(env,date,state.failed_stage || 'publication verification','The scheduled run has not confirmed an actual Instagram publication by 21:59.',publication,sameDay[0].html_url);
+  if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,dailyRun?.html_url);
+  // The reusable publisher is a job within preparation's run, not a second cron run.
+  if(r && dailyRun && !state.verified) {
+    const stage=state.failed_stage || (state.run_url ? 'publication verification' : 'preparation/publication handoff');
+    await alert(env,date,stage,'The daily preparation and completion-based pipeline have not confirmed an actual Instagram publication by 21:59. Inspect the preparation, three-minute delay and publication jobs.',publication,dailyRun.html_url);
+  }
   if(config.healthchecks_deferred!==true) await monitorPing(env.HC_WATCHDOG_URL);
 }
 export default {

@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -66,6 +67,11 @@ def pipeline(date=None, mode="preview"):
         config=store.call("GET","/v1/config")
         record=store.batch(date)
         state,package=record["state"],record["package"]
+        expected=os.getenv("EXPECTED_PACKAGE_HASH", "")
+        if expected:
+            stage="validation"
+            if not re.fullmatch(r"[a-f0-9]{64}",expected) or record["hash"]!=expected or digest(package)!=expected:
+                raise ValueError("Automatic handoff does not match the exact reviewed preparation package")
         state["run_url"]=run_url
         state["started_at"]=datetime.now(timezone.utc).isoformat()
         store.save(date,record)

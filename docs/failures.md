@@ -6,8 +6,8 @@ Use a free Healthchecks account with email enabled. Configure three named checks
 
 | Check | Expected signal | Grace |
 |---|---|---|
-| EasyBosnian preparation — GitHub queue save | 19:20 daily | 10 minutes |
-| EasyBosnian pipeline — confirmed Instagram publication | 21:00 daily | 40 minutes |
+| EasyBosnian preparation — GitHub queue save | 20:00 daily | 10 minutes |
+| EasyBosnian pipeline — confirmed Instagram publication | Successful preparation + three-minute wait | 40 minutes |
 | EasyBosnian monitoring | 21:59 daily | 15 minutes |
 
 Preparation success means reviewed JSON was reserved, saved to the exact private repository and read back. Pipeline success means a verified Instagram permalink, or an explicitly selected unpublished preview. During initial authorization, leave live-post monitors paused until setup is ready. A monitor is not a scheduler and never retries work.
@@ -22,8 +22,8 @@ Stages: ChatGPT preparation/queue save; validation; FLUX generation; Pillow rend
 
 Publication status is one of: nothing published; published but verification pending; confirmed published; uncertain. Never interpret green CI as proof. The job summary and result JSON carry a permalink only after verification. An uncertain publishing response preserves its intent and requires `easybosnian pipeline --mode reconcile --date YYYY-MM-DD`. If there is no unambiguous matching post, inspect Instagram manually rather than repeating publication.
 
-At 21:59, the monitoring-only Worker queries this exact repository's scheduled preparation and pipeline runs and Cloudflare batch state. It also monitors the armed first schedule while publication remains disabled pending the first real package. It reports a missing package, missing scheduled run or unverified publication with the latest actual run link. The monitor's code cannot invoke generation, workflow dispatch or publishing. It deduplicates alerts per day/stage. If the Worker itself or GitHub never starts, Healthchecks independently detects the missing expected signal and emails you. Native GitHub email alone cannot detect a workflow that never ran.
+At 21:59, the monitoring-only Worker queries this exact repository's scheduled preparation runs and Cloudflare batch state. Each daily run contains preparation, delay and reusable publication jobs. It also monitors the armed first schedule while publication remains disabled pending the first real package. It reports a missing package, missing preparation run or unverified completion-based publication with the latest actual run link. The monitor's code cannot invoke generation, workflow dispatch or publishing. It deduplicates alerts per day/stage. If the Worker itself or GitHub never starts, Healthchecks independently detects the missing expected signal and emails you. Native GitHub email alone cannot detect a workflow that never ran.
 
 KV is eventually consistent. A newly uploaded image may not be visible in another region immediately. The publishing pipeline verifies accessible bytes before container creation; a visibility/processing failure stops with its saved state. Deliberate reruns reuse stored work. KV expires images after 14 days; late reconciliation still checks published media, but old unposted asset recovery may require manual decisions. History/reservations never expire.
 
-Free limits, revoked tokens, ChatGPT subscription limits and platform delays are reported honestly. Ten minutes is a target gap, not a completion guarantee. There is no scheduled retry.
+Free limits, revoked tokens, ChatGPT subscription limits and platform delays are reported honestly. The three-minute wait follows successful preparation; runner queues can add delay. There is no scheduled retry.

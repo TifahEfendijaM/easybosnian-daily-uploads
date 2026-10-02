@@ -1,8 +1,15 @@
 name: EasyBosnian daily Instagram pipeline
 on:
-  schedule:
-    - cron: '0 21 * * *'
-      timezone: Europe/Sarajevo
+  workflow_call:
+    inputs:
+      batch_date:
+        description: Exact reviewed Sarajevo batch date from successful preparation
+        required: true
+        type: string
+      package_hash:
+        description: Immutable package hash verified by the preparation wrapper
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       mode:
@@ -22,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   pipeline:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event.schedule == '0 21 * * *'))
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event_name == 'schedule' && github.event.schedule == '0 20 * * *' && inputs.package_hash != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -37,9 +44,14 @@ jobs:
       GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
       HC_PIPELINE_URL: ${{ secrets.HC_PIPELINE_URL }}
       BATCH_DATE: ${{ inputs.batch_date }}
+      EXPECTED_PACKAGE_HASH: ${{ inputs.package_hash }}
       RUN_MODE: ${{ inputs.mode || 'live' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The reviewed queue commit is newer than the preparation's starting SHA.
+          ref: main
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

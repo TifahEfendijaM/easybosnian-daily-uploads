@@ -1,7 +1,7 @@
 name: EasyBosnian cloud ChatGPT preparation
 on:
   schedule:
-    - cron: '20 19 * * *'
+    - cron: '0 20 * * *'
       timezone: Europe/Sarajevo
   workflow_dispatch:
 permissions:
@@ -12,9 +12,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preparation:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.CLOUD_PREPARATION_ENABLED == 'true' && github.event.schedule == '20 19 * * *'))
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.CLOUD_PREPARATION_ENABLED == 'true' && github.event.schedule == '0 20 * * *'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      batch_date: ${{ steps.handoff.outputs.batch_date }}
+      package_hash: ${{ steps.handoff.outputs.package_hash }}
     env:
       GH_TOKEN: ${{ github.token }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -77,3 +80,24 @@ jobs:
             build/failure.txt
           retention-days: 7
           if-no-files-found: ignore
+      - name: Approve the verified daily batch for automatic handoff
+        id: handoff
+        if: success() && github.event_name == 'schedule'
+        run: python -m easybosnian.handoff
+  publication_delay:
+    needs: preparation
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.event_name == 'schedule' && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Wait three minutes after successful preparation
+        run: sleep 180
+  publication:
+    needs: [preparation, publication_delay]
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.event_name == 'schedule' && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
+    uses: ./.github/workflows/daily.yml
+    with:
+      batch_date: ${{ needs.preparation.outputs.batch_date }}
+      package_hash: ${{ needs.preparation.outputs.package_hash }}
+    secrets: inherit

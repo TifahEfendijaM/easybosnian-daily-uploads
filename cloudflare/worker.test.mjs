@@ -85,8 +85,29 @@ test('armed cloud schedule reports missing first preparation while publication i
       run:async()=>({meta:{changes:1}})
     };}}};
     await watchdog(env,new Date('2026-10-02T19:59:00Z'));
-    assert.equal(issues.length,3);
+    assert.equal(issues.length,2);
     assert.ok(issues.some(x=>x.title.includes('cloud preparation scheduling')));
     assert.ok(issues.every(x=>x.body.includes('nothing published')));
+  } finally {globalThis.fetch=original;}
+});
+
+test('confirmed reusable publication does not require a separate pipeline cron run',async()=>{
+  const original=globalThis.fetch;
+  const issues=[];
+  globalThis.fetch=async(url,options={})=>{
+    assert.ok(url.startsWith('https://api.github.com/repos/'+REPO));
+    if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true});
+    if(url.includes('/actions/workflows/preparation.yml/runs')) return Response.json({workflow_runs:[{created_at:'2026-10-02T18:00:00Z',status:'completed',conclusion:'success',html_url:'https://github.com/'+REPO+'/actions/runs/123'}]});
+    if(url.endsWith('/issues')) {issues.push(JSON.parse(options.body));return Response.json({number:1});}
+    throw Error('A separate scheduled publisher must not be queried');
+  };
+  try {
+    const config={daily_enabled:true,daily_authorized:true,healthchecks_deferred:true};
+    const env={GITHUB_REPOSITORY:REPO,NOTIFY_GITHUB_TOKEN:'private',DB:{prepare(sql){return{
+      bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:{state:JSON.stringify({verified:true})},
+      run:async()=>({meta:{changes:1}})
+    };}}};
+    await watchdog(env,new Date('2026-10-02T19:59:00Z'));
+    assert.equal(issues.length,0);
   } finally {globalThis.fetch=original;}
 });

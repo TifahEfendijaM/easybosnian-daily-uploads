@@ -1,6 +1,6 @@
 # Cloud preparation
 
-The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 19:20 Europe/Sarajevo; `daily.yml` publishes at 21:00. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
+The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 20:00 Europe/Sarajevo; `daily.yml` is called automatically after successful preparation and a three-minute delay. There is no separate publisher cron. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
 
 Use a **separate cloud-only ChatGPT login**, never a copy of the desktop session. `scripts/cloud_auth_setup.py login` opens official browser sign-in with an isolated ignored credential directory. Complete sign-in yourself. `scripts/cloud_auth_setup.py save` stores managed authentication only in this exact private repository's `CODEX_AUTH_JSON` secret. Do not copy tokens into chat, commits or artifacts, or subsequently execute that credential on this Mac or another runner.
 
@@ -13,3 +13,7 @@ At the scheduled time, the wrapper resumes any same-date reservation. Otherwise 
 Research is limited to seven minutes; workflow startup and cron can still be delayed. Late/incomplete batches report failure and are preserved without a retry or manual publication dispatch. Failure issues and the 21:59 monitoring-only Worker remain active; Healthchecks email setup is deferred. Private GitHub runners consume included Actions minutes; keep paid spending disabled. ChatGPT usage consumes the existing subscription's limits.
 
 Supported behavior: [official OpenAI CI/CD auth guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth), [official non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+The GPT agent uses the existing ChatGPT subscription for word/theme choice, live research, instructional text, captions and layout-aware FLUX prompts; GitHub provides execution and scheduling. The user accepted this route while native ChatGPT Scheduled tool access is unverified. Initial provider authorizations are already configured; routine daily runs do not ask approval. Revocation, credential expiry or usage limits can require private reauthorization.
+
+Only the real reviewed save/read-back result exposes the exact batch date and hash to the next job. After preparation succeeds, including authentication write-back and result preservation, a separate job waits 180 seconds and calls the reusable publisher. Runner startup/queueing may add delay. Connection checks, failed preparation and an already-confirmed publication have no publishing handoff. The publisher checks out main because the queue commit is newer than preparation's starting SHA, and refuses a mismatched handed-off hash before artwork or publication. All three jobs appear in the preparation run; monitoring does not expect a separate pipeline cron.

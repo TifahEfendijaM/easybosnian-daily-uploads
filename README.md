@@ -6,12 +6,12 @@ Every day, a tool-enabled preparation task researches and reviews one new theme 
 
 ## Current authorized schedule
 
-- Preparation: **19:20 daily, Europe/Sarajevo**.
-- Pipeline: **21:00 daily, Europe/Sarajevo**, including daylight saving changes.
+- Preparation: **20:00 daily, Europe/Sarajevo**.
+- Pipeline: **after successful preparation and a three-minute wait**; no fixed publication cron.
 - No scheduled retry. A monitoring-only Cloudflare check runs at 21:59; it cannot generate or publish.
 - The user waived the original prompt's unpublished-preview and separate live-test gates on 2026-10-02. Daily posting is authorized. The user then deferred Healthchecks until after Instagram works; verified GitHub issue reporting is used during that phase.
 
-Both preparation and publishing run on private GitHub cloud runners, independently of the Mac, after the dedicated cloud ChatGPT sign-in is verified. Preparation uses the existing ChatGPT subscription through the official Codex CLI, with no paid API key. Its serialized workflow restores and persists refreshed credentials in private secrets. A connection check proves ChatGPT access, private history and GitHub write/read-back without preparing a batch or publishing. The first real reviewed package save/read-back enables Cloudflare's publication gate. Cron timing can be delayed; ten minutes is not guaranteed. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. A late package is kept for a deliberate run; no retry is dispatched.
+Both preparation and publishing run on private GitHub cloud runners, independently of the Mac, after the dedicated cloud ChatGPT sign-in is verified. Preparation uses the existing ChatGPT subscription through the official Codex CLI, with no paid API key. Its serialized workflow restores and persists refreshed credentials in private secrets. A connection check proves ChatGPT access, private history and GitHub write/read-back without preparing a batch or publishing. The first real reviewed package save/read-back enables Cloudflare's publication gate. Preparation cron and runner queues can be delayed. The three-minute wait starts only after successful preparation, including credential persistence. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. The publisher checks the handed-off date and immutable package hash and checks out main to retrieve the newer reviewed queue commit. The daily run contains preparation, delay and publication jobs. No retry is dispatched.
 
 ## Architecture and privacy
 
