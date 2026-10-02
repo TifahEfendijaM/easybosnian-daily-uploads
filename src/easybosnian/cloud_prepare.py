@@ -112,6 +112,7 @@ def run_codex(prompt, timeout=420):
     child_env["GITHUB_REPOSITORY"] = REPO
     output = ROOT / "build/cloud-agent-last.secret"
     events = ROOT / "build/cloud-agent-events.secret"
+    events.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
     args = ["codex", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
             "--sandbox", "workspace-write", "--cd", str(ROOT), "--color", "never",
             "-c", 'approval_policy="never"', "-c", 'cli_auth_credentials_store="file"',

@@ -2,11 +2,12 @@ import json
 import os
 import tempfile
 import unittest
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.cli import activate
-from easybosnian.cloud_prepare import bootstrap, cloud_run, managed_auth, persist, publication_state
+from easybosnian.cloud_prepare import bootstrap, cloud_run, managed_auth, persist, publication_state, run_codex
 from easybosnian.core import PROJECT, REPO
 
 
@@ -16,6 +17,21 @@ def auth(token="fresh"):
 
 
 class CloudPreparationTests(unittest.TestCase):
+    def test_fresh_runner_creates_private_logs_and_child_has_no_provider_secrets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); path=root/"credentials/auth.json"
+            path.parent.mkdir(); path.write_text(auth())
+            seen=[]
+            def fake_run(args, **kwargs):
+                if args[0]=="codex":
+                    seen.append(kwargs["env"])
+                    (root/"build/cloud-agent-last.secret").write_text("READY\n")
+                return subprocess.CompletedProcess(args,0,stdout="")
+            with patch("easybosnian.cloud_prepare.ROOT",root), patch("easybosnian.cloud_prepare.auth_file",return_value=path), patch("easybosnian.cloud_prepare.subprocess.run",side_effect=fake_run), patch.dict(os.environ,{"GH_TOKEN":"private","INSTAGRAM_ACCESS_TOKEN":"private","OPENAI_API_KEY":"paid"}):
+                self.assertEqual(run_codex("Reply READY"),"READY")
+                self.assertFalse(any(k in seen[0] for k in ("GH_TOKEN","INSTAGRAM_ACCESS_TOKEN","OPENAI_API_KEY")))
+                self.assertEqual((root/"build/cloud-agent-events.secret").stat().st_mode & 0o777,0o600)
+
     def test_only_complete_managed_subscription_auth_is_accepted(self):
         self.assertEqual(managed_auth(auth())["auth_mode"], "chatgpt")
         for value in ("invalid", "null", "[]", '{"auth_mode":"chatgptAuthTokens"}',
