@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "project": "tifahefendijam-easybosnian-daily-uploads-v1",
+  "date": "2026-10-02",
+  "theme": {
+    "name": "Kišni dan",
+    "equivalence_keys": [
+      "kišni dan",
+      "rainy weather",
+      "kišovito vrijeme",
+      "rain"
+    ]
+  },
+  "words": [
+    {
+      "lemma": "kišobran",
+      "equivalence_keys": [
+        "umbrella",
+        "kišobrani",
+        "kisobran"
+      ]
+    },
+    {
+      "lemma": "oblak",
+      "equivalence_keys": [
+        "cloud",
+        "oblaci"
+      ]
+    },
+    {
+      "lemma": "kap",
+      "equivalence_keys": [
+        "drop",
+        "kapljica",
+        "kapi"
+      ]
+    }
+  ],
+  "design_palette": "blue-ice",
+  "caption": "Tri kratka izazova za danas! U kvizu izaberi A, B ili C i napiši svoj izbor u komentaru. Zatim pročitaj jezički savjet i upotrijebi novu riječ u svojoj rečenici.",
+  "hashtags": [
+    "#EasyBosnian",
+    "#BosanskiJezik",
+    "#UčiBosanski",
+    "#RiječDana"
+  ],
+  "sources": [
+    {
+      "url": "https://www.pravopis.ba/pravopisni-rjecnik",
+      "title": "Pravopis bosanskoga jezika",
+      "supports": "Draft renderer fixture; individual dictionary entries still need verification before any queue save.",
+      "checked_at": "2026-10-02T15:30:00+02:00"
+    }
+  ],
+  "private_review": {
+    "correct_option": "B",
+    "correct_text": "kišobran",
+    "explanation": "Ovaj predmet se otvara i drži iznad glave radi zaštite od kiše.",
+    "answer_aliases": [
+      "umbrella",
+      "suncobran"
+    ],
+    "identifying_hints": [
+      "predmet koji se otvara iznad glave"
+    ],
+    "standard_bosnian_checked": false,
+    "sources_checked": false,
+    "semantic_history_checked": false,
+    "no_answer_leak_checked": false,
+    "history_checked_at": "2026-10-02T15:30:00+02:00",
+    "reviewed_at": "2026-10-02T15:30:00+02:00",
+    "reviewer": "RENDERER FIXTURE — DO NOT QUEUE",
+    "notes": "Unpublished design fixture. Not researched or checked against live Cloudflare history; flags intentionally false."
+  },
+  "cards": [
+    {
+      "kind": "quiz",
+      "word": "kišobran",
+      "design_template": "framed",
+      "question": "Koji predmet koristimo da se zaštitimo od kiše?",
+      "options": [
+        {
+          "label": "A",
+          "text": "torba"
+        },
+        {
+          "label": "B",
+          "text": "kišobran"
+        },
+        {
+          "label": "C",
+          "text": "knjiga"
+        }
+      ],
+      "alt_text": "Pitanje dana s tri mogućnosti. Izaberi A, B ili C.",
+      "background_prompt": "A quiet rainy window, drops on glass and distant soft shapes. framed layout: leave the top x64..1016 y64..900 uncluttered for category label, two-line question and three stacked options. Abstract rain scene in lower third. Do not depict any quiz option or identifying clue. Deep slate-blue #041625 shade, misty #f0f8fc highlights, ice-blue #a8dcf2 accents, muted #10324b shadows. Keep top dark for light lettering. No text, no lettering, no logos."
+    },
+    {
+      "kind": "lesson",
+      "word": "oblak",
+      "design_template": "editorial",
+      "heading": "Oblak",
+      "body": "Od riječi „oblak“ nastaje pridjev „oblačan“. Kada opisujemo vrijeme, često kažemo: „Danas je oblačno.“",
+      "alt_text": "Jezički savjet o riječi oblak i opisivanju vremena.",
+      "background_prompt": "An atmospheric sky above dark hills, broad layers of cloud low in frame. editorial layout: top x64..1016 y64..850 uncluttered for compact category, featured word and light lesson panel. Clouds are the subject in the lower third below the overlay. Deep slate-blue #041625 shade, misty #f0f8fc highlights, ice-blue #a8dcf2 accents, muted #10324b shadows. Dark top for light headings, soft cool light near clouds. No text, no lettering, no logos."
+    },
+    {
+      "kind": "word",
+      "word": "kap",
+      "design_template": "split-cards",
+      "heading": "Kap",
+      "body": "Vrlo mala količina tečnosti, obično zaobljenog oblika.",
+      "example": "Kap vode je pala na sto.",
+      "alt_text": "Riječ dana: kap, uz kratko značenje i primjer upotrebe.",
+      "background_prompt": "A macro view of water drops on a botanical leaf at the lower-right, negative space above. split-cards layout: top x64..1016 y64..900 uncluttered for category, word heading, definition panel and separate example panel. Main leaf and drop below y950, keep bottom-right logo area quiet. Deep slate-blue #041625 shade, misty #f0f8fc highlights, ice-blue #a8dcf2 accents, muted #10324b shadows. Cool soft illumination and dark top for light lettering. No text, no lettering, no logos."
+    }
+  ]
+}

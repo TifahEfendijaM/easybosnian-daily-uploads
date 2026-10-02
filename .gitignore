@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env*
+!.env.example
+build/
+.wrangler/
+node_modules/
+cloudflare/wrangler.toml
+*.secret
+*.token
+*.egg-info/

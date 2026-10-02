@@ -1,0 +1,13 @@
+{
+  "gold-cream": {"ink":"#061c42","accent":"#ffcf35","panel":"#fff9e9","scrim":"#031428"},
+  "forest-cream": {"ink":"#14382b","accent":"#c5df91","panel":"#f7f8ed","scrim":"#071b14"},
+  "terracotta-sand": {"ink":"#44271e","accent":"#f0b18f","panel":"#fff3e4","scrim":"#24120d"},
+  "blue-ice": {"ink":"#10324b","accent":"#a8dcf2","panel":"#f0f8fc","scrim":"#041625"},
+  "rose-ivory": {"ink":"#402036","accent":"#f3bfd3","panel":"#fff5f7","scrim":"#200b19"},
+  "lavender-pearl": {"ink":"#2d2446","accent":"#d9c8f1","panel":"#faf5ff","scrim":"#150d25"},
+  "mint-linen": {"ink":"#123a35","accent":"#bce8d5","panel":"#f2fff8","scrim":"#041e18"},
+  "coral-cream": {"ink":"#4a241e","accent":"#ffc5ab","panel":"#fff6ec","scrim":"#260e09"},
+  "slate-silver": {"ink":"#263244","accent":"#c9d6e7","panel":"#f7f9fc","scrim":"#0b1420"},
+  "plum-blush": {"ink":"#372137","accent":"#e7c4df","panel":"#fff5fc","scrim":"#1b091b"},
+  "charcoal-lemon": {"ink":"#28261b","accent":"#f5e693","panel":"#fffced","scrim":"#141308"}
+}

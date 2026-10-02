@@ -1,0 +1,25 @@
+name = "easybosnian-daily-tifah-v1"
+main = "worker.mjs"
+compatibility_date = "2026-10-02"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[vars]
+PROJECT_ID = "tifahefendijam-easybosnian-daily-uploads-v1"
+GITHUB_REPOSITORY = "TifahEfendijaM/easybosnian-daily-uploads"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "easybosnian-daily-tifah-v1"
+database_id = "REPLACE_WITH_NEW_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "IMAGES"
+id = "REPLACE_WITH_NEW_NAMESPACE_ID"
+
+[triggers]
+# Monitoring only. Exactly one check runs at Sarajevo 17:50, according to DST.
+crons = ["50 15 * * *", "50 16 * * *"]

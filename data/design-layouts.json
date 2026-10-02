@@ -1,0 +1,10 @@
+{
+ "editorial":{"treatment":"Light panels with slim left accent line","overlay_zone":"top-left x64..1016 y64..900; main scene lower-right y950..1220"},
+ "framed":{"treatment":"Double borders and outlined label","overlay_zone":"full-width top x64..1016 y64..900; reserve lower third for main subject"},
+ "notebook":{"treatment":"Paper panels, ruled left margin, tab label","overlay_zone":"top-left x64..1016 y64..900; lower-right subject y950..1220"},
+ "ribbon":{"treatment":"Folded ribbon label, wide accent rules, squared markers","overlay_zone":"top x64..1016 y64..900; wide uncluttered strips; subjects lower-right"},
+ "split-cards":{"treatment":"Two independent panels with right accent bars and example edge","overlay_zone":"top x64..1016 y64..900 with separate bands; subject lower-right y950..1220"},
+ "minimal":{"treatment":"Underlined label, flat panels, fine dividers","overlay_zone":"quiet top x64..1016 y64..900; detail in lower third"},
+ "rounded":{"treatment":"Pill labels and options, rounded panels, circular markers","overlay_zone":"uncluttered top x64..1016 y64..900; curved subjects lower-right"},
+ "poster":{"treatment":"Heavy headings, bold rectangular blocks, strong accent options","overlay_zone":"quiet top x64..1016 y64..950; dramatic focal subject lower-right y1000..1220"}
+}
