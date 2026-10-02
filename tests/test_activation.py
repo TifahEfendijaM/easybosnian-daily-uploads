@@ -49,7 +49,7 @@ class DeferredMonitoringTests(unittest.TestCase):
 
     def test_verified_package_can_activate_with_user_deferral(self):
         config={"preparation_verified":True, "monitoring_ready":False, "healthchecks_deferred":True, "github_monitoring_ready":True}
-        with patch("easybosnian.cli.verify_repository"), patch("easybosnian.cli.Store") as store, patch("easybosnian.cli.gh") as gh:
+        with patch.dict(os.environ,{"GITHUB_ACTIONS":""}), patch("easybosnian.cli.verify_repository"), patch("easybosnian.cli.Store") as store, patch("easybosnian.cli.gh") as gh:
             store.return_value.call.side_effect=[config, {}]
             activate("enable-daily")
             gh.assert_called_once_with("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","true")

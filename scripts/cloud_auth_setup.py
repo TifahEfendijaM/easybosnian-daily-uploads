@@ -34,7 +34,15 @@ def main():
             process = subprocess.Popen([executable, "-c", 'cli_auth_credentials_store="file"', "login"],
                                        env=environment, stdout=output, stderr=subprocess.STDOUT)
         (ROOT / "build/cloud-codex-login.pid").write_text(str(process.pid))
-        print("Complete the separate ChatGPT sign-in in the browser opened by Codex. No token needs copying.")
+        print("Complete the separate ChatGPT sign-in in the browser opened by Codex. No token needs copying.", flush=True)
+        try:
+            result=process.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            raise ValueError("Browser sign-in expired; open a fresh dedicated login") from None
+        if result or not auth.exists():
+            raise ValueError("Browser sign-in did not complete; open a fresh dedicated login")
+        print("Separate cloud sign-in completed; ready to save privately", flush=True)
     else:
         if not auth.exists():
             raise ValueError("Separate browser sign-in is not complete yet")

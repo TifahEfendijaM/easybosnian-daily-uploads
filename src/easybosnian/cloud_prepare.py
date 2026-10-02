@@ -147,6 +147,7 @@ def publication_state(history, date):
 def cloud_run(mode):
     date = today()
     publication = "nothing published by this preparation run"
+    stage = "cloud preparation infrastructure authorization"
     try:
         check_infrastructure()
         store = Store()
@@ -158,6 +159,7 @@ def cloud_run(mode):
         if not publication_monitoring_ready(config):
             raise ValueError("Required failure reporting setup has not been verified")
         queue = queued_packages()
+        stage = "preparation/queue save"
         if mode == "verify":
             if run_codex("Reply with the single word READY. Do not use tools, inspect files, choose content or publish.", timeout=90) != "READY":
                 raise ValueError("Cloud ChatGPT sign-in verification returned an unexpected response")
@@ -182,8 +184,10 @@ def cloud_run(mode):
                 package = read_json(draft)
                 if package["date"] != date:
                     raise ValueError("Reviewed draft has the wrong Sarajevo date")
+                stage = "validation"
                 validate(package, history)
                 fit_check(package)
+                stage = "preparation/queue save"
                 prepare(draft)
                 activate("enable-daily")
                 enabled = store.call("GET", "/v1/config")
@@ -196,7 +200,7 @@ def cloud_run(mode):
         print(json.dumps(result, indent=2))
     except Exception as error:
         # Codex output is kept private and never copied into failures, issues or artifacts.
-        report = failure(date, "preparation/queue save", error, publication, os.getenv("GITHUB_RUN_URL"))
+        report = failure(date, stage, error, publication, os.getenv("GITHUB_RUN_URL"))
         print(report)
         raise RuntimeError("Cloud preparation failed; inspect the private run and failure issue") from None
 

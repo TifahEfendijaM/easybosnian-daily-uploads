@@ -84,5 +84,17 @@ class CloudPreparationTests(unittest.TestCase):
                                 ({"verified":True},"already verified published")):
             self.assertEqual(publication_state({"batches":[{"date":"2026-10-02","state":state}]},"2026-10-02"),expected)
 
+    def test_same_date_reservation_resumes_exact_package_without_research(self):
+        date="2026-10-02"; package={"date":date,"immutable":"same reserved content"}
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex") as agent, patch("easybosnian.cloud_prepare.validate"), patch("easybosnian.cloud_prepare.fit_check"), patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate"):
+                store.return_value.history.return_value={"project":PROJECT,"batches":[{"date":date,"state":{}}]}
+                store.return_value.batch.return_value={"package":package}
+                store.return_value.call.side_effect=[{"healthchecks_deferred":True,"github_monitoring_ready":True},{"daily_enabled":True,"preparation_verified":True}]
+                cloud_run("prepare")
+                agent.assert_not_called()
+                path=prepare.call_args.args[0]
+                self.assertEqual(json.loads(path.read_text()),package)
+
 
 if __name__=="__main__": unittest.main()

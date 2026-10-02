@@ -67,3 +67,26 @@ test('GitHub-only monitoring check does not ping Healthchecks or publish',async(
     assert.ok(calls.at(-1).url.endsWith('/issues'));
   } finally {globalThis.fetch=original;}
 });
+
+test('armed cloud schedule reports missing first preparation while publication is disabled',async()=>{
+  const original=globalThis.fetch;
+  const issues=[];
+  globalThis.fetch=async(url,options={})=>{
+    assert.ok(url.startsWith('https://api.github.com/repos/'+REPO));
+    if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true});
+    if(url.includes('/actions/workflows/')) return Response.json({workflow_runs:[]});
+    if(url.endsWith('/issues')) {issues.push(JSON.parse(options.body)); return Response.json({number:1});}
+    throw Error('Unexpected external operation');
+  };
+  try {
+    const config={daily_enabled:false,daily_authorized:true,active_since:'2026-10-02',healthchecks_deferred:true};
+    const env={GITHUB_REPOSITORY:REPO,NOTIFY_GITHUB_TOKEN:'private',DB:{prepare(sql){return{
+      bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:null,
+      run:async()=>({meta:{changes:1}})
+    };}}};
+    await watchdog(env,new Date('2026-10-02T17:59:00Z'));
+    assert.equal(issues.length,3);
+    assert.ok(issues.some(x=>x.title.includes('cloud preparation scheduling')));
+    assert.ok(issues.every(x=>x.body.includes('nothing published')));
+  } finally {globalThis.fetch=original;}
+});
