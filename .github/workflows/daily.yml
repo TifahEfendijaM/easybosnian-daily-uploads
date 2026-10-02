@@ -1,7 +1,7 @@
 name: EasyBosnian daily Instagram pipeline
 on:
   schedule:
-    - cron: '19 19 * * *'
+    - cron: '30 19 * * *'
       timezone: Europe/Sarajevo
   workflow_dispatch:
     inputs:
@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   pipeline:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || vars.DAILY_POSTING_ENABLED == 'true')
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event.schedule == '30 19 * * *'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

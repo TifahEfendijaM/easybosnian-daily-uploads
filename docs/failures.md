@@ -6,8 +6,8 @@ Use a free Healthchecks account with email enabled. Configure three named checks
 
 | Check | Expected signal | Grace |
 |---|---|---|
-| EasyBosnian preparation — GitHub queue save | 19:09 daily | 10 minutes |
-| EasyBosnian pipeline — confirmed Instagram publication | 19:19 daily | 40 minutes |
+| EasyBosnian preparation — GitHub queue save | 19:20 daily | 10 minutes |
+| EasyBosnian pipeline — confirmed Instagram publication | 19:30 daily | 40 minutes |
 | EasyBosnian monitoring | 19:59 daily | 15 minutes |
 
 Preparation success means reviewed JSON was reserved, saved to the exact private repository and read back. Pipeline success means a verified Instagram permalink, or an explicitly selected unpublished preview. During initial authorization, leave live-post monitors paused until setup is ready. A monitor is not a scheduler and never retries work.

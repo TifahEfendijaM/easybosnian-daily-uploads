@@ -6,8 +6,8 @@ Every day, a tool-enabled preparation task researches and reviews one new theme 
 
 ## Current authorized schedule
 
-- Preparation: **19:09 daily, Europe/Sarajevo**.
-- Pipeline: **19:19 daily, Europe/Sarajevo**, including daylight saving changes.
+- Preparation: **19:20 daily, Europe/Sarajevo**.
+- Pipeline: **19:30 daily, Europe/Sarajevo**, including daylight saving changes.
 - No scheduled retry. A monitoring-only Cloudflare check runs at 19:59; it cannot generate or publish.
 - The user waived the original prompt's unpublished-preview and separate live-test gates on 2026-10-02. Daily posting is authorized. The user then deferred Healthchecks until after Instagram works; verified GitHub issue reporting is used during that phase.
 

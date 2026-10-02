@@ -1,7 +1,7 @@
 name: EasyBosnian cloud ChatGPT preparation
 on:
   schedule:
-    - cron: '9 19 * * *'
+    - cron: '20 19 * * *'
       timezone: Europe/Sarajevo
   workflow_dispatch:
 permissions:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preparation:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || vars.CLOUD_PREPARATION_ENABLED == 'true')
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.CLOUD_PREPARATION_ENABLED == 'true' && github.event.schedule == '20 19 * * *'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

@@ -1,6 +1,6 @@
 # Cloud preparation
 
-The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 19:09 Europe/Sarajevo; `daily.yml` publishes at 19:19. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
+The user requested moving preparation to the cloud on 2026-10-02. `.github/workflows/preparation.yml` runs at 19:20 Europe/Sarajevo; `daily.yml` publishes at 19:30. Pause the local Codex heartbeat after the cloud connection check passes. No awake computer or open desktop app is required afterward. No scheduled retry exists.
 
 Use a **separate cloud-only ChatGPT login**, never a copy of the desktop session. `scripts/cloud_auth_setup.py login` opens official browser sign-in with an isolated ignored credential directory. Complete sign-in yourself. `scripts/cloud_auth_setup.py save` stores managed authentication only in this exact private repository's `CODEX_AUTH_JSON` secret. Do not copy tokens into chat, commits or artifacts, or subsequently execute that credential on this Mac or another runner.
 
