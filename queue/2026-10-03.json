@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "project": "tifahefendijam-easybosnian-daily-uploads-v1",
+  "date": "2026-10-03",
+  "theme": {
+    "name": "Kišni dan",
+    "equivalence_keys": [
+      "rainy-day",
+      "rainy-weather",
+      "wet-weather",
+      "kišni dan",
+      "kišni dani",
+      "kišovito vrijeme",
+      "kiša",
+      "rain"
+    ]
+  },
+  "words": [
+    {
+      "lemma": "kišobran",
+      "equivalence_keys": [
+        "umbrella",
+        "brolly",
+        "kišobrani",
+        "kišobrana",
+        "kišobranom",
+        "kišobrančić",
+        "amrel",
+        "ambrela",
+        "lumbrela",
+        "nubrela"
+      ]
+    },
+    {
+      "lemma": "oblak",
+      "equivalence_keys": [
+        "cloud",
+        "clouds",
+        "oblaci",
+        "oblaka",
+        "oblake",
+        "oblacima",
+        "oblačić",
+        "oblačan"
+      ]
+    },
+    {
+      "lemma": "lokva",
+      "equivalence_keys": [
+        "puddle",
+        "pool-of-rainwater",
+        "lokve",
+        "lokvu",
+        "lokvi",
+        "lokvama",
+        "lokvica",
+        "bara"
+      ]
+    }
+  ],
+  "design_palette": "blue-ice",
+  "cards": [
+    {
+      "kind": "quiz",
+      "word": "kišobran",
+      "design_template": "framed",
+      "question": "Šta otvaramo iznad glave kada pada kiša?",
+      "options": [
+        {
+          "label": "A",
+          "text": "torba"
+        },
+        {
+          "label": "B",
+          "text": "kišobran"
+        },
+        {
+          "label": "C",
+          "text": "šal"
+        }
+      ],
+      "background_prompt": "Coordinated editorial still-life photograph for a 1080x1350 educational card. Use the approved blue-ice palette: deep blue ink #10324b in shadows, pale icy blue accent #a8dcf2 in reflections, near-white cool panel tone #f0f8fc in soft highlights, and midnight navy scrim #041625 as a subtle dark upper gradient. Soft diffuse lighting; dark, even upper area supports pale headings and opaque pale panels with deep blue lettering. Reserve uncluttered negative space x64..1016 y64..900 for all Python overlays. Compose for framed layout. The upper zone must accommodate an outlined category label, a question and three stacked double-bordered answer boxes. In the lower-left place only three small smooth pebbles on a matte blue surface, with no figurative shapes. Entire scene is abstract and neutral: no people, clothing, accessories, tools, canopies, handles or protective objects; no visual clue selecting any quiz option. Keep every focal subject below y950, within x100..820 y950..1220; leave bottom-right x850..1016 y1180..1286 calm for the original watermark. No text, no lettering, no logos.",
+      "alt_text": "Pitanje dana s tri ponuđene riječi i oznakama A/B/C. Neutralna plava pozadina s kamenčićima."
+    },
+    {
+      "kind": "lesson",
+      "word": "oblak",
+      "design_template": "split-cards",
+      "heading": "oblak",
+      "body": "Jedan oblak, dva oblaka, ali: na nebu su oblaci. U obliku „oblaci“ glas k prelazi u c.",
+      "example": "Danas su na nebu sivi oblaci.",
+      "background_prompt": "Coordinated editorial still-life photograph for a 1080x1350 educational card. Use the approved blue-ice palette: deep blue ink #10324b in shadows, pale icy blue accent #a8dcf2 in reflections, near-white cool panel tone #f0f8fc in soft highlights, and midnight navy scrim #041625 as a subtle dark upper gradient. Soft diffuse lighting; dark, even upper area supports pale headings and opaque pale panels with deep blue lettering. Reserve uncluttered negative space x64..1016 y64..900 for all Python overlays. Compose for split-cards layout. Keep two independent horizontal text bands and their right accent bars free of detail in the upper zone. Below y950 show a small quiet mountain ridge with several diffuse grey cloud forms behind it, without rain gear, people or accessories. Cloud detail belongs only to the low horizon, not behind text. Keep every focal subject below y950, within x100..820 y950..1220; leave bottom-right x850..1016 y1180..1286 calm for the original watermark. No text, no lettering, no logos.",
+      "alt_text": "Znaš li? Riječ oblak u izrazima za jedninu i množinu, uz primjer rečenice. Niska planinska silueta."
+    },
+    {
+      "kind": "word",
+      "word": "lokva",
+      "design_template": "editorial",
+      "heading": "lokva",
+      "body": "Lokva je voda koja se zadržala u plitkom udubljenju na tlu.",
+      "example": "Pazim da ne stanem u lokvu.",
+      "background_prompt": "Coordinated editorial still-life photograph for a 1080x1350 educational card. Use the approved blue-ice palette: deep blue ink #10324b in shadows, pale icy blue accent #a8dcf2 in reflections, near-white cool panel tone #f0f8fc in soft highlights, and midnight navy scrim #041625 as a subtle dark upper gradient. Soft diffuse lighting; dark, even upper area supports pale headings and opaque pale panels with deep blue lettering. Reserve uncluttered negative space x64..1016 y64..900 for all Python overlays. Compose for editorial layout. Keep the clean heading and light text panels with slim left accent lines fully unobstructed above y900. Below y950 show a close-up of a shallow patch of water among dark paving stones, reflecting soft icy blue light. No pedestrians, rain gear, clothing or accessories; natural irregular water outline, no object silhouettes in the reflection. Keep every focal subject below y950, within x100..820 y950..1220; leave bottom-right x850..1016 y1180..1286 calm for the original watermark. No text, no lettering, no logos.",
+      "alt_text": "Riječ dana: lokva. Kratka definicija i primjer rečenice, uz vodu među kamenim pločama."
+    }
+  ],
+  "caption": "Kišni dan, tri nove riječi! Odaberi A/B/C za Pitanje dana i napiši svoj izbor u komentaru. Zatim pročitaj jezički obrazac i primjer na sljedećim karticama. Sačuvaj objavu za ponavljanje.",
+  "hashtags": [
+    "#EasyBosnian",
+    "#BosanskiJezik",
+    "#UčiBosanski",
+    "#RiječDana",
+    "#JezičkiKviz"
+  ],
+  "sources": [
+    {
+      "url": "https://rjecnik.hr/mreznik/kisobran/",
+      "title": "Institut za hrvatski jezik — Mrežnik: kišobran",
+      "supports": "Otvorena konkretna natuknica potvrđuje zajedničko značenje predmeta i radnju otvaranja. Hrvatski izvor služi za potvrdu značenja, ne za određivanje bosanske norme.",
+      "checked_at": "2026-10-03T04:16:47.949987+00:00"
+    },
+    {
+      "url": "https://www.bih.fi/pub/pdf/Pravopis_bosanskog_jezika.pdf",
+      "title": "Senahid Halilović — Pravopis bosanskoga jezika, školski priručnik",
+      "supports": "Otvoreni PDF: str. 12 ima oblik oblak, a str. 42 oblik oblaci u rečeničnom primjeru. Potvrđuje bosansko pisanje i množinski oblik upotrijebljen u lekciji; promjena k u c vidljiva je u tim oblicima.",
+      "checked_at": "2026-10-03T04:16:47.949987+00:00"
+    },
+    {
+      "url": "https://jezikoslovac.com/word/hkeb",
+      "title": "Jezikoslovac — lokva, leksikografska definicija",
+      "supports": "Otvorena natuknica: voda koja ostaje u udubljenju zemlje. Potvrđuje zajedničko osnovno značenje, a ne bosansku pravopisnu normu. Primjer na kartici napisan je izvorno.",
+      "checked_at": "2026-10-03T04:16:47.949987+00:00"
+    }
+  ],
+  "private_review": {
+    "correct_option": "B",
+    "correct_text": "kišobran",
+    "explanation": "Kišobran otvaramo i držimo iznad glave da nas zaštiti od kiše. Torba i šal ne odgovaraju opisanoj radnji.",
+    "answer_aliases": [
+      "umbrella",
+      "brolly",
+      "kišobrani",
+      "kišobrana",
+      "kišobranom",
+      "amrel",
+      "ambrela",
+      "lumbrela",
+      "nubrela"
+    ],
+    "identifying_hints": [
+      "zaštita od kiše",
+      "štiti od kiše",
+      "nepromočiva tkanina",
+      "kovinske šipke",
+      "umbrella canopy",
+      "curved handle"
+    ],
+    "standard_bosnian_checked": true,
+    "sources_checked": true,
+    "semantic_history_checked": true,
+    "no_answer_leak_checked": true,
+    "history_checked_at": "2026-10-03T04:16:47.949987+00:00",
+    "reviewed_at": "2026-10-03T04:16:47.949987+00:00",
+    "reviewer": "Codex cloud research and editorial review",
+    "notes": "Pročitani cijeli kontekst: history.batches i queued_packages su prazni. Nema rezervacije u dostavljenom kontekstu. Pregledani sinonimi, prijevodi, fleksija i bliske teme. Izvorni bosanski tekst pregledan za padeže, slaganje, prirodnost i dijakritiku. Tačan odgovor je u neoznačenoj javnoj opciji i privatnim metapodacima; nema ga u naslovu kviza, drugim karticama, opisima, oznakama ni pozivu na komentar. Drugi sadržaji ne opisuju predmet niti odabiru opciju. Sve pozadine izričito isključuju predmet i identifikacijske oblike; kviz je neutralan. Odabrani odobreni rasporedi i boje prije pisanja promptova. Konačna FLUX umjetnička slika nije generisana niti pregledana u ovoj fazi; pregledani su promptovi i izmjereni tekstualni rasporedi. Datum je za Europe/Sarajevo. Vizuelno pregledane sve tri fit kartice: puni tekst i dijakritika čitljivi, bez odsijecanja; ujednačen kontrast i margine. Originalni watermark ima RGBA i transparentne piksele."
+  }
+}
