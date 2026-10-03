@@ -8,6 +8,15 @@ on:
         type: choice
         options: [verify, preview, daily]
         default: verify
+      content_selection:
+        description: Daily rerun content (reuse requires today's saved content; all choices create fresh text and images)
+        type: choice
+        options: [new, same_theme, same_words]
+        default: new
+      tiktok_previous_removed:
+        description: I manually deleted today's previous TikTok post before this daily rerun
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
@@ -20,6 +29,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
+      CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
+      TIKTOK_PREVIOUS_REMOVED: ${{ inputs.tiktok_previous_removed }}
+      INSTAGRAM_DELETE_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_DELETE_ACCESS_TOKEN }}
+      INSTAGRAM_DELETE_USER_ID: ${{ secrets.INSTAGRAM_DELETE_USER_ID }}
       DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
       GH_TOKEN: ${{ github.token }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

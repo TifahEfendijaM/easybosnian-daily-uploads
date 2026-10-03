@@ -15,6 +15,10 @@ from PIL import Image
 
 
 class ModeTests(unittest.TestCase):
+    def setUp(self):
+        guard=patch('easybosnian.notify.gh',return_value='test-only')
+        guard.start();self.addCleanup(guard.stop)
+
     @patch.dict(os.environ,{'GITHUB_ACTIONS':'false'})
     def test_kill_switch_is_read_for_every_live_attempt_and_fails_closed(self):
         with patch('easybosnian.core.gh',return_value='false') as get:

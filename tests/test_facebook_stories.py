@@ -23,6 +23,10 @@ def story(post_id='201', photo_id='101'):
 
 
 class FacebookStoryTests(unittest.TestCase):
+    def setUp(self):
+        guard=patch('easybosnian.notify.gh',return_value='test-only')
+        guard.start();self.addCleanup(guard.stop)
+
     def test_meta_upload_and_story_contract_uses_fresh_unpublished_photo(self):
         with patch.dict(os.environ, {'META_GRAPH_VERSION': 'v26.0'}):
             facebook = Facebook(token='test-only-token', page_id='1284422991426579')

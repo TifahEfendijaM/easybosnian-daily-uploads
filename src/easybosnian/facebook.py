@@ -26,7 +26,7 @@ def verify_post(facebook, package, post_id, photo_ids):
     return actual['permalink_url']
 
 
-def publish_facebook(package, assets):
+def publish_facebook(package, assets, record=None):
     date=package['date'];stage='Facebook authorization';result={'batch':date,'published':False}
     publication='nothing published to Facebook'
     try:
@@ -35,10 +35,12 @@ def publish_facebook(package, assets):
         facebook=Facebook();facebook.verify_page();photo_ids=[]
         stage='Facebook photo upload'
         for card in package['cards']:
-            photo_ids.append(facebook.photo(assets[card['kind']]['url'],card['alt_text']))
+            photo_id=facebook.photo(assets[card['kind']]['url'],card['alt_text']);photo_ids.append(photo_id)
+            if record: record('photo',photo_id,facebook.page_id)
         result['photo_ids']=photo_ids;stage='Facebook publishing';require_publishing()
         publication='Facebook publish request outcome uncertain'
         post_id=facebook.publish(photo_ids,caption(package));result['post_id']=post_id
+        if record: record('feed',post_id,facebook.page_id)
         stage='Facebook publication verification';publication='published to Facebook; content read-back pending'
         result.update(permalink=verify_post(facebook,package,post_id,photo_ids),published=True,status='confirmed Facebook publication')
         write_json(ROOT/'build'/date/'facebook-result.json',result);return result

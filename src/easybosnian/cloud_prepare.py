@@ -11,6 +11,7 @@ from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
+from .selection import selection_context, check_selection, novelty_history
 
 
 AGENT_FAILURES = {
@@ -149,14 +150,15 @@ def run_codex(prompt, timeout=420):
     return output.read_text(encoding="utf-8").strip()
 
 
-def cloud_run(mode):
+def cloud_run(mode, selection='new'):
     if mode not in ('verify','preview','daily'): raise ValueError('Unknown workflow mode')
     date=today();stage='cloud preparation infrastructure authorization'
     try:
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
-        write_json(ROOT/'build/preparation-context.json',{'history':history})
+        chosen=selection_context(history,date,selection) if mode!='verify' else {'choice':'new','previous':None}
+        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -183,8 +185,11 @@ def cloud_run(mode):
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
-                stage='validation';validate(package,history,include_today=True);fit_check(package)
-                stage='preparation/history save';prepare(draft)
+                stage='validation';check_selection(package,chosen)
+                validate(package,novelty_history(history,date,chosen),include_today=True);fit_check(package)
+                if len({c['design_template'] for c in package['cards']}) != 3:
+                    raise ValueError('Preparation must choose three distinct layouts')
+                stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}
         write_json(ROOT/'build/preparation-result.json',result);print(json.dumps(result,indent=2));return result
@@ -198,7 +203,7 @@ def main():
     parser.add_argument("action", choices=["bootstrap", "verify", "preview", "daily", "persist"])
     action = parser.parse_args().action
     if action in ("verify", "preview", "daily"):
-        cloud_run(action)
+        cloud_run(action,os.getenv('CONTENT_SELECTION','new'))
         return
     try:
         bootstrap() if action == "bootstrap" else persist()

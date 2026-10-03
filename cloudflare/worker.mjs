@@ -79,6 +79,29 @@ export default {
         const r=await env.DB.prepare('SELECT date,theme_json,words_json,content_json FROM history ORDER BY date').all();
         return response({project:PROJECT,days:r.results.map(x=>({date:x.date,theme:JSON.parse(x.theme_json),words:JSON.parse(x.words_json),content:JSON.parse(x.content_json)}))});
       }
+      const publications=path.match(/^\/v1\/publications\/(\d{4}-\d{2}-\d{2})(?:\/(instagram|facebook|tiktok)\/([a-z0-9_]+))?$/);
+      if(publications) {
+        const [,date,platform,id]=publications;
+        if(req.method==='GET' && !platform) {
+          const result=await env.DB.prepare('SELECT date,platform,kind,object_id,account_id FROM publication_ids WHERE date=? ORDER BY platform,kind,object_id').bind(date).all();
+          return response({project:PROJECT,items:result.results});
+        }
+        if(req.method==='POST' && !platform) {
+          const p=await req.json();
+          if(Object.keys(p).sort().join(',')!=='account_id,kind,object_id,platform' || !['instagram','facebook','tiktok'].includes(p.platform) || !['feed','story','photo'].includes(p.kind)) throw Error('Invalid publication identifier');
+          const idPattern=p.platform==='tiktok'?/^[a-f0-9]{24}$/:/^\d+(?:_\d+)?$/;
+          if(typeof p.object_id!=='string' || typeof p.account_id!=='string' || !idPattern.test(p.object_id) || !(p.platform==='tiktok'?/^[a-f0-9]{24}$/:/^\d+$/).test(p.account_id)) throw Error('Invalid provider identifier');
+          if(p.platform==='instagram' && p.kind==='photo' || p.platform==='tiktok' && p.kind!=='feed') throw Error('Invalid provider media kind');
+          await env.DB.prepare('INSERT INTO publication_ids(date,platform,kind,object_id,account_id) VALUES(?,?,?,?,?) ON CONFLICT(platform,object_id) DO NOTHING').bind(date,p.platform,p.kind,p.object_id,p.account_id).run();
+          const actual=await env.DB.prepare('SELECT date,kind,account_id FROM publication_ids WHERE platform=? AND object_id=?').bind(p.platform,p.object_id).first();
+          if(!actual || actual.date!==date || actual.kind!==p.kind || actual.account_id!==p.account_id) throw Error('Identifier belongs to a different record');
+          return response({stored:true});
+        }
+        if(req.method==='DELETE' && platform) {
+          await env.DB.prepare('DELETE FROM publication_ids WHERE date=? AND platform=? AND object_id=?').bind(date,platform,id).run();
+          return response({removed:true});
+        }
+      }
       const content=path.match(/^\/v1\/history\/(\d{4}-\d{2}-\d{2})$/);
       if(content) {
         const date=content[1];

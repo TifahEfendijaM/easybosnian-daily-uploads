@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from .core import REPO, PROJECT, verify_repository, publishing_enabled
 from .http import request
-from .meta import Instagram, Facebook
+from .meta import Instagram, Facebook, InstagramDeletion
 from .buffer import Buffer
 from .store import Store
 
@@ -37,6 +37,13 @@ def check_infrastructure():
                 raise ValueError('Facebook did not confirm Stories read access to the selected Page')
             facebook_stories = "selected Page Stories read access verified; no Story was created or published"
         facebook = "exact Easy Bosnian Page token/identity verified; " + ("daily publisher enabled" if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" else "daily publisher disabled pending Meta app checklist") + "; no post was made"
+    deletion = "pending separate Facebook Login authorization; first uploads are unaffected"
+    if os.getenv('INSTAGRAM_DELETE_ACCESS_TOKEN') and os.getenv('INSTAGRAM_DELETE_USER_ID'):
+        try:
+            InstagramDeletion().verify_account()
+            deletion = "exact linked Page/profile and deletion scopes verified; nothing deleted"
+        except Exception:
+            deletion = "deletion authorization needs renewal/repair before a same-date Instagram replacement"
     tiktok = "disabled pending Buffer authorization"
     if os.getenv("TIKTOK_POSTING_ENABLED") == "true":
         Buffer().verify_channel()
@@ -57,6 +64,6 @@ def check_infrastructure():
     return {"repository":REPO, "daily_posting_enabled":enabled, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
             "instagram_account_type":info["account_type"], "instagram_stories":stories,
-            "facebook":facebook, "facebook_stories":facebook_stories, "tiktok": tiktok,
+            "instagram_deletion":deletion, "facebook":facebook, "facebook_stories":facebook_stories, "tiktok": tiktok,
             "renewal_access":"repository secrets write-back access verified",
             "publication":"nothing published by this read-only check"}

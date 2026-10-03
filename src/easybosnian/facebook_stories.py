@@ -40,7 +40,7 @@ def verify_story(facebook, post_id, photo_id):
     raise ValueError('Facebook did not confirm this Story on the selected Page; no retry')
 
 
-def publish_facebook_stories(store, package, assets):
+def publish_facebook_stories(store, package, assets, record=None):
     date = package['date']; stage = 'Facebook Stories authorization'; stories = []
     publication = 'nothing published to Facebook Stories'
     try:
@@ -62,9 +62,11 @@ def publish_facebook_stories(store, package, assets):
             stage = 'Facebook Stories photo upload'; require_publishing()
             # Meta forbids reusing a photo already used in a published feed post.
             photo_id = str(facebook.photo(url, card['alt_text']))
+            if record: record('photo',photo_id,facebook.page_id)
             stage = 'Facebook Stories publishing'; require_publishing()
             publication = 'partial or uncertain Facebook Story publication'
             post_id = facebook.story(photo_id)
+            if record: record('story',post_id,facebook.page_id)
             item = {'slide': kind, 'photo_id': photo_id, 'post_id': post_id}; stories.append(item)
             stage = 'Facebook Stories verification'
             item['permalink'] = verify_story(facebook, post_id, photo_id)

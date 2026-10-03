@@ -12,7 +12,7 @@ from PIL import Image
 
 from .core import ROOT, REPO, PROJECT, gh, read_json, today, verify_repository, write_json
 from .http import redact
-from .meta import Instagram, Facebook, facebook_page_token
+from .meta import Instagram, Facebook, facebook_page_token, instagram_deletion_token
 from .daily import daily
 from .buffer import Buffer
 from .notify import failure
@@ -61,11 +61,15 @@ def fit_check(package):
         render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
 
 
-def prepare(path):
+def prepare(path,selection=None):
     verify_repository(remote=True)
     package=read_json(path)
     if package['date']!=today(): raise ValueError("Content must use today's Sarajevo date")
-    store=Store();validate(package,store.history(),include_today=True);fit_check(package)
+    from .selection import check_selection, novelty_history
+    store=Store();history=store.history()
+    if selection:
+        check_selection(package,selection);history=novelty_history(history,package['date'],selection)
+    validate(package,history,include_today=True);fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
@@ -146,6 +150,17 @@ def authorize_buffer(key=None):
     print("Verified connected, unpaused @easy.bosnian channel with automatic publishing; credentials stored in the exact repository; nothing published")
 
 
+def authorize_instagram_deletion(token=None,secret=None):
+    verify_repository(remote=True)
+    token=token or getpass.getpass('Facebook user token with Instagram deletion permissions (hidden): ').strip()
+    secret=secret or getpass.getpass('EasyBosnian Daily Uploads app secret for long-lived exchange (hidden): ').strip()
+    value,info=instagram_deletion_token(token,secret)
+    for name,content in [('INSTAGRAM_DELETE_ACCESS_TOKEN',value),('INSTAGRAM_DELETE_USER_ID',info['instagram_id'])]:
+        gh('secret','set',name,'--repo',REPO,input_text=content)
+    write_json(ROOT/'docs/instagram-deletion-authorization.json',info)
+    print('Separate Instagram deletion authorization verified and saved privately. Existing publishing credentials unchanged; no social content deleted.')
+
+
 def activate(action):
     if action not in ('enable-daily','disable-daily'): raise ValueError('Unknown activation action')
     gh('variable','set','DAILY_POSTING_ENABLED','--repo',REPO,'--body','true' if action=='enable-daily' else 'false')
@@ -166,6 +181,7 @@ def main():
     p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["GITHUB_DISPATCH_TOKEN"])
     subs.add_parser("authorize-instagram")
     subs.add_parser("authorize-facebook")
+    subs.add_parser("authorize-instagram-deletion")
     subs.add_parser("authorize-buffer")
     subs.add_parser("verify-facebook")
     p=subs.add_parser("activation"); p.add_argument("action",choices=["enable-daily","disable-daily"])
@@ -180,6 +196,7 @@ def main():
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()
     elif args.command=="authorize-facebook": authorize_facebook()
+    elif args.command=="authorize-instagram-deletion": authorize_instagram_deletion()
     elif args.command=="authorize-buffer": authorize_buffer()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
     elif args.command=="activation": activate(args.action)

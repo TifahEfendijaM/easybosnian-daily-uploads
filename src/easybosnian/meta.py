@@ -149,6 +149,91 @@ class Facebook:
             values['after'] = after
         return self.call("GET", self.page_id + "/stories", values)
 
+    def owned_ids(self, kind):
+        edge = {'feed':'published_posts', 'photo':'photos', 'story':'stories'}[kind]
+        values = {'limit':100}
+        if kind != 'story': values['fields'] = 'id'
+        if kind == 'photo': values['type'] = 'uploaded'
+        return owned_ids(self, self.page_id+'/'+edge, values, 'post_id' if kind == 'story' else 'id')
+
+    def delete(self, object_id):
+        if not re.fullmatch(r'\d+(?:_\d+)?', object_id): raise ValueError('Invalid Facebook media identifier')
+        if self.call('DELETE', object_id).get('success') is not True:
+            raise ValueError('Facebook did not confirm deletion; replacement stopped')
+
+
+def owned_ids(provider, path, values, field='id'):
+    result = set(); after = None
+    for _ in range(50):
+        page = provider.call('GET', path, {**values, **({'after':after} if after else {})})
+        if not isinstance(page.get('data'), list) or any(not x.get(field) for x in page['data']):
+            raise ValueError('Owned media listing is incomplete; refusing to infer deletion')
+        result.update(str(x[field]) for x in page['data'])
+        if not page.get('paging', {}).get('next'): return result
+        cursor = page.get('paging', {}).get('cursors', {}).get('after')
+        if not cursor or cursor == after: raise ValueError('Owned media pagination is incomplete')
+        after = cursor
+    raise ValueError('Owned media exceeded the bounded listing; replacement requires manual cleanup')
+
+
+class InstagramDeletion:
+    """Separate Facebook Login user token; never replaces Instagram Login."""
+    def __init__(self, token=None, user_id=None):
+        self.token = token or os.getenv('INSTAGRAM_DELETE_ACCESS_TOKEN')
+        self.user_id = user_id or os.getenv('INSTAGRAM_DELETE_USER_ID')
+        if not self.token or not self.user_id:
+            raise ValueError('Instagram deletion needs Facebook Login authorization for the linked Easy Bosnian Page')
+        if not re.fullmatch(r'\d+', self.user_id): raise ValueError('Invalid Instagram deletion account identifier')
+        version = os.environ['META_GRAPH_VERSION']
+        if not re.fullmatch(r'v\d+\.0', version): raise ValueError('Invalid Graph version')
+        self.base = 'https://graph.facebook.com/'+version
+
+    call = Facebook.call
+
+    def verify_account(self):
+        permissions = self.call('GET', 'me/permissions')
+        granted = {p['permission'] for p in permissions['data'] if p['status']=='granted'}
+        if not {'instagram_basic','instagram_manage_contents','pages_read_engagement','pages_show_list'} <= granted:
+            raise ValueError('Instagram deletion authorization is missing its required permissions')
+        page = self.call('GET', '1284422991426579', {'fields':'id,name,instagram_business_account{id,username}'})
+        ig = page.get('instagram_business_account') or {}
+        if page.get('id')!='1284422991426579' or page.get('name')!='Easy Bosnian' or ig.get('id')!=self.user_id or ig.get('username','').casefold()!='easy_bosnian':
+            raise ValueError('Instagram deletion does not authorize @easy_bosnian through the exact Easy Bosnian Page')
+        return ig
+
+    def owned_ids(self, kind):
+        if kind not in ('feed','story'): raise ValueError('Invalid Instagram media kind')
+        return owned_ids(self, self.user_id+('/media' if kind=='feed' else '/stories'), {'fields':'id','limit':100})
+
+    def delete(self, object_id):
+        if not re.fullmatch(r'\d+', object_id): raise ValueError('Invalid Instagram media identifier')
+        result = self.call('DELETE', object_id)
+        if result.get('success') is not True or str(result.get('deleted_id')) != object_id:
+            raise ValueError('Instagram did not confirm deletion of the expected media; replacement stopped')
+
+
+def instagram_deletion_token(user_token, app_secret):
+    """Long-lived Facebook User token for this app and only the linked target."""
+    app_id = '1987873818544936'; version = os.environ['META_GRAPH_VERSION']
+    if not re.fullmatch(r'v\d+\.0',version): raise ValueError('Invalid Graph version')
+    base = 'https://graph.facebook.com/'+version
+    exchanged = request('GET',base+'/oauth/access_token?'+urlencode({
+        'grant_type':'fb_exchange_token','client_id':app_id,'client_secret':app_secret,'fb_exchange_token':user_token}))
+    token = exchanged['access_token']
+    headers = {'Authorization':'Bearer '+token}
+    page = request('GET',base+'/1284422991426579?'+urlencode({'fields':'id,name,instagram_business_account{id,username}'}),headers=headers)
+    ig = page.get('instagram_business_account') or {}
+    if ig.get('username','').casefold()!='easy_bosnian' or not re.fullmatch(r'\d+',str(ig.get('id',''))):
+        raise ValueError('Link @easy_bosnian to the exact Easy Bosnian Page before deletion authorization')
+    InstagramDeletion(token,ig['id']).verify_account()
+    debug = request('GET',base+'/debug_token?'+urlencode({'input_token':token}),headers={'Authorization':'Bearer '+app_id+'|'+app_secret})['data']
+    required = {'instagram_basic','instagram_manage_contents','pages_read_engagement','pages_show_list'}
+    if debug.get('is_valid') is not True or str(debug.get('app_id'))!=app_id or debug.get('type')!='USER' or not required <= set(debug.get('scopes',[])):
+        raise ValueError('Meta did not verify the correct app and required deletion scopes')
+    expiry = min(x for x in [debug.get('expires_at'),debug.get('data_access_expires_at')] if x) if debug.get('expires_at') else 0
+    if not expiry or expiry-time.time()<40*86400: raise ValueError('Deletion token is not a long-lived Facebook User token')
+    return token, {'app_id':app_id,'page_id':'1284422991426579','instagram_id':ig['id'],'instagram_username':'easy_bosnian','expires_at':expiry,'scopes':sorted(required),'publication':'No post was created or deleted during authorization'}
+
 
 
 def facebook_page_token(user_token, app_id, app_secret, page_id):
