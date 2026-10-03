@@ -26,12 +26,12 @@ function dispatchFixture() {
   return {env,records,calls,fetch};
 }
 
-test('both UTC candidates select one 12:30 Sarajevo dispatch, including DST transition days',async t=>{
+test('both UTC candidates select one 13:30 Sarajevo dispatch, including DST transition days',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
   for(const [date,summer] of [['2026-07-01',true],['2026-12-01',false],['2026-03-29',true],['2026-10-25',false]]) {
-    for(const hour of ['10','11']) await dailyPreparationDispatch(fixture.env,new Date(date+'T'+hour+':30:00Z'));
+    for(const hour of ['11','12']) await dailyPreparationDispatch(fixture.env,new Date(date+'T'+hour+':30:00Z'));
     assert.equal(fixture.records.get(date).status,'accepted');
-    assert.equal(fixture.records.get(date).scheduled_at,date+(summer?'T10':'T11')+':30:00.000Z');
+    assert.equal(fixture.records.get(date).scheduled_at,date+(summer?'T11':'T12')+':30:00.000Z');
   }
   const posts=fixture.calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,4);
   for(const {options} of posts) {
@@ -45,7 +45,7 @@ test('both UTC candidates select one 12:30 Sarajevo dispatch, including DST tran
 
 test('duplicate or concurrent cron delivery cannot send a second request',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
-  const when=new Date('2026-07-01T10:30:00Z');
+  const when=new Date('2026-07-01T11:30:00Z');
   await Promise.all([dailyPreparationDispatch(fixture.env,when),dailyPreparationDispatch(fixture.env,when)]);
   await dailyPreparationDispatch(fixture.env,when);
   assert.equal(fixture.calls.filter(c=>c.options.method==='POST').length,1);
@@ -60,7 +60,7 @@ test('non-204 and network failures remain claimed and fail without retry',async 
       if(failure==='network') throw Error('private provider details must not enter logs');
       return new Response(null,{status:failure});
     });
-    const when=new Date('2026-07-01T10:30:00Z');
+    const when=new Date('2026-07-01T11:30:00Z');
     await assert.rejects(dailyPreparationDispatch(fixture.env,when),/no automatic retry/);
     await dailyPreparationDispatch(fixture.env,when);
     assert.equal(fixture.calls.filter(c=>c.options.method==='POST').length,1);
@@ -77,7 +77,7 @@ test('disabled scheduler and inactive hours never dispatch',async t=>{
   await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T10:00:00Z')); // former 12:00 local start stays inactive
   await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T08:00:00Z')); // former 10:00 local start stays inactive
   await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T03:00:00Z')); // former 05:00 local start stays inactive
-  await dailyPreparationDispatch({...fixture.env,PREPARATION_DISPATCH_ENABLED:'false'},new Date('2026-07-01T10:30:00Z'));
+  await dailyPreparationDispatch({...fixture.env,PREPARATION_DISPATCH_ENABLED:'false'},new Date('2026-07-01T11:30:00Z'));
   assert.equal(fixture.calls.length,0);assert.equal(fixture.records.size,0);
 });
 
@@ -117,8 +117,8 @@ test('repository redirects fail before sending a dispatch or following the desti
 
 test('late delivery uses scheduledTime and verify never consumes a daily claim',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
-  t.mock.timers.enable({apis:['Date'],now:new Date('2026-07-01T10:35:00Z')});
-  let pending;await worker.scheduled({scheduledTime:new Date('2026-07-01T10:30:00Z').getTime()},fixture.env,{waitUntil(p){pending=p;}});await pending;
+  t.mock.timers.enable({apis:['Date'],now:new Date('2026-07-01T11:35:00Z')});
+  let pending;await worker.scheduled({scheduledTime:new Date('2026-07-01T11:30:00Z').getTime()},fixture.env,{waitUntil(p){pending=p;}});await pending;
   assert.equal(fixture.records.get('2026-07-01').status,'accepted');
 });
 
@@ -148,4 +148,26 @@ test('FLUX uses reviewed prompt and cache without a generation intent table',asy
   const send=async prompt=>worker.fetch(new Request('https://example.test/v1/generate',{method:'POST',headers:{Authorization:'Bearer private','Content-Type':'application/json'},body:JSON.stringify({date:'2026-10-03',kind:'quiz',prompt})}),env);
   assert.equal((await send('wrong')).status,409);assert.equal(generated,0);
   assert.equal((await send('reviewed prompt')).status,200);assert.equal((await send('reviewed prompt')).status,200);assert.equal(generated,1);
+});
+
+test('gate logs distinguish inactive delivery and disabled starts without secrets',async t=>{
+  const fixture=dispatchFixture(),logs=[];
+  t.mock.method(console,'log',value=>logs.push(JSON.parse(value)));
+  await dailyPreparationDispatch(fixture.env,new Date('2026-10-03T10:30:00Z'));
+  await dailyPreparationDispatch({...fixture.env,PREPARATION_DISPATCH_ENABLED:'false'},new Date('2026-10-03T11:30:00Z'));
+  assert.deepEqual(logs.map(x=>x.decision),['outside_local_start','disabled']);
+  assert.equal(logs[0].sarajevo_time,'2026-10-03 12:30');
+  assert.equal(fixture.records.size,0);assert.equal(fixture.calls.length,0);
+  assert.ok(!JSON.stringify(logs).includes(fixture.env.GITHUB_DISPATCH_TOKEN));
+});
+
+test('pre-claim scheduled failures are visible and do not reveal provider details',async t=>{
+  const fixture=dispatchFixture(),logs=[];
+  fixture.env.DB.prepare=()=>{throw Error('private provider details');};
+  t.mock.method(console,'error',value=>logs.push(JSON.parse(value)));
+  let pending;
+  await worker.scheduled({scheduledTime:new Date('2026-10-03T11:30:00Z').getTime()},fixture.env,{waitUntil(p){pending=p;}});
+  await assert.rejects(pending,/Scheduled preparation failed/);
+  assert.deepEqual(logs,[{event:'preparation_cron_failed'}]);
+  assert.equal(fixture.records.size,0);assert.equal(fixture.calls.length,0);
 });

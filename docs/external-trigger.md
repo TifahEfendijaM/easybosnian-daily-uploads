@@ -1,8 +1,10 @@
 # External daily trigger
 
-The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **12:30 Europe/Sarajevo**. Its one cron is `30 10,11 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local 12:30, selecting 10:30 UTC in summer or 11:30 UTC in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
+The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **13:30 Europe/Sarajevo**. Its one cron is `30 11,12 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local 13:30, selecting 11:30 UTC in summer or 12:30 UTC in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
 
-Today, October 3, has no dispatch claim after the user's rejected-batch reset, so the 12:30 start remains eligible. [Cloudflare documents](https://developers.cloudflare.com/workers/configuration/cron-triggers/) that cron changes can take up to 15 minutes to propagate. The schedule is configured for today as well; a last-minute change does not guarantee its first delivery. No extra retry/catch-up trigger is added.
+[Cloudflare documents](https://developers.cloudflare.com/workers/configuration/cron-triggers/) that cron changes can take up to 15 minutes to propagate. Finish a same-day clock deployment at least 20 minutes before the requested slot; if that margin is missed, explicitly target the next day. A Git commit does not deploy this Worker. Only an actual Wrangler deployment updates its live bundle and registered cron. No extra retry/catch-up trigger is added.
+
+On October 3 the 12:30 clock was uploaded at 12:24:49 Sarajevo and registered at 12:24:56, less than six minutes before the slot. The active deployed version and downloaded bundle matched that clock. Cloudflare's scheduled-event history contained the earlier 12:00 event but no 12:30 event, and D1 contained no dispatch claim. Propagation delay is the likely explanation, not a proven provider root cause. No daily run was dispatched manually.
 
 Before contacting GitHub, D1 atomically inserts the date into preparation_dispatches. Duplicate cron deliveries and failed/uncertain/crash-interrupted claims cannot send another scheduled request. This protects only launch delivery, not publication. There is no automatic retry or missing-run alert.
 
@@ -16,8 +18,19 @@ POST https://api.github.com/repos/TifahEfendijaM/easybosnian-daily-uploads/actio
 {"ref":"main","inputs":{"mode":"daily"}}
 ```
 
-Headers retain Bearer authentication, Accept application/vnd.github+json, project User-Agent, Content-Type application/json and GitHub API version 2022-11-28. Only status/mode are logged. Require HTTP 204; non-204 or network failure throws and preserves the claim without retry. redirect:manual remains because Workers does not support redirect:error, and credentials must not follow a redirect.
+Headers retain Bearer authentication, Accept application/vnd.github+json, project User-Agent, Content-Type application/json and GitHub API version 2022-11-28. Only clock/gate decisions and status/mode are logged; credentials, content and provider response bodies are excluded. The gate log occurs before either inactive-time or disabled-start return, so an invoked but skipped event can be distinguished from no invocation. Scheduled failures also produce a generic error log without provider details. Require HTTP 204; non-204 or network failure throws and preserves the claim without retry. redirect:manual remains because Workers does not support redirect:error, and credentials must not follow a redirect.
 
 POST /v1/scheduler/verify is admin-protected and sends mode=verify. It cannot prepare, publish or consume a daily claim. GET /v1/scheduler/status exposes only private recent cron records. Run scripts/test_external_trigger.py after the migration/deployment sequence and require the actual verify run to pass. A manual verify does not prove future cron delivery or publication.
 
 The workflow on main must accept daily **before** deploying/arming the new Worker, or GitHub rejects the input with 422. Keep PREPARATION_DISPATCH_ENABLED false during rollout. Exact commands, migration effects and unused-secret cleanup are in migration-and-rollout.md.
+
+## Clock consistency and deployment
+
+Before every deploy through scripts/cloudflare_deploy.py, validate_schedule compares the Worker hour/minute gate to both the real ignored wrangler.toml and committed wrangler.example.toml. It derives the summer/winter UTC candidates from Europe/Sarajevo and refuses any mismatch before invoking Wrangler. Run it explicitly before a direct Wrangler deploy too. CI checks the committed example; only the deployment host can check its ignored real config.
+
+```sh
+python -c "import sys; sys.path.insert(0, 'scripts'); from cloudflare_deploy import validate_schedule; validate_schedule()"
+# Then use the existing guarded deployment procedure; read back the live cron and version.
+```
+
+CI deployment would remove the manual merge/deploy gap, but needs a separate least-privilege Cloudflare deploy credential, protected environment and a config assembled from this project's resource IDs. It must run after successful checks, perform the same clock check, and verify the live bundle/crons after deployment. Do not reuse the Worker-only GitHub dispatch token or desktop OAuth session. CI deployment is not enabled by this change; no new access was requested.

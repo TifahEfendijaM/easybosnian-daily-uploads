@@ -39,7 +39,9 @@ export async function dispatchPreparation(env,mode) {
 }
 export async function dailyPreparationDispatch(env,when) {
   const f=sarajevoTime(when);
-  if(f.hour!=='12' || f.minute!=='30' || env.PREPARATION_DISPATCH_ENABLED!=='true') return;
+  const enabled=env.PREPARATION_DISPATCH_ENABLED==='true',matches=!(f.hour!=='13' || f.minute!=='30');
+  console.log(JSON.stringify({event:'preparation_cron_gate',scheduled_at:when.toISOString(),sarajevo_time:`${f.year}-${f.month}-${f.day} ${f.hour}:${f.minute}`,dispatch_enabled:enabled,decision:!matches?'outside_local_start':!enabled?'disabled':'eligible'}));
+  if(!matches || !enabled) return;
   if(env.PROJECT_ID!==PROJECT || env.GITHUB_REPOSITORY!==REPO) throw Error('Dispatch repository/project mismatch');
   const date=`${f.year}-${f.month}-${f.day}`;
   // This claim deduplicates cron deliveries only; no publication state is kept.
@@ -110,5 +112,10 @@ export default {
       return response({error:'Not found'},404);
     } catch {return response({error:'Operation failed; inspect content validity, provider status and free limits'},409);}
   },
-  async scheduled(controller,env,ctx) {ctx.waitUntil(dailyPreparationDispatch(env,new Date(controller.scheduledTime)));}
+  async scheduled(controller,env,ctx) {
+    ctx.waitUntil(dailyPreparationDispatch(env,new Date(controller.scheduledTime)).catch(()=>{
+      console.error(JSON.stringify({event:'preparation_cron_failed'}));
+      throw Error('Scheduled preparation failed; inspect private gate and dispatch status logs; no automatic retry');
+    }));
+  }
 };

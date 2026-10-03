@@ -52,4 +52,35 @@ class WorkerSecretBoundaries(unittest.TestCase):
             self.assertNotIn(value,output.getvalue())
 
 
+class ScheduleConsistency(unittest.TestCase):
+    def test_committed_example_matches_actual_worker(self):
+        self.assertEqual(setup.validate_schedule(ROOT/'cloudflare/wrangler.example.toml'),'30 11,12 * * *')
+
+    def fixture(self,directory):
+        root=Path(directory);(root/'cloudflare').mkdir()
+        (root/'cloudflare/worker.mjs').write_text("if(f.hour!=='13' || f.minute!=='30') return;")
+        for name in ('wrangler.toml','wrangler.example.toml'):
+            (root/'cloudflare'/name).write_text('[triggers]\ncrons = ["30 11,12 * * *"]\n')
+        return root
+
+    def test_real_and_example_must_both_match_dst_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=self.fixture(directory)
+            with patch.object(setup,'ROOT',root):
+                self.assertEqual(setup.validate_schedule(),'30 11,12 * * *')
+                for name in ('wrangler.toml','wrangler.example.toml'):
+                    path=root/'cloudflare'/name;original=path.read_text()
+                    path.write_text(original.replace('11,12','10,11'))
+                    with self.assertRaisesRegex(ValueError,'clock mismatch'):setup.validate_schedule()
+                    path.write_text(original)
+
+    def test_deploy_refuses_mismatch_before_any_provider_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=self.fixture(directory)
+            (root/'cloudflare/worker.mjs').write_text("if(f.hour!=='13' || f.minute!=='07') return;")
+            with patch.object(setup,'ROOT',root),patch.object(setup.subprocess,'run') as command:
+                with self.assertRaisesRegex(ValueError,'clock mismatch'):setup.wrangler('deploy')
+                command.assert_not_called()
+
+
 if __name__=='__main__': unittest.main()
