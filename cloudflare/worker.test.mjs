@@ -185,6 +185,8 @@ function dispatchFixture() {
       }};
   }}};
   const fetch=async(url,options={})=>{
+    // Workers supports manual/follow, and credentials must never follow redirects.
+    assert.equal(options.redirect,'manual');
     calls.push({url,options});
     if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true,default_branch:'main'});
     assert.equal(url,'https://api.github.com/repos/'+REPO+'/actions/workflows/preparation.yml/dispatches');
@@ -282,4 +284,16 @@ test('manual verify runs cannot satisfy the missing daily-run check',async t=>{
   };}}};
   await watchdog(env,new Date('2026-07-01T04:59:00Z'));
   assert.equal(issues.length,1);assert.match(issues[0].body,/no matching recover_today run/);
+});
+
+test('repository redirects fail before sending a dispatch or following the destination',async t=>{
+  const fixture=dispatchFixture();
+  t.mock.method(globalThis,'fetch',async(url,options)=>{
+    fixture.calls.push({url,options});
+    assert.equal(options.redirect,'manual');
+    return new Response(null,{status:301,headers:{Location:'https://example.test/redirect'}});
+  });
+  await assert.rejects(dispatchPreparation(fixture.env,'verify'),/repository check HTTP 301/);
+  assert.equal(fixture.calls.length,1);
+  assert.equal(fixture.calls[0].url,'https://api.github.com/repos/'+REPO);
 });

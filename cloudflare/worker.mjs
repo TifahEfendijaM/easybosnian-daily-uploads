@@ -74,7 +74,7 @@ export async function dispatchPreparation(env,mode) {
   const base=`https://api.github.com/repos/${REPO}`;
   const headers={Authorization:`Bearer ${env.GITHUB_DISPATCH_TOKEN}`,Accept:'application/vnd.github+json','User-Agent':PROJECT,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'};
   let identity;
-  try {identity=await fetch(base,{headers,redirect:'error',signal:AbortSignal.timeout(15000)});}
+  try {identity=await fetch(base,{headers,redirect:'manual',signal:AbortSignal.timeout(15000)});}
   catch {throw dispatchError('GitHub repository check failed; no dispatch was sent');}
   console.log(JSON.stringify({event:'preparation_repository_check',mode,http_status:identity.status}));
   if(identity.status!==200) throw dispatchError(`GitHub repository check HTTP ${identity.status}; check token access`,identity.status);
