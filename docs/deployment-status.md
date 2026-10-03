@@ -1,5 +1,13 @@
 # Setup status — 2026-10-02
 
+## Latest schedule and Stories — 2026-10-03
+
+The user rescheduled external preparation to **10:00 daily Europe/Sarajevo, including today**, retaining the existing Cloudflare Worker → private GitHub API route. The UTC candidates are 08:00/09:00 and only intended local 10:00 can dispatch. The reporting-only check moves to **11:59 Sarajevo** (09:59/10:59 UTC). GitHub cron remains removed, publication follows successful preparation immediately, and no retry exists. Same-date D1 claims and immutable batch/publication guards are preserved.
+
+The user also reinstated automatic image-card Instagram Stories, superseding the earlier native-reshare request. The repository settings are INSTAGRAM_STORY_MODE=image and INSTAGRAM_STORIES_ENABLED=true. The existing writer pads each published 1080×1350 card to 1080×1920, preserving text/logo and reusing cached artwork, saved intents and verified Story IDs. Highlights and TikTok Stories remain manual.
+
+Today's private state already confirms the three-image Instagram feed, Facebook, Buffer TikTok and all three image Stories. The 10:00 start is configured for today, but preparation will recognize the already-published immutable batch and emit no second publishing handoff. No batch is reset or replaced to force a new publication. Earlier times and Story decisions below are historical and superseded by this latest instruction.
+
 ## External-trigger change
 
 The approved change is applied and active as of 2026-10-03. The existing Free Worker starts preparation at **05:00 daily Europe/Sarajevo**, selecting the valid 03:00/04:00 UTC event. GitHub's preparation schedule is removed, and publication still follows successful preparation immediately. D1 claims each date before sending one recover_today request; duplicate deliveries and failed/uncertain outcomes never trigger automatic resend. Existing monitoring remains at 06:59 Sarajevo and reports the dispatch record plus actual daily run.

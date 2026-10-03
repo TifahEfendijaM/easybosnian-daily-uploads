@@ -52,11 +52,11 @@ The daily handoff attempts Instagram and Facebook independently, reusing the sam
 
 ## Instagram Stories and Highlights
 
-On 2026-10-03 the user clarified that the desired Stories are native tappable **shares of the original carousel**. The prior implementation uploaded standalone padded images, which does not meet that request. It is now disabled: `INSTAGRAM_STORIES_ENABLED=false`, `INSTAGRAM_STORY_MODE=native_reshare_manual`. The native mode takes precedence even if the old enable flag is accidentally left true. Daily results report the manual requirement, never a successful native reshare.
+The latest 2026-10-03 instruction reinstates direct image Stories, replacing the earlier native-reshare request. Set **INSTAGRAM_STORIES_ENABLED=true** and **INSTAGRAM_STORY_MODE=image** in this private repository. The existing Instagram authorization already published and verified all three 2026-10-03 image Stories; no new token or consent is required for this restoration.
 
-Meta's documented media publisher creates new image/video Story containers using a hosted image/video URL. It exposes no parameter for resharing an existing feed carousel as a native post sticker. Story stickers, including link stickers, are unsupported. The separate Sharing to Stories SDK passes assets to the Android/iOS Instagram composer, where the user must publish; it does not enable a GitHub cloud job to perform a native post reshare. To do the requested share, open the published carousel in Instagram and use **Share → Add to story**.
+After verified carousel publication, use the exact three cached 1080×1350 cards in quiz/lesson/word order, centered on 1080×1920 palette-coloured canvases. Preserve the instructional text and original transparent logo; no new FLUX image is requested. Save intent and returned Story IDs separately, then verify ownership, Story product type and the actual permalink. Already-verified Story IDs are reused, and an uncertain publish outcome never triggers blind resubmission. Today’s feed and Stories are already complete and will not be duplicated by the 10:00 preparation start.
 
-Read-only reconciliation of the three standalone image Stories already published on 2026-10-03 remains available with `easybosnian stories --mode reconcile --date 2026-10-03`. Do not remove or republish these without user instruction. The old image writer must not be re-enabled without a renewed user request.
+`easybosnian stories --mode reconcile --date YYYY-MM-DD` remains a read-only reconciliation path. Native tappable post reshares are no longer the requested automatic Story format.
 
 Meta's documented IG User operations do not include creating Highlights or adding Stories to them. The requested mapping remains a manual action in Instagram: quiz → **Pitanje dana**, lesson → **Znaš li?**, word → **Riječ dana**. No automated Highlight completion is claimed.
 

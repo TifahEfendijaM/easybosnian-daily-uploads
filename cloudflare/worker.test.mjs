@@ -68,23 +68,23 @@ test('project identity rejects cross-project binding',async()=>{
   const r=await worker.fetch(new Request('https://example.test/health'),{PROJECT_ID:'wrong'});
   assert.equal(r.status,503);
 });
-test('watchdog only runs at Sarajevo 06:59 in both seasons',async()=>{
+test('watchdog only runs at Sarajevo 11:59 in both seasons',async()=>{
   let reads=0;
   const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_enabled":false}'})};}}};
-  await watchdog(env,new Date('2026-07-01T04:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-07-01T05:59:00Z')); assert.equal(reads,1);
-  await watchdog(env,new Date('2026-12-01T05:59:00Z')); assert.equal(reads,2);
-  await watchdog(env,new Date('2026-12-01T04:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-07-01T09:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-07-01T10:59:00Z')); assert.equal(reads,1);
+  await watchdog(env,new Date('2026-12-01T10:59:00Z')); assert.equal(reads,2);
+  await watchdog(env,new Date('2026-12-01T09:59:00Z')); assert.equal(reads,2);
 });
 
 test('late cron delivery still runs the intended Sarajevo monitoring check',async t=>{
-  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-03T05:01:00Z')});
+  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-03T10:01:00Z')});
   let reads=0, pending;
   const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_authorized":false}'})};}}};
-  await worker.scheduled({scheduledTime:new Date('2026-10-03T04:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
+  await worker.scheduled({scheduledTime:new Date('2026-10-03T09:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
   await pending;
   assert.equal(reads,1);
-  await worker.scheduled({scheduledTime:new Date('2026-10-03T05:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
+  await worker.scheduled({scheduledTime:new Date('2026-10-03T10:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
   await pending;
   assert.equal(reads,1,'the other-season trigger must remain inactive');
 });
@@ -143,7 +143,7 @@ test('armed cloud schedule reports missing first preparation while publication i
       bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:null,
       run:async()=>({meta:{changes:1}})
     };}}};
-    await watchdog(env,new Date('2026-10-02T04:59:00Z'));
+    await watchdog(env,new Date('2026-10-02T09:59:00Z'));
     assert.equal(issues.length,2);
     assert.ok(issues.some(x=>x.title.includes('cloud preparation scheduling')));
     assert.ok(issues.every(x=>x.body.includes('nothing published')));
@@ -156,17 +156,17 @@ test('confirmed reusable publication does not require a separate pipeline cron r
   globalThis.fetch=async(url,options={})=>{
     assert.ok(url.startsWith('https://api.github.com/repos/'+REPO));
     if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true});
-    if(url.includes('/actions/workflows/preparation.yml/runs')) return Response.json({workflow_runs:[{event:'workflow_dispatch',head_branch:'main',display_title:'EasyBosnian preparation (recover_today)',created_at:'2026-10-02T03:00:00Z',status:'completed',conclusion:'success',html_url:'https://github.com/'+REPO+'/actions/runs/123'}]});
+    if(url.includes('/actions/workflows/preparation.yml/runs')) return Response.json({workflow_runs:[{event:'workflow_dispatch',head_branch:'main',display_title:'EasyBosnian preparation (recover_today)',created_at:'2026-10-02T08:00:00Z',status:'completed',conclusion:'success',html_url:'https://github.com/'+REPO+'/actions/runs/123'}]});
     if(url.endsWith('/issues')) {issues.push(JSON.parse(options.body));return Response.json({number:1});}
     throw Error('A separate scheduled publisher must not be queried');
   };
   try {
     const config={daily_enabled:true,daily_authorized:true,healthchecks_deferred:true};
     const env={GITHUB_REPOSITORY:REPO,NOTIFY_GITHUB_TOKEN:'private',DB:{prepare(sql){return{
-      bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:sql.includes('preparation_dispatches')?{status:'accepted',http_status:204,scheduled_at:'2026-10-02T03:00:00Z'}:{state:JSON.stringify({verified:true})},
+      bind(){return this;},first:async()=>sql.includes('settings')?{value:JSON.stringify(config)}:sql.includes('preparation_dispatches')?{status:'accepted',http_status:204,scheduled_at:'2026-10-02T08:00:00Z'}:{state:JSON.stringify({verified:true})},
       run:async()=>({meta:{changes:1}})
     };}}};
-    await watchdog(env,new Date('2026-10-02T04:59:00Z'));
+    await watchdog(env,new Date('2026-10-02T09:59:00Z'));
     assert.equal(issues.length,0);
   } finally {globalThis.fetch=original;}
 });
@@ -195,12 +195,12 @@ function dispatchFixture() {
   return {env,records,calls,fetch};
 }
 
-test('both UTC candidates select one 05:00 Sarajevo dispatch, including DST transition days',async t=>{
+test('both UTC candidates select one 10:00 Sarajevo dispatch, including DST transition days',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
   for(const [date,summer] of [['2026-07-01',true],['2026-12-01',false],['2026-03-29',true],['2026-10-25',false]]) {
-    for(const hour of ['03','04']) await dailyPreparationDispatch(fixture.env,new Date(date+'T'+hour+':00:00Z'));
+    for(const hour of ['08','09']) await dailyPreparationDispatch(fixture.env,new Date(date+'T'+hour+':00:00Z'));
     assert.equal(fixture.records.get(date).status,'accepted');
-    assert.equal(fixture.records.get(date).scheduled_at,date+(summer?'T03':'T04')+':00:00.000Z');
+    assert.equal(fixture.records.get(date).scheduled_at,date+(summer?'T08':'T09')+':00:00.000Z');
   }
   const posts=fixture.calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,4);
   for(const {options} of posts) {
@@ -214,7 +214,7 @@ test('both UTC candidates select one 05:00 Sarajevo dispatch, including DST tran
 
 test('duplicate or concurrent cron delivery cannot send a second request',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
-  const when=new Date('2026-07-01T03:00:00Z');
+  const when=new Date('2026-07-01T08:00:00Z');
   await Promise.all([dailyPreparationDispatch(fixture.env,when),dailyPreparationDispatch(fixture.env,when)]);
   await dailyPreparationDispatch(fixture.env,when);
   assert.equal(fixture.calls.filter(c=>c.options.method==='POST').length,1);
@@ -229,7 +229,7 @@ test('non-204 and network failures remain claimed and fail without retry',async 
       if(failure==='network') throw Error('private provider details must not enter logs');
       return new Response(null,{status:failure});
     });
-    const when=new Date('2026-07-01T03:00:00Z');
+    const when=new Date('2026-07-01T08:00:00Z');
     await assert.rejects(dailyPreparationDispatch(fixture.env,when),/no automatic retry/);
     await dailyPreparationDispatch(fixture.env,when);
     assert.equal(fixture.calls.filter(c=>c.options.method==='POST').length,1);
@@ -242,10 +242,11 @@ test('non-204 and network failures remain claimed and fail without retry',async 
 
 test('disabled scheduler, inactive hours and unauthorized daily publishing never dispatch',async t=>{
   const fixture=dispatchFixture();t.mock.method(globalThis,'fetch',fixture.fetch);
-  await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T03:07:00Z'));
-  await dailyPreparationDispatch({...fixture.env,PREPARATION_DISPATCH_ENABLED:'false'},new Date('2026-07-01T03:00:00Z'));
+  await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T08:07:00Z'));
+  await dailyPreparationDispatch(fixture.env,new Date('2026-07-01T03:00:00Z')); // former 05:00 local start stays inactive
+  await dailyPreparationDispatch({...fixture.env,PREPARATION_DISPATCH_ENABLED:'false'},new Date('2026-07-01T08:00:00Z'));
   const paused={...fixture.env,DB:{prepare(){return {first:async()=>({value:'{"daily_authorized":false}'})};}}};
-  await dailyPreparationDispatch(paused,new Date('2026-07-01T03:00:00Z'));
+  await dailyPreparationDispatch(paused,new Date('2026-07-01T08:00:00Z'));
   assert.equal(fixture.calls.length,0);assert.equal(fixture.records.size,0);
 });
 
@@ -275,14 +276,14 @@ test('manual verify runs cannot satisfy the missing daily-run check',async t=>{
   const issues=[];
   t.mock.method(globalThis,'fetch',async(url,options={})=>{
     if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true});
-    if(url.includes('runs?event=workflow_dispatch')) return Response.json({workflow_runs:[{event:'workflow_dispatch',head_branch:'main',display_title:'EasyBosnian preparation (verify)',created_at:'2026-07-01T03:01:00Z'}]});
+    if(url.includes('runs?event=workflow_dispatch')) return Response.json({workflow_runs:[{event:'workflow_dispatch',head_branch:'main',display_title:'EasyBosnian preparation (verify)',created_at:'2026-07-01T08:01:00Z'}]});
     if(url.endsWith('/issues')) {issues.push(JSON.parse(options.body));return Response.json({number:1});}
     throw Error('Unexpected request');
   });
   const env={GITHUB_REPOSITORY:REPO,NOTIFY_GITHUB_TOKEN:'private',DB:{prepare(sql){return {
-    bind(){return this;},first:async()=>sql.includes('settings')?{value:'{"daily_authorized":true,"daily_enabled":true,"healthchecks_deferred":true}'}:sql.includes('preparation_dispatches')?{status:'accepted',scheduled_at:'2026-07-01T03:00:00Z'}:{state:'{"verified":true}'},run:async()=>({meta:{changes:1}})
+    bind(){return this;},first:async()=>sql.includes('settings')?{value:'{"daily_authorized":true,"daily_enabled":true,"healthchecks_deferred":true}'}:sql.includes('preparation_dispatches')?{status:'accepted',scheduled_at:'2026-07-01T08:00:00Z'}:{state:'{"verified":true}'},run:async()=>({meta:{changes:1}})
   };}}};
-  await watchdog(env,new Date('2026-07-01T04:59:00Z'));
+  await watchdog(env,new Date('2026-07-01T09:59:00Z'));
   assert.equal(issues.length,1);assert.match(issues[0].body,/no matching recover_today run/);
 });
 
