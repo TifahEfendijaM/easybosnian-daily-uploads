@@ -94,6 +94,9 @@ jobs:
         env:
           MODE: ${{ inputs.mode }}
         run: easybosnian run --mode "$MODE"
+      - name: Inspect Facebook cleanup identities without deleting or publishing
+        if: success() && inputs.mode == 'verify'
+        run: python scripts/inspect_facebook_cleanup.py
       - name: Report otherwise unhandled workflow failure
         if: failure()
         env:
