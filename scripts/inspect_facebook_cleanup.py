@@ -31,7 +31,8 @@ def probe(label, path, values):
                 entry['ids'] = [{k: row[k] for k in ('id', 'post_id', 'media_id', 'status') if k in row}
                                 for row in data['data']]
             else:
-                entry['identity'] = {k: data[k] for k in ('id', 'page_story_id') if k in data}
+                entry['identity'] = {k: data[k] for k in ('id', 'page_story_id', 'can_delete') if k in data}
+                if 'from' in data: entry['owner_id'] = data['from'].get('id')
                 entry['node_type'] = data.get('metadata', {}).get('type')
     except HTTPError as error:
         body = json.loads(error.read()).get('error', {})
@@ -53,6 +54,6 @@ for item in items:
         probe('bare_story', item['object_id'], {'fields': 'id', 'metadata': '1'})
         probe('page_scoped_story', facebook.page_id + '_' + item['object_id'], {'fields': 'id', 'metadata': '1'})
     elif item['kind'] == 'photo':
-        probe('photo_' + item['object_id'], item['object_id'], {'fields': 'id,page_story_id', 'metadata': '1'})
+        probe('photo_' + item['object_id'], item['object_id'], {'fields': 'id,page_story_id,from{id},can_delete'})
 write_json(ROOT / 'build' / today() / 'facebook-cleanup-result.json', result)
 print(json.dumps(result, separators=(',', ':')))
