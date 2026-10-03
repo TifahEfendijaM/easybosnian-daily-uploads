@@ -16,16 +16,14 @@ def cleanup(store, date, platform):
     items = [x for x in store.publications(date) if x['platform'] == platform]
     if not items: return {'removed':0, 'already_absent':0}
     if platform == 'tiktok':
-        if os.getenv('TIKTOK_PREVIOUS_REMOVED') != 'true':
-            raise ValueError('Delete today\'s previous TikTok post in TikTok, then select tiktok_previous_removed; Buffer cannot delete published TikTok posts')
         from .buffer import Buffer
         provider = Buffer(); provider.verify_channel()
         if any(x['account_id'] != provider.channel_id for x in items):
             raise ValueError('Recorded TikTok items belong to a different channel')
-        # This is the user's explicit manual-deletion acknowledgement, never an
-        # API claim that deleting a Buffer record deletes an upstream social post.
-        for x in items: store.forget(date, platform, x['object_id'])
-        return {'removed':0, 'manually_removed':len(items)}
+        # Buffer cannot delete these upstream posts. Preserve known IDs without
+        # claiming manual deletion or making the next upload depend on a checkbox.
+        return {'removed':0, 'previous_posts_recorded':len(items),
+                'deletion':'manual; not checked or performed'}
     provider = InstagramDeletion() if platform == 'instagram' else Facebook()
     provider.verify_account() if platform == 'instagram' else provider.verify_page()
     # Instagram Login and Facebook Login can identify this verified profile

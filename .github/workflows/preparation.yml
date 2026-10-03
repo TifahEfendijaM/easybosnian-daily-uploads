@@ -44,10 +44,6 @@ on:
         description: 'Custom only: Riječ dana word; fill only when its action is entered'
         type: string
         default: ''
-      tiktok_previous_removed:
-        description: 'Daily rerun: tick ONLY after deleting today’s previous TikTok post yourself (required for TikTok replacement)'
-        type: boolean
-        default: false
 permissions:
   contents: read
   issues: write
@@ -68,7 +64,6 @@ jobs:
       CUSTOM_WORD_1_ACTION: ${{ inputs.custom_word_1_action }}
       CUSTOM_WORD_2_ACTION: ${{ inputs.custom_word_2_action }}
       CUSTOM_WORD_3_ACTION: ${{ inputs.custom_word_3_action }}
-      TIKTOK_PREVIOUS_REMOVED: ${{ inputs.tiktok_previous_removed }}
       INSTAGRAM_DELETE_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_DELETE_ACCESS_TOKEN }}
       INSTAGRAM_DELETE_USER_ID: ${{ secrets.INSTAGRAM_DELETE_USER_ID }}
       DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}

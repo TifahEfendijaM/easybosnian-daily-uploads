@@ -16,6 +16,8 @@ class WorkflowSyntaxTests(unittest.TestCase):
     def test_rerun_form_has_explicit_modes_and_custom_only_word_actions(self):
         document=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
         inputs=document['on']['workflow_dispatch']['inputs']
+        self.assertNotIn('tiktok_previous_removed',inputs)
+        self.assertNotIn('TIKTOK_PREVIOUS_REMOVED',document['jobs']['run']['env'])
         self.assertEqual(inputs['mode']['options'],['verify','preview','daily'])
         self.assertEqual(inputs['content_selection']['options'],['same_words','same_theme','new','custom'])
         for i in (1,2,3):

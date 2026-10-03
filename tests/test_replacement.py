@@ -127,14 +127,31 @@ class ReplacementTests(unittest.TestCase):
                 with self.assertRaises((ValueError,RuntimeError)):cleanup(store,'2026-10-03','instagram')
             store.forget.assert_not_called()
 
-    def test_tiktok_requires_explicit_manual_deletion_acknowledgement(self):
+    def test_tiktok_rerun_needs_no_acknowledgement_and_never_claims_or_performs_deletion(self):
         store=MagicMock();store.publications.return_value=[self.item(platform='tiktok')]
-        with patch.dict(os.environ,{'TIKTOK_PREVIOUS_REMOVED':'false'}),patch('easybosnian.replacement.require_publishing'):
-            with self.assertRaisesRegex(ValueError,'Buffer cannot delete'):cleanup(store,'2026-10-03','tiktok')
         buffer=MagicMock();buffer.channel_id='42'
-        with patch.dict(os.environ,{'TIKTOK_PREVIOUS_REMOVED':'true'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.buffer.Buffer',return_value=buffer):
-            self.assertEqual(cleanup(store,'2026-10-03','tiktok')['manually_removed'],1)
-        buffer.call.assert_not_called();store.forget.assert_called_once()
+        with patch.dict(os.environ,{},clear=True),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.buffer.Buffer',return_value=buffer):
+            result=cleanup(store,'2026-10-03','tiktok')
+        self.assertEqual(result,{'removed':0,'previous_posts_recorded':1,'deletion':'manual; not checked or performed'})
+        buffer.verify_channel.assert_called_once();buffer.call.assert_not_called();store.forget.assert_not_called()
+        store.publications.return_value[0]['account_id']='wrong'
+        with patch('easybosnian.replacement.require_publishing'),patch('easybosnian.buffer.Buffer',return_value=buffer),self.assertRaisesRegex(ValueError,'different channel'):
+            cleanup(store,'2026-10-03','tiktok')
+        store.forget.assert_not_called()
+
+    def test_daily_submits_new_tiktok_content_when_previous_posts_remain_recorded(self):
+        from easybosnian.daily import daily
+        store=MagicMock();store.content.return_value=reviewed_fixture();store.history.return_value={'days':[]}
+        store.publications.return_value=[self.item(platform='tiktok')]
+        buffer=MagicMock();buffer.channel_id='42'
+        env={'GITHUB_ACTIONS':'true','DAILY_POSTING_ENABLED':'true','TIKTOK_POSTING_ENABLED':'true'}
+        with patch.dict(os.environ,env,clear=True),patch('easybosnian.daily.verify_repository'),patch('easybosnian.daily.Store',return_value=store),patch('easybosnian.daily.artwork',return_value={}),patch('easybosnian.daily.publish_instagram',return_value={'published':True,'status':'published'}),patch('easybosnian.daily.publish_tiktok',return_value={'published':True,'status':'published'}) as submit,patch('easybosnian.buffer.Buffer',return_value=buffer),patch('easybosnian.daily.write_json'):
+            result=daily('2026-10-03','daily')
+        submit.assert_called_once()
+        self.assertTrue(result['tiktok']['published'])
+        self.assertEqual(result['tiktok']['replacement_cleanup']['previous_posts_recorded'],1)
+        self.assertEqual(result['tiktok']['replacement_cleanup']['removed'],0)
+        store.forget.assert_not_called();buffer.call.assert_not_called()
 
     def test_recording_does_not_depend_on_verification(self):
         store=MagicMock();recorder(store,'2026-10-03','facebook')('feed','123','42')
