@@ -48,7 +48,7 @@
     {
       "url": "https://www.pravopis.ba/pravopisni-rjecnik",
       "title": "Pravopis bosanskoga jezika",
-      "supports": "Draft renderer fixture; individual dictionary entries still need verification before any queue save.",
+      "supports": "Draft renderer fixture; individual dictionary entries still need verification before any history save.",
       "checked_at": "2026-10-02T15:30:00+02:00"
     }
   ],
@@ -69,7 +69,7 @@
     "no_answer_leak_checked": false,
     "history_checked_at": "2026-10-02T15:30:00+02:00",
     "reviewed_at": "2026-10-02T15:30:00+02:00",
-    "reviewer": "RENDERER FIXTURE — DO NOT QUEUE",
+    "reviewer": "RENDERER FIXTURE — DO NOT SAVE AS REVIEWED",
     "notes": "Unpublished design fixture. Not researched or checked against live Cloudflare history; flags intentionally false."
   },
   "cards": [

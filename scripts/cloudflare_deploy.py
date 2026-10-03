@@ -48,14 +48,12 @@ def save_local(name,value):
 
 def put_worker_secret(name,value):
     verify_repository(remote=True)
-    if name not in ('NOTIFY_GITHUB_TOKEN','HC_WATCHDOG_URL'):
-        raise ValueError('Only this project monitoring secrets are supported')
+    if name != 'GITHUB_DISPATCH_TOKEN':
+        raise ValueError('Only this project dispatch secret is supported')
     if not value or any(c.isspace() for c in value):
         raise ValueError('Enter one complete credential without spaces')
-    if name=='NOTIFY_GITHUB_TOKEN' and not value.startswith('github_pat_'):
+    if name=='GITHUB_DISPATCH_TOKEN' and not value.startswith('github_pat_'):
         raise ValueError('Use the newly generated fine-grained GitHub token')
-    if name=='HC_WATCHDOG_URL' and not re.fullmatch(r'https://hc-ping\.com/[a-f0-9-]{36}',value):
-        raise ValueError('Use the private Healthchecks ping URL')
     state=json.loads((ROOT/'cloudflare/deployment.json').read_text())
     if state.get('project')!=PROJECT or not state.get('worker_deployed') or not state.get('free_workers_verified'):
         raise ValueError('This project free deployment has not been verified')
@@ -72,7 +70,7 @@ def put_worker_secret(name,value):
     wrangler('secret','put',name,'--config','wrangler.toml',input_text=value)
     checked=cf(token,state['account_id'],'GET',f'/workers/scripts/{NAME}/settings')
     if not any(b.get('name')==name and b.get('type')=='secret_text' for b in checked.get('bindings',[])):
-        raise ValueError('Cloudflare did not confirm the monitoring secret binding')
+        raise ValueError('Cloudflare did not confirm the dispatch secret binding')
     print(name+' saved privately to this project Worker; no post was made')
 
 
@@ -114,10 +112,8 @@ def deploy(account,free_confirmed=False,free_evidence=None):
     config=config.replace('REPLACE_WITH_NEW_DATABASE_ID',state['database_id']).replace('REPLACE_WITH_NEW_NAMESPACE_ID',state['kv_id'])
     config='account_id = "'+account+'"\n'+config
     (ROOT/'cloudflare/wrangler.toml').write_text(config)
-    # Every migration is idempotent; preserve this project's existing history.
-    for migration in sorted((ROOT/'cloudflare/migrations').glob('*.sql')):
-        for sql in migration.read_text().split(';'):
-            if sql.strip(): cf(token,account,'POST',f'/d1/database/{state["database_id"]}/query',{'sql':sql})
+    # Wrangler records applied migrations. Never replay the destructive transition.
+    wrangler('d1','migrations','apply',NAME,'--remote','--config','wrangler.toml')
     # Official deploy validates syntax and bindings. No provider generation or publication is run.
     output=wrangler('deploy','--config','wrangler.toml')
     match=re.search(r'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev',output)
@@ -147,7 +143,7 @@ def deploy(account,free_confirmed=False,free_evidence=None):
     if history.get('project')!=PROJECT: raise ValueError('Private history check failed')
     state.update(worker_url=url,free_workers_verified=True,free_plan_evidence=free_evidence or 'account subscriptions or explicit user confirmation')
     write_json(state_path,state)
-    print(json.dumps({'deployed':url,'project':PROJECT,'history_batches':len(history['batches']),'daily_posting':'waiting for Instagram and monitoring authorization'}))
+    print(json.dumps({'deployed':url,'project':PROJECT,'history_batches':len(history['days']),'daily_posting':'controlled by DAILY_POSTING_ENABLED'}))
 
 
 if __name__=='__main__':

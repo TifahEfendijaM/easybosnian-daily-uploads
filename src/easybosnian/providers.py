@@ -16,7 +16,7 @@ class CloudflareFlux(BackgroundProvider):
 
     def generate(self, prompt, date=None, kind=None):
         # The private Worker AI binding avoids a broad Cloudflare deployment token in Actions.
-        # It verifies the prompt against the reserved package and caches completed artwork.
+        # It verifies the prompt against the reviewed history content and caches completed artwork.
         result = Store().call("POST", "/v1/generate", {"date":date,"kind":kind,"prompt":prompt})
         return base64.b64decode(result["image"], validate=True)
 

@@ -3,15 +3,11 @@ import hashlib
 import os
 import re
 import time
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from .artwork import artwork
-from .core import ROOT, gh, today, verify_repository, write_json, publication_monitoring_ready
-from .facebook import checked_batch
+from .core import ROOT, require_publishing, write_json
 from .http import SafeError, redact, request
 from .notify import failure
-from .store import Store
 
 
 TARGET = "easy.bosnian"
@@ -100,178 +96,51 @@ class Buffer:
         return self.call("query($input: PostInput!) { post(input:$input) { " + POST_FIELDS + " } }",
                          {"input": {"id": post_id}})["post"]
 
-    def recent(self):
-        return self.call("query($input: PostsInput!) { posts(first:100,input:$input) { "
-                         "edges { node { " + POST_FIELDS + " } } pageInfo { hasNextPage } } }", {"input": {
-                             "organizationId": self.organization_id,
-                             "filter": {"channelIds": [self.channel_id]},
-                             "sort": [{"field": "createdAt", "direction": "desc"}]}})["posts"]
 
 
-def checked_post(buffer, record, actual, capture=False, store=None, date=None):
-    state = record["state"]["platforms"]["tiktok"]
-    if (actual.get("id") != state.get("post_id") or actual.get("channelId") != buffer.channel_id
-            or actual.get("channelService") != "tiktok" or actual.get("text") != caption(record["package"])
-            or actual.get("schedulingType") != "automatic"):
-        raise ValueError("Buffer post identity, caption or automatic publishing differs from the reviewed batch")
-    assets = actual.get("assets", [])
-    if len(assets) != 3 or any(not a.get("mimeType", "").startswith("image/") or not a.get("source") for a in assets):
-        raise ValueError("Buffer post does not contain three identified image assets")
-    hashes = None
-    if store is not None:
-        # Buffer backfills accepted media onto its own hosting URLs. Compare the
-        # actual ordered files to the immutable original cards, never just URLs.
-        hashes = [hashlib.sha256(store.get_file(date, card["kind"] + "-card.jpg")).hexdigest()
-                  for card in record["package"]["cards"]]
-        actual_hashes = [hashlib.sha256(request("GET", a["source"], raw=True)).hexdigest() for a in assets]
-        if actual_hashes != hashes or (state.get("asset_sha256") and state["asset_sha256"] != hashes):
-            raise ValueError("Buffer post image bytes or order differ from the three reviewed cards")
-    if capture:
-        if hashes is None and [a["source"] for a in assets] != state["image_urls"]:
-            raise ValueError("Buffer's submitted image URLs differ from the three reviewed cards in order")
-        state["asset_ids"] = [a.get("id") for a in assets]
-        if hashes is not None:
-            state["asset_sha256"] = hashes
-    else:
-        expected = state.get("asset_ids", [])
-        if len(expected) != 3 or any(
-                a.get("id") != asset_id if asset_id else hashes is None and a["source"] != url
-                for a, asset_id, url in zip(assets, expected, state["image_urls"])):
-            raise ValueError("Buffer post image identities or order have changed")
-    return state
+def checked_post(buffer, package, post_id, actual, assets):
+    if (actual.get('id')!=post_id or actual.get('channelId')!=buffer.channel_id
+            or actual.get('channelService')!='tiktok' or actual.get('text')!=caption(package)
+            or actual.get('schedulingType')!='automatic'):
+        raise ValueError('Buffer post identity, caption or publishing type differs from reviewed content')
+    actual_assets=actual.get('assets',[])
+    if len(actual_assets)!=3 or any(not a.get('mimeType','').startswith('image/') or not a.get('source') for a in actual_assets):
+        raise ValueError('Buffer post must contain three image assets')
+    expected=[hashlib.sha256(assets[c['kind']]['path'].read_bytes()).hexdigest() for c in package['cards']]
+    received=[hashlib.sha256(request('GET',a['source'],raw=True)).hexdigest() for a in actual_assets]
+    if received!=expected: raise ValueError('Buffer image bytes or order differ from the reviewed cards')
+    status=actual.get('status')
+    if status not in ('scheduled','sending','sent'): raise ValueError('Buffer reports a failed, draft or approval-only post')
+    if status!='sent' or not actual.get('externalLink'): return None
+    parsed=urlparse(actual['externalLink'])
+    if parsed.scheme!='https' or parsed.hostname not in ('www.tiktok.com','tiktok.com') or not re.fullmatch(r'/@easy\.bosnian/(photo|video)/[0-9]+/?',parsed.path) or not actual.get('sentAt'):
+        raise ValueError('Buffer returned no actual @easy.bosnian publication permalink')
+    return actual['externalLink']
 
 
-def verify_post(buffer, store, date, record, actual):
-    state = checked_post(buffer, record, actual, store=store, date=date)
-    state["buffer_status"] = actual["status"]
-    if actual["status"] == "error":
-        raise ValueError("Buffer reports TikTok publication failed; inspect the post in Buffer; no retry")
-    if actual["status"] not in ("scheduled", "sending", "sent"):
-        raise ValueError("TikTok post is a draft or needs approval instead of automatic publication")
-    if actual["status"] != "sent" or not actual.get("externalLink"):
-        store.save(date, record)
-        return False
-    parsed = urlparse(actual["externalLink"])
-    if (parsed.scheme != "https" or parsed.hostname not in ("www.tiktok.com", "tiktok.com")
-            or not re.fullmatch(r"/@easy\.bosnian/(photo|video)/[0-9]+/?", parsed.path)
-            or not actual.get("sentAt")):
-        raise ValueError("Buffer has not returned an actual @easy.bosnian TikTok publication permalink")
-    state.update(verified=True, permalink=actual["externalLink"], verified_by="Buffer API sent status and asset read-back",
-                 verified_at=datetime.now(timezone.utc).isoformat())
-    store.save(date, record)
-    return True
-
-
-def reconcile(buffer, store, date, record):
-    state = record["state"]["platforms"]["tiktok"]
-    if not state.get("publish_intent"):
-        raise ValueError("No TikTok submission intent exists to reconcile")
-    if not state.get("post_id"):
-        recent = buffer.recent()
-        if recent.get("pageInfo", {}).get("hasNextPage"):
-            raise ValueError("Buffer reconciliation exceeds one page; inspect Buffer manually without reposting")
-        intent = datetime.fromisoformat(state["publish_intent_at"])
-        matches = [e["node"] for e in recent["edges"] if e["node"].get("text") == caption(record["package"])
-                   and e["node"].get("channelId") == buffer.channel_id
-                   and datetime.fromisoformat(e["node"]["createdAt"].replace("Z", "+00:00")) >= intent
-                   and [a.get("source") for a in e["node"].get("assets", [])] == state["image_urls"]]
-        if len(matches) != 1:
-            raise ValueError("TikTok submission remains uncertain; no new Buffer post will be created")
-        state["post_id"] = identifier(matches[0]["id"])
-        checked_post(buffer, record, matches[0], capture=True, store=store, date=date)
-        store.save(date, record)
-    actual = buffer.post(state["post_id"])
-    if not state.get("asset_ids"):
-        checked_post(buffer, record, actual, capture=True, store=store, date=date)
-        store.save(date, record)
-    return verify_post(buffer, store, date, record, actual)
-
-
-def pipeline_tiktok(date=None, mode="reconcile"):
-    verify_repository(remote=True)
-    date = date or today()
-    stage, record = "TikTok storage", None
-    store = Store()
+def publish_tiktok(package, assets):
+    date=package['date'];stage='TikTok authorization';result={'batch':date,'published':False}
+    publication='nothing submitted to TikTok'
     try:
-        stage = "TikTok validation"
-        record = checked_batch(store, date)
-        state = record["state"].setdefault("platforms", {}).setdefault("tiktok", {})
-        if mode not in ("live", "reconcile"):
-            raise ValueError("TikTok supports live publishing or read-only reconciliation")
-        config = store.call("GET", "/v1/config")
-        if mode == "live" and (os.getenv("TIKTOK_POSTING_ENABLED") != "true" or not config.get("daily_enabled")
-                               or not config.get("daily_authorized") or not publication_monitoring_ready(config)):
-            raise ValueError("Buffer TikTok authorization/activation or reviewed preparation is incomplete")
-        stage = "TikTok authorization"
-        buffer = Buffer()
-        account = buffer.verify_channel()
-        if state.get("channel_id") and (state["channel_id"] != buffer.channel_id or state.get("service_id") != account["serviceId"]):
-            raise ValueError("This TikTok batch already belongs to another confirmed account")
-        state.update(channel_id=buffer.channel_id, service_id=account["serviceId"], run_url=os.getenv("GITHUB_RUN_URL"))
-        store.save(date, record)
-        if state.get("verified"):
-            if not verify_post(buffer, store, date, record, buffer.post(state["post_id"])):
-                raise ValueError("Previously confirmed TikTok post is no longer confirmed by Buffer; inspect it manually")
-        elif mode == "reconcile":
-            stage = "TikTok publication verification"
-            if not reconcile(buffer, store, date, record):
-                raise ValueError("Buffer has not confirmed TikTok publication; submission is retained without reposting")
-        else:
-            if state.get("publish_intent") and not state.get("post_id"):
-                raise ValueError("Previous TikTok submission is uncertain; use read-only reconciliation")
-            if not state.get("post_id"):
-                text = caption(record["package"])
-                output = artwork(store, date, record)
-                urls = []
-                for card in record["package"]["cards"]:
-                    kind = card["kind"]
-                    shared = record["state"]["cards"][kind]
-                    stage = "TikTok storage"
-                    if not shared.get("public_url"):
-                        shared["public_url"] = store.expose(date, kind + "-card.jpg")
-                        store.save(date, record)
-                    if request("GET", shared["public_url"], raw=True) != (output / (kind + "-card.jpg")).read_bytes():
-                        raise ValueError("TikTok image bytes differ from the reviewed renderer output")
-                    urls.append(shared["public_url"])
-                stage = "TikTok publishing"
-                state.update(publish_intent=True, publish_intent_at=datetime.now(timezone.utc).isoformat(), image_urls=urls)
-                store.save(date, record)
-                actual = buffer.create(text, urls)
-                state["post_id"] = identifier(actual["id"])
-                # Save the returned ID even if later asset/content verification fails.
-                store.save(date, record)
-                checked_post(buffer, record, actual, capture=True, store=store, date=date)
-                store.save(date, record)
-            elif not state.get("asset_ids"):
-                checked_post(buffer, record, buffer.post(state["post_id"]), capture=True, store=store, date=date)
-                store.save(date, record)
-            stage = "TikTok publication verification"
-            # Read-only polling of one accepted submission is not a scheduled retry.
-            for attempt in range(13):
-                if verify_post(buffer, store, date, record, buffer.post(state["post_id"])):
-                    break
-                if attempt == 12:
-                    raise ValueError("Buffer accepted the post but has not confirmed TikTok publication within four minutes; inspect the saved ID; no repost")
-                time.sleep(20)
-        state.pop("failed_stage", None); state.pop("last_error", None)
-        state["status"] = "Buffer-confirmed TikTok publication"
-        store.save(date, record)
-        write_json(ROOT / "build" / date / "tiktok-result.json", {"batch": date, "status": state["status"],
-                   "post_id": state["post_id"], "permalink": state["permalink"], "verified_by": state["verified_by"]})
-        return state
+        require_publishing()
+        if os.getenv('TIKTOK_POSTING_ENABLED')!='true': raise ValueError('TikTok publisher is disabled')
+        buffer=Buffer();buffer.verify_channel();stage='TikTok publishing';require_publishing()
+        publication='Buffer submission outcome uncertain'
+        accepted=buffer.create(caption(package),[assets[c['kind']]['url'] for c in package['cards']])
+        post_id=identifier(accepted['id']);result['post_id']=post_id
+        # Diagnostic artifacts are not a durable gate or a recovery state machine.
+        publication='Buffer accepted; TikTok publication unconfirmed'
+        write_json(ROOT/'build'/date/'tiktok-result.json',{**result,'status':publication})
+        stage='TikTok publication verification'
+        for attempt in range(13):
+            permalink=checked_post(buffer,package,post_id,buffer.post(post_id),assets)
+            if permalink: break
+            if attempt==12: raise ValueError('Buffer has not confirmed publication within four minutes; inspect the returned post ID')
+            time.sleep(20)  # Read-only polling of this request, not another publication.
+        result.update(published=True,permalink=permalink,status='Buffer-confirmed TikTok publication')
+        write_json(ROOT/'build'/date/'tiktok-result.json',result);return result
     except Exception as error:
-        stage = getattr(error, "stage", None) or stage
-        state = record["state"].get("platforms", {}).get("tiktok", {}) if record else {}
-        status = "Buffer-confirmed published" if state.get("verified") else "Buffer accepted; TikTok publication unconfirmed" if state.get("post_id") else "uncertain submission" if state.get("publish_intent") else "nothing submitted to TikTok"
-        message = redact(error)
-        if record:
-            state.update(failed_stage=stage, last_error=message)
-            try: store.save(date, record)
-            except Exception: pass
-        report = failure(date, stage, message, status, os.getenv("GITHUB_RUN_URL"))
-        try: store.call("POST", "/v1/events", {"date": date, "stage": stage, "error": message, "publication": status, "run_url": os.getenv("GITHUB_RUN_URL")})
-        except Exception: pass
-        write_json(ROOT / "build" / date / "tiktok-result.json", {"batch": date, "status": status,
-                   "failed_stage": stage, "post_id": state.get("post_id"), "error": message})
-        print(report)
-        raise RuntimeError("TikTok pipeline failed at " + stage) from None
+        result.update(status=publication,failed_stage=stage)
+        write_json(ROOT/'build'/date/'tiktok-result.json',result)
+        print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
+        raise SafeError('TikTok failed at '+stage,stage) from None

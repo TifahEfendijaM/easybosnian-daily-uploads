@@ -12,4 +12,4 @@ if __name__ == "__main__":
     if result.get("github_status") != 204 or result.get("mode") != "verify":
         raise RuntimeError("Worker did not confirm the expected verify-only dispatch")
     print(json.dumps(result, indent=2))
-    print("Request accepted, not workflow completion. Check the new verify run in this private repository; both publication jobs must be skipped.")
+    print("Request accepted, not workflow completion. Check the new verify run in this private repository; the render/publish step must be skipped.")

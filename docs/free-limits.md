@@ -1,29 +1,9 @@
-# Free services and cost boundary
+# Free service boundaries
 
-Verified against official documentation on 2026-10-02. This project uses no paid OpenAI API, R2 checkout, paid posting service, paid fallback or automatic plan upgrade. It stops at free limits.
+Use the existing Workers Free account, D1 and KV only. No paid model/API, R2, paid Buffer plan, auto-upgrade or paid failure fallback.
 
-| Service | Documented free allowance | Project use |
-|---|---|---|
-| Workers AI | 10,000 neurons/day, reset 00:00 UTC | Three FLUX.1 Schnell images/day, four steps each. Documented rate: 4.8 neurons per 512×512 tile plus 9.6 per step. At 1024², about 57.6 neurons/image, 172.8/day. Exact output size/usage is provider-controlled. |
-| Workers | 100,000 requests/day, 10ms CPU/invocation | Small private API, cached public JPEGs and one daily health check; generation runs on AI infrastructure. Monitor CPU limit errors. |
-| KV | 1GB, 100,000 reads/day, 1,000 writes/list/deletes per day | 14-day TTL; six private JPEGs plus three public copies/day, max 3MB each, plus three cached base64 AI responses. Roughly 400–550MB at maximum image bounds. Repeated exposures also consume space/operations. |
-| D1 | 5 million rows read/day, 100,000 rows written/day, 5GB total | Permanent history/reservations and small batch state. No automatic deletion. |
-| GitHub Free | 2,000 standard runner minutes/month, 500MB shared artifact/Packages storage | Linux runners only; 15-minute job ceiling; seven-day diagnostics. Account allowances are shared with other work, without inspecting or modifying other repositories. |
-| Buffer Free | Official pricing documents 3 channels, 10 queued posts/channel and 3,000 requests/month; the actual account dashboard currently shows 100/15 min, 500/day and 10,000/30 days. Use the lower documented monthly bound. | One TikTok channel, one immediate three-image post/day and at most 13 read-only status checks. Fewer than 600 publishing requests/month; setup/readiness checks share the quota. Stop on quota/plan errors; no paid upgrade. |
-| Healthchecks Hobbyist | 20 monitored jobs, 100 log entries/job | Three checks for preparation, pipeline and monitoring. Email alerts; no paid phone/SMS integration. |
+A normal day needs three Free FLUX.1 Schnell backgrounds, four steps each, then local Pillow rendering. Previews and same-day replacements may use additional Free quota; replacement invalidates that date's caches. Cached backgrounds are reused by a subsequent preview of the same row. Stop and report provider quota failures instead of switching services.
 
-Use the **Workers Free plan**. The deployment helper rejects an identified paid Workers subscription. In GitHub Billing, set an Actions budget of **$0** with usage blocked at its limit, especially if the account already has a payment method. Do not raise the budget or enable paid Workers to solve a quota failure. A quota failure is reported and waits for a deliberate action or the next day's independently new batch.
+KV stores generated/private/card/Story images for 14 days, with random public URLs for final images only. History and cron claims do not expire automatically. GitHub artifacts retain safe results/cards for seven days. GitHub private runners and ChatGPT preparation use the account's included allowance; subscription/runner limits can block a run and are not a reason to buy or silently use an API.
 
-Official sources:
-
-- [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
-- [FLUX.1 Schnell schema](https://developers.cloudflare.com/workers-ai/models/flux-1-schnell/)
-- [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)
-- [KV pricing](https://developers.cloudflare.com/kv/platform/pricing/)
-- [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)
-- [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
-- [Healthchecks pricing](https://healthchecks.io/pricing/)
-- [GitHub timezone-aware schedule syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onschedule)
-
-- [Buffer Free pricing and API quotas](https://buffer.com/pricing)
-- [Buffer personal API access](https://support.buffer.com/en-us/articles/what-is-buffers-api-GtIYIQilz5)
+Buffer remains on Free with one TikTok channel and one three-image feed post per routine day. Its conservative documented budget is 3,000 requests/month and ten queued posts per channel. Read-only polling is capped at 13 checks over four minutes for one accepted submission. No scheduled repost/retry exists. Instagram, Facebook and Stories similarly poll only their current containers/returned posts. Manually starting daily again can submit additional posts, as the user explicitly accepted.

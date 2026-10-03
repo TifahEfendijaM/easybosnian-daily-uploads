@@ -17,7 +17,7 @@ class SafeError(RuntimeError):
 def redact(message):
     message = str(message)
     for name, value in os.environ.items():
-        if value and any(k in name for k in ("TOKEN", "SECRET", "HC_", "PASSWORD", "API_KEY")):
+        if value and any(k in name for k in ("TOKEN", "SECRET", "PASSWORD", "API_KEY")):
             message = message.replace(value, "[REDACTED]")
     return re.sub(r"(?i)(access_token|client_secret|authorization)[=:\s]+[^\s&,]+", r"\1=[REDACTED]", message)[:900]
 

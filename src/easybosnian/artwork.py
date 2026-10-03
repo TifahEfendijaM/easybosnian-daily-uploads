@@ -1,46 +1,30 @@
-"""One cached set of FLUX backgrounds shared by all platform renderers."""
+"""Render today's reviewed history row once, sharing its cards across publishers."""
 import io
-
 from PIL import Image
-
 from .core import ROOT
-from .http import SafeError
+from .http import SafeError, request
 from .providers import provider
 from .render import render
 
 
-def artwork(store, date, record, vertical=False):
-    output = ROOT / "build" / date
-    output.mkdir(parents=True, exist_ok=True)
-    stage = "storage"
+def artwork(store, package, expose=False):
+    date=package['date']; output=ROOT/'build'/date; output.mkdir(parents=True,exist_ok=True)
+    assets={}; stage='FLUX generation'
     try:
-        for card in record["package"]["cards"]:
-            kind = card["kind"]
-            item = record["state"].setdefault("cards", {}).setdefault(kind, {})
-            background = output / f"{kind}-background.jpg"
-            if item.get("background_saved"):
-                stage = "storage"
-                background.write_bytes(store.get_file(date, background.name))
-            else:
-                stage = "FLUX generation"
-                Image.open(io.BytesIO(provider().generate(card["background_prompt"], date, kind))).convert("RGB").save(background, "JPEG", quality=95)
-                stage = "storage"
-                store.put_file(date, background.name, background.read_bytes())
-                item["background_saved"] = True
-                store.save(date, record)
-            key = "tiktok_render_saved" if vertical else "render_saved"
-            rendered = output / f"{kind}-{'tiktok' if vertical else 'card'}.jpg"
-            if item.get(key):
-                stage = "storage"
-                rendered.write_bytes(store.get_file(date, rendered.name))
-            else:
-                stage = "Pillow rendering"
-                metrics = render(card, record["package"]["design_palette"], background, rendered, tiktok=vertical)
-                stage = "storage"
-                store.put_file(date, rendered.name, rendered.read_bytes())
-                item[key] = True
-                item["tiktok_metrics" if vertical else "metrics"] = metrics
-                store.save(date, record)
-        return output
+        for card in package['cards']:
+            kind=card['kind']; background=output/f'{kind}-background.jpg'
+            stage='FLUX generation'
+            Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind))).convert('RGB').save(background,'JPEG',quality=95)
+            stage='Pillow rendering'
+            path=output/f'{kind}-card.jpg'
+            metrics=render(card,package['design_palette'],background,path)
+            stage='storage'; store.put_file(date,path.name,path.read_bytes())
+            item={'path':path,'alt_text':card['alt_text'],'metrics':metrics}
+            if expose:
+                item['url']=store.expose(date,path.name)
+                if request('GET',item['url'],raw=True)!=path.read_bytes():
+                    raise ValueError('Public image bytes differ from the reviewed renderer output')
+            assets[kind]=item
+        return assets
     except Exception as error:
-        raise SafeError(str(error), getattr(error, "stage", None) or stage) from None
+        raise SafeError(str(error),getattr(error,'stage',None) or stage) from None
