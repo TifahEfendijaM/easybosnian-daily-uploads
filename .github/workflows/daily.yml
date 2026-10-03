@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   pipeline:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event_name == 'schedule' && github.event.schedule == '0 5 * * *' && inputs.package_hash != ''))
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.DAILY_POSTING_ENABLED == 'true' && github.event_name == 'schedule' && inputs.package_hash != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
