@@ -31,7 +31,7 @@ def main():
     if os.getenv("GITHUB_ACTIONS") != "true" or (event_name != "schedule" and not recovery):
         raise ValueError("Only scheduled preparation or an explicitly authorized recovery can approve a handoff")
     event=read_json(os.environ["GITHUB_EVENT_PATH"])
-    if event_name=="schedule" and event.get("schedule") != "0 5 * * *":
+    if event_name=="schedule" and event.get("schedule") != "7 5 * * *":
         raise ValueError("Preparation schedule does not match the current daily authorization")
     if recovery and event.get("inputs",{}).get("mode")!="recover_today":
         raise ValueError("The recovery event was not explicitly selected; publishing is not due")

@@ -1,7 +1,7 @@
 name: EasyBosnian cloud ChatGPT preparation
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '7 5 * * *'
       timezone: Europe/Sarajevo
   workflow_dispatch:
     inputs:
