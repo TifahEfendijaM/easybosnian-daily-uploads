@@ -1,4 +1,5 @@
 """Publish this run's mixed Story treatments as Facebook Page photo Stories."""
+from .batches import output_key
 import os
 import time
 from urllib.parse import urlparse
@@ -52,12 +53,12 @@ def publish_facebook_stories(store, package, assets, record=None):
         palette = read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         for card in package['cards']:
             kind = card['kind']; stage = 'Facebook Stories rendering'
-            path = ROOT/'build'/date/f'{kind}-story.jpg'
+            path = ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
             story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'), card)
             body = path.read_bytes()
             if len(body) > 10_000_000:
                 raise ValueError('Facebook Story exceeds the 10 MB photo limit')
-            store.put_file(date, path.name, body); url = store.expose(date, path.name)
+            store.put_file(output_key(package), path.name, body); url = store.expose(output_key(package), path.name)
             if request('GET', url, raw=True) != body:
                 raise ValueError('Facebook Story bytes differ from the rendered Story')
             stage = 'Facebook Stories photo upload'; require_publishing()
@@ -71,9 +72,9 @@ def publish_facebook_stories(store, package, assets, record=None):
             item = {'slide': kind, 'photo_id': photo_id, 'post_id': post_id}; stories.append(item)
             stage = 'Facebook Stories verification'
             item['permalink'] = verify_story(facebook, post_id, photo_id)
-        result = {'batch': date, 'published': True, 'status': 'three Facebook image Stories confirmed published', 'stories': stories}
-        write_json(ROOT/'build'/date/'facebook-stories-result.json', result); return result
+        result = {'batch': date,'batch_id':package.get('batch_id'), 'published': True, 'status': 'three Facebook image Stories confirmed published', 'stories': stories}
+        write_json(ROOT/'build'/output_key(package)/'facebook-stories-result.json', result); return result
     except Exception as error:
-        write_json(ROOT/'build'/date/'facebook-stories-result.json', {'batch': date, 'published': False, 'status': publication, 'stories': stories, 'failed_stage': stage})
+        write_json(ROOT/'build'/output_key(package)/'facebook-stories-result.json', {'batch': date,'batch_id':package.get('batch_id'), 'published': False, 'status': publication, 'stories': stories, 'failed_stage': stage})
         print(failure(date, stage, error, publication, os.getenv('GITHUB_RUN_URL')))
         raise SafeError('Facebook Stories failed at '+stage, stage) from None

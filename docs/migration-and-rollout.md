@@ -1,3 +1,5 @@
+**Current rollout:** multiple-batch migration 0005 is described in [multiple-batches.md](multiple-batches.md). The material below is historical; do not replay migration 0003, rejected-artwork cleanup or old cron commands.
+
 # Reviewed migration and deployment order
 
 **Historical record:** the simplification and migration 0003 are already complete. The current clock is 05:00 Sarajevo. For the current additive identifier migration, deletion authorization and rerun rollout, follow [manual-reruns.md](manual-reruns.md). Do not replay the rejected-artwork cleanup or migration 0003.

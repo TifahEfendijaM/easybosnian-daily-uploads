@@ -11,8 +11,9 @@ from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
-from .selection import batch_date, selection_context, check_selection, novelty_history, word_levels
+from .selection import selection_context, check_selection, novelty_history, word_levels
 from .levels import load_level
+from .batches import identity, plan_batch
 
 
 AGENT_FAILURES = {
@@ -158,11 +159,12 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
-        if mode!='verify': date=batch_date(history,run_date,batch_target)
-        chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions) if mode!='verify' else {'choice':'new','previous':None}
+        plan=plan_batch(history,run_date,batch_target) if mode!='verify' else None
+        if plan:date=plan['date']
+        chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
         level=load_level()
         write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
-                                                       'batch_date':date,'run_date':run_date,'batch_target':batch_target})
+                                                       'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -178,10 +180,10 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
             result={'date':date,'status':'cloud connection verified','private_history_read':True,
                     'chatgpt_workspace_read_write':True,'publication':'No content prepared, saved, rendered or published'}
         else:
-            existing=next((x for x in history['days'] if x['date']==date),None)
+            existing=next((x for x in history['days'] if identity(x)==plan['batch_id']),None)
             if mode=='preview' and existing and existing['content'].get('schema_version')==1:
                 # User chose saved previews; no claim that this content was published.
-                package=existing['content'];validate(package,history);fit_check(package)
+                package=dict(existing['content'],batch_id=plan['batch_id']);validate(package);fit_check(package)
             else:
                 stage='cloud ChatGPT research/review';draft=ROOT/f'build/preparation/{date}.json';draft.unlink(missing_ok=True)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)
@@ -189,12 +191,15 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
+                if package.get('batch_id',plan['batch_id'])!=plan['batch_id']:raise ValueError('Draft has the wrong batch identity')
+                package['batch_id']=plan['batch_id'];write_json(draft,package)
                 stage='validation';check_selection(package,chosen)
                 validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
-                stage='preparation/history save';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date)
+                stage='preparation/history save';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}
         result.update(project=PROJECT,mode=mode,run_date=run_date,batch_target=batch_target)
+        if plan:result.update(batch_id=plan['batch_id'],cleanup_batch_id=plan['cleanup_batch_id'])
         write_json(ROOT/'build/preparation-result.json',result);print(json.dumps(result,indent=2));return result
     except Exception as error:
         print(failure(date,stage,error,'nothing published by this preparation step',os.getenv('GITHUB_RUN_URL')))

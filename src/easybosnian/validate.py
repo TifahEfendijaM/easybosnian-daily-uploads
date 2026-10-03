@@ -129,8 +129,10 @@ def validate(package, history=None, include_today=False, require_website_footer=
             raise ValueError("Sources require HTTPS")
     if history:
         new_themes,new_words=equivalents(package)
+        new_themes-=set(history.get('reused_theme_keys',[]));new_words-=set(history.get('reused_word_keys',[]))
         for day in history['days']:
-            if day['date']==package['date'] and not include_today: continue
+            same=day.get('batch_id',day['content'].get('batch_id'))==package['batch_id'] if package.get('batch_id') else day['date']==package['date']
+            if same and not include_today: continue
             old_themes,old_words=equivalents(day['content'])
             if new_themes & old_themes or new_words & old_words:
                 raise ValueError('Theme, word, alias or close variant repeats history content')

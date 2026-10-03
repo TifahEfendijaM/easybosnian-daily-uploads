@@ -45,9 +45,9 @@ on:
         type: string
         default: ''
       batch_target:
-        description: 'Leave latest for manual reruns, including after midnight; today starts the current date (used automatically at 05:00)'
+        description: 'latest = replace latest batch (also after midnight); none = add another post without deleting it'
         type: choice
-        options: [latest, today]
+        options: [latest, none]
         default: latest
 permissions:
   contents: read

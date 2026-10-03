@@ -1,4 +1,5 @@
 """TikTok publishing through the user's Free Buffer account; no TikTok app/client."""
+from .batches import output_key
 import hashlib
 import os
 import re
@@ -119,7 +120,7 @@ def checked_post(buffer, package, post_id, actual, assets):
 
 
 def publish_tiktok(package, assets, record=None):
-    date=package['date'];stage='TikTok authorization';result={'batch':date,'published':False}
+    date=package['date'];stage='TikTok authorization';result={'batch':date,'batch_id':package.get('batch_id'),'published':False}
     publication='nothing submitted to TikTok'
     try:
         require_publishing()
@@ -131,7 +132,7 @@ def publish_tiktok(package, assets, record=None):
         if record: record('feed',post_id,buffer.channel_id)
         # Diagnostic artifacts are not a durable gate or a recovery state machine.
         publication='Buffer accepted; TikTok publication unconfirmed'
-        write_json(ROOT/'build'/date/'tiktok-result.json',{**result,'status':publication})
+        write_json(ROOT/'build'/output_key(package)/'tiktok-result.json',{**result,'status':publication})
         stage='TikTok publication verification'
         for attempt in range(13):
             permalink=checked_post(buffer,package,post_id,buffer.post(post_id),assets)
@@ -139,9 +140,9 @@ def publish_tiktok(package, assets, record=None):
             if attempt==12: raise ValueError('Buffer has not confirmed publication within four minutes; inspect the returned post ID')
             time.sleep(20)  # Read-only polling of this request, not another publication.
         result.update(published=True,permalink=permalink,status='Buffer-confirmed TikTok publication')
-        write_json(ROOT/'build'/date/'tiktok-result.json',result);return result
+        write_json(ROOT/'build'/output_key(package)/'tiktok-result.json',result);return result
     except Exception as error:
         result.update(status=publication,failed_stage=stage)
-        write_json(ROOT/'build'/date/'tiktok-result.json',result)
+        write_json(ROOT/'build'/output_key(package)/'tiktok-result.json',result)
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
         raise SafeError('TikTok failed at '+stage,stage) from None

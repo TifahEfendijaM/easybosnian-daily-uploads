@@ -12,9 +12,10 @@ from .stories import publish_stories
 from .store import Store
 from .validate import validate
 from .replacement import cleanup, recorder
+from .batches import output_key
 
 
-def daily(date=None,mode='preview'):
+def daily(date=None,mode='preview',batch_id=None,replace=True):
     if mode not in ('verify','preview','daily'): raise ValueError('Mode must be verify, preview or daily')
     if mode=='verify':
         from .readiness import check_infrastructure
@@ -22,23 +23,29 @@ def daily(date=None,mode='preview'):
     verify_repository(remote=True);date=date or today();stage='storage'
     try:
         if mode=='daily': require_publishing()
-        store=Store();package=store.content(date);stage='validation';validate(package,store.history())
+        store=Store();package=store.content(batch_id or date)
+        if batch_id and package.get('batch_id')!=batch_id:raise ValueError('Stored content has a different batch identity')
+        if batch_id and package['date']!=date:raise ValueError('Stored content has a different content date')
+        date=package['date'];key=output_key(package);stage='validation'
+        # Novelty was checked against all history at the trusted save. Independent
+        # batches may deliberately reuse terms; keep full schema/editorial/secrecy checks.
+        validate(package)
         stage='rendering';assets=artwork(store,package,expose=mode=='daily')
     except Exception as error:
         stage=getattr(error,'stage',None) or stage
         print(failure(date,stage,error,'nothing published by this run',os.getenv('GITHUB_RUN_URL')))
         raise RuntimeError('Daily run failed before publication at '+stage) from None
     if mode=='preview':
-        result={'batch':date,'status':'unpublished preview','published':False}
-        write_json(ROOT/'build'/date/'result.json',result);return result
+        result={'batch':date,'batch_id':package.get('batch_id'),'status':'unpublished preview','published':False}
+        write_json(ROOT/'build'/key/'result.json',result);return result
     results={};failed=[];cleanup_warnings=[]
-    operations=[('instagram',lambda:publish_instagram(package,assets,record=recorder(store,date,'instagram')))]
+    operations=[('instagram',lambda:publish_instagram(package,assets,record=recorder(store,key,'instagram')))]
     for name,flag,publisher in [('facebook','FACEBOOK_POSTING_ENABLED',publish_facebook),('tiktok','TIKTOK_POSTING_ENABLED',publish_tiktok)]:
-        if os.getenv(flag)=='true': operations.append((name,lambda fn=publisher,platform=name:fn(package,assets,record=recorder(store,date,platform))))
+        if os.getenv(flag)=='true': operations.append((name,lambda fn=publisher,platform=name:fn(package,assets,record=recorder(store,key,platform))))
         else: results[name]={'status':'disabled','published':False}
     for name,operation in operations:
         try:
-            removed=cleanup(store,date,name)
+            removed=cleanup(store,key,name) if replace else {'status':'skipped; additional independent batch','removed':0}
         except Exception as error:
             removed={'status':'failed; new publication will still be attempted',
                      'error':redact(error), 'prior_content':'may remain or be partly removed'}
@@ -50,12 +57,12 @@ def daily(date=None,mode='preview'):
             # Publishers already write their artifact and private failure issue.
             failed.append(name);results[name]={'status':'failed; inspect platform result artifact','error':redact(error),'published':False,'replacement_cleanup':removed}
     if os.getenv('INSTAGRAM_STORIES_ENABLED')=='true' and results['instagram'].get('published'):
-        try: results['instagram_stories']=publish_stories(store,package,assets,record=recorder(store,date,'instagram'))
+        try: results['instagram_stories']=publish_stories(store,package,assets,record=recorder(store,key,'instagram'))
         except Exception as error:
             failed.append('instagram_stories');results['instagram_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['instagram_stories']={'status':'disabled or Instagram feed publication not confirmed in this run','published':False}
     if os.getenv('FACEBOOK_STORIES_ENABLED')=='true' and results['facebook'].get('published'):
-        try: results['facebook_stories']=publish_facebook_stories(store,package,assets,record=recorder(store,date,'facebook'))
+        try: results['facebook_stories']=publish_facebook_stories(store,package,assets,record=recorder(store,key,'facebook'))
         except Exception as error:
             failed.append('facebook_stories');results['facebook_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['facebook_stories']={'status':'disabled or Facebook feed publication not confirmed in this run','published':False}
@@ -72,6 +79,6 @@ def daily(date=None,mode='preview'):
             summary.write('\nReplacement cleanup warning: old content may remain. Cleanup failures did not block new publication.\n')
             for name,_ in cleanup_warnings:
                 summary.write('- '+name+': '+('new feed confirmed' if results[name].get('published') else 'new feed unconfirmed; inspect its artifact')+'\n')
-    write_json(ROOT/'build'/date/'platforms-result.json',{'batch':date,'platforms':results})
+    write_json(ROOT/'build'/key/'platforms-result.json',{'batch':date,'batch_id':package.get('batch_id'),'platforms':results})
     if failed: raise RuntimeError('Daily run failed for: '+', '.join(failed))
     return results

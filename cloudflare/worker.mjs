@@ -1,9 +1,25 @@
 import {privacy} from './privacy.mjs';
 export const REPO='TifahEfendijaM/easybosnian-daily-uploads';
 export const PROJECT='tifahefendijam-easybosnian-daily-uploads-v1';
-const DATE=/^\d{4}-\d{2}-\d{2}$/,KINDS=['quiz','lesson','word'],NAME=/^(quiz|lesson|word)-(background|card|story)\.jpg$/;
+const DATE=/^\d{4}-\d{2}-\d{2}$/,BATCH=/^(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})$/,KINDS=['quiz','lesson','word'],NAME=/^(quiz|lesson|word)-(background|card|story)\.jpg$/;
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
-async function row(env,date) {return env.DB.prepare('SELECT content_json FROM history WHERE date=?').bind(date).first();}
+async function row(env,id) {return env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE batch_id=?').bind(id).first();}
+async function legacyScope(env,date,write=false) {
+  const r=await env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE date=? ORDER BY created_at DESC,rowid DESC LIMIT 2').bind(date).all();
+  if(write && r.results.length>1) throw Error('Date is ambiguous; use an explicit batch ID');
+  return r.results[0] || null;
+}
+async function scope(env,key,write=false) {return DATE.test(key)?legacyScope(env,key,write):row(env,key);}
+async function saveHistory(env,p,id) {
+  safePackage(p,p.date);if(!BATCH.test(id) || p.batch_id!==id) throw Error('Invalid batch identity');
+  const result=await env.DB.prepare('INSERT INTO history(batch_id,date,created_at,theme_json,words_json,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(batch_id) DO UPDATE SET theme_json=excluded.theme_json,words_json=excluded.words_json,content_json=excluded.content_json WHERE history.date=excluded.date').bind(id,p.date,new Date().toISOString(),JSON.stringify(p.theme),JSON.stringify(p.words),JSON.stringify(p)).run();
+  if(!result.meta.changes) throw Error('Existing batch date differs');
+  const namespaces=[id,...(id==='legacy-'+p.date?[p.date]:[])];
+  for(const key of namespaces) for(const kind of KINDS) {await env.IMAGES.delete(`private-ai:${key}:${kind}`);for(const suffix of ['background','card','story']) await env.IMAGES.delete(`private:${key}:${kind}-${suffix}.jpg`);}
+}
+async function imageValue(env,key,id,date,options) {
+  return await env.IMAGES.get(key,options) || (id==='legacy-'+date?await env.IMAGES.get(key.replace(id,date),options):null);
+}
 function safePackage(p,date) {
   if(p.project!==PROJECT || p.schema_version!==1 || !DATE.test(date) || p.date!==date || p.cards?.length!==3 || p.words?.length!==3) throw Error('Invalid content identity');
   if(p.cards.map(c=>c.kind).join(',')!=='quiz,lesson,word') throw Error('Invalid cards');
@@ -31,7 +47,7 @@ export async function dispatchPreparation(env,mode) {
   const repository=await identity.json();
   if(repository.full_name!==REPO || repository.private!==true || repository.default_branch!=='main') throw dispatchError('Dispatch target must be the exact private repository with default branch main');
   let result;
-  try {result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),body:JSON.stringify({ref:'main',inputs:{mode,...(mode==='daily'?{batch_target:'today'}:{})}})});}
+  try {result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),body:JSON.stringify({ref:'main',inputs:{mode,...(mode==='daily'?{batch_target:'none'}:{})}})});}
   catch {throw dispatchError('GitHub dispatch network failure; acceptance is uncertain; no automatic retry',null,true);}
   console.log(JSON.stringify({event:'preparation_dispatch_response',mode,http_status:result.status}));
   if(result.status!==204) throw dispatchError(`GitHub dispatch HTTP ${result.status}; expected 204; no automatic retry`,result.status,result.status>=500 || (result.status>=200 && result.status<300));
@@ -76,60 +92,62 @@ export default {
       }
       if(path==='/v1/scheduler/status' && req.method==='GET') {const r=await env.DB.prepare('SELECT date,scheduled_at,status,http_status FROM preparation_dispatches ORDER BY date DESC LIMIT 14').all();return response({project:PROJECT,dispatches:r.results});}
       if(path==='/v1/history' && req.method==='GET') {
-        const r=await env.DB.prepare('SELECT date,theme_json,words_json,content_json FROM history ORDER BY date').all();
-        return response({project:PROJECT,days:r.results.map(x=>({date:x.date,theme:JSON.parse(x.theme_json),words:JSON.parse(x.words_json),content:JSON.parse(x.content_json)}))});
+        const r=await env.DB.prepare('SELECT rowid AS created_order,batch_id,date,created_at,theme_json,words_json,content_json FROM history ORDER BY created_at,rowid').all();
+        return response({project:PROJECT,storage_version:2,days:r.results.map(x=>({batch_id:x.batch_id,date:x.date,created_at:x.created_at,created_order:x.created_order,theme:JSON.parse(x.theme_json),words:JSON.parse(x.words_json),content:JSON.parse(x.content_json)}))});
       }
-      const publications=path.match(/^\/v1\/publications\/(\d{4}-\d{2}-\d{2})(?:\/(instagram|facebook|tiktok)\/([a-z0-9_]+))?$/);
+      const publications=path.match(/^\/v1\/publications\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})(?:\/(instagram|facebook|tiktok)\/([a-z0-9_]+))?$/);
       if(publications) {
-        const [,date,platform,id]=publications;
+        const [,key,platform,objectId]=publications;
+        const legacy=DATE.test(key),record=legacy?await legacyScope(env,key,true):null;
+        const id=legacy?(record?.batch_id || 'legacy-'+key):key;
         if(req.method==='GET' && !platform) {
-          const result=await env.DB.prepare('SELECT rowid AS recorded_order,date,platform,kind,object_id,account_id FROM publication_ids WHERE date=? ORDER BY rowid').bind(date).all();
+          const result=await env.DB.prepare('SELECT rowid AS recorded_order,batch_id,date,platform,kind,object_id,account_id FROM publication_ids WHERE batch_id=? ORDER BY rowid').bind(id).all();
           return response({project:PROJECT,items:result.results});
         }
         if(req.method==='POST' && !platform) {
+          const content=record || await row(env,id);if(!content) throw Error('No batch for publication identifiers');
           const p=await req.json();
           if(Object.keys(p).sort().join(',')!=='account_id,kind,object_id,platform' || !['instagram','facebook','tiktok'].includes(p.platform) || !['feed','story','photo'].includes(p.kind)) throw Error('Invalid publication identifier');
           const idPattern=p.platform==='tiktok'?/^[a-f0-9]{24}$/:/^\d+(?:_\d+)?$/;
           if(typeof p.object_id!=='string' || typeof p.account_id!=='string' || !idPattern.test(p.object_id) || !(p.platform==='tiktok'?/^[a-f0-9]{24}$/:/^\d+$/).test(p.account_id)) throw Error('Invalid provider identifier');
           if(p.platform==='instagram' && p.kind==='photo' || p.platform==='tiktok' && p.kind!=='feed') throw Error('Invalid provider media kind');
-          await env.DB.prepare('INSERT INTO publication_ids(date,platform,kind,object_id,account_id) VALUES(?,?,?,?,?) ON CONFLICT(platform,object_id) DO NOTHING').bind(date,p.platform,p.kind,p.object_id,p.account_id).run();
-          const actual=await env.DB.prepare('SELECT date,kind,account_id FROM publication_ids WHERE platform=? AND object_id=?').bind(p.platform,p.object_id).first();
-          if(!actual || actual.date!==date || actual.kind!==p.kind || actual.account_id!==p.account_id) throw Error('Identifier belongs to a different record');
+          await env.DB.prepare('INSERT INTO publication_ids(batch_id,date,platform,kind,object_id,account_id) VALUES(?,?,?,?,?,?) ON CONFLICT(platform,object_id) DO NOTHING').bind(id,content.date,p.platform,p.kind,p.object_id,p.account_id).run();
+          const actual=await env.DB.prepare('SELECT batch_id,kind,account_id FROM publication_ids WHERE platform=? AND object_id=?').bind(p.platform,p.object_id).first();
+          if(!actual || actual.batch_id!==id || actual.kind!==p.kind || actual.account_id!==p.account_id) throw Error('Identifier belongs to a different record');
           return response({stored:true});
         }
         if(req.method==='DELETE' && platform) {
-          await env.DB.prepare('DELETE FROM publication_ids WHERE date=? AND platform=? AND object_id=?').bind(date,platform,id).run();
+          await env.DB.prepare('DELETE FROM publication_ids WHERE batch_id=? AND platform=? AND object_id=?').bind(id,platform,objectId).run();
           return response({removed:true});
         }
       }
-      const content=path.match(/^\/v1\/history\/(\d{4}-\d{2}-\d{2})$/);
+      const content=path.match(/^\/v1\/history\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})$/);
       if(content) {
-        const date=content[1];
-        if(req.method==='GET') {const r=await row(env,date);return r?response(JSON.parse(r.content_json)):response({error:'No reviewed content for this date'},404);}
+        const key=content[1],legacy=DATE.test(key);
+        if(req.method==='GET') {const r=await scope(env,key);return r?response(JSON.parse(r.content_json)):response({error:'No reviewed content for this batch'},404);}
         if(req.method==='PUT') {
-          const p=await req.json();safePackage(p,date);
-          await env.DB.prepare('INSERT INTO history(date,theme_json,words_json,content_json) VALUES(?,?,?,?) ON CONFLICT(date) DO UPDATE SET theme_json=excluded.theme_json,words_json=excluded.words_json,content_json=excluded.content_json').bind(date,JSON.stringify(p.theme),JSON.stringify(p.words),JSON.stringify(p)).run();
-          // Reviewed replacements invalidate date-only image caches.
-          for(const kind of KINDS) {await env.IMAGES.delete(`private-ai:${date}:${kind}`);for(const suffix of ['background','card','story']) await env.IMAGES.delete(`private:${date}:${kind}-${suffix}.jpg`);}
-          return response({date,status:'reviewed content saved'});
+          const p=await req.json();let id=key;
+          if(legacy) {if(p.date!==key) throw Error('Invalid content date');const r=await legacyScope(env,key,true);id=r?.batch_id || 'legacy-'+key;if(p.batch_id && p.batch_id!==id) throw Error('Wrong legacy batch');p.batch_id=id;}
+          await saveHistory(env,p,id);return response({batch_id:id,date:p.date,status:'reviewed content saved'});
         }
       }
       if(path==='/v1/generate' && req.method==='POST') {
-        const p=await req.json();if(!DATE.test(p.date) || !KINDS.includes(p.kind)) throw Error('Invalid artwork identity');
-        const r=await row(env,p.date);if(!r) return response({error:'No reviewed content'},404);
+        const p=await req.json();if(!KINDS.includes(p.kind) || (p.batch_id?!BATCH.test(p.batch_id):!DATE.test(p.date))) throw Error('Invalid artwork identity');
+        const r=await scope(env,p.batch_id || p.date,true);if(!r) return response({error:'No reviewed content'},404);
+        if(p.date && p.date!==r.date) throw Error('Wrong content date');
         if(JSON.parse(r.content_json).cards.find(c=>c.kind===p.kind).background_prompt!==p.prompt) throw Error('Prompt differs from reviewed content');
-        const key=`private-ai:${p.date}:${p.kind}`,cached=await env.IMAGES.get(key);if(cached) return response({image:cached});
+        const key=`private-ai:${r.batch_id}:${p.kind}`,cached=await imageValue(env,key,r.batch_id,r.date);if(cached) return response({image:cached});
         const result=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4});if(!result.image) throw Error('FLUX returned no image');
         await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});return response({image:result.image});
       }
-      const asset=path.match(/^\/v1\/(private|expose)\/(\d{4}-\d{2}-\d{2})\/(.+)$/);
+      const asset=path.match(/^\/v1\/(private|expose)\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(.+)$/);
       if(asset && NAME.test(asset[3])) {
-        const [,kind,date,name]=asset;if(!await row(env,date)) return response({error:'No reviewed content'},404);const key=`private:${date}:${name}`;
-        if(kind==='private' && req.method==='GET') {const data=await env.IMAGES.get(key,{type:'arrayBuffer'});return data?new Response(data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store'}}):response({error:'Asset not found'},404);}
+        const [,kind,id,name]=asset,r=await scope(env,id,true);if(!r) return response({error:'No reviewed content'},404);const key=`private:${r.batch_id}:${name}`;
+        if(kind==='private' && req.method==='GET') {const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer'});return data?new Response(data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store'}}):response({error:'Asset not found'},404);}
         if(kind==='private' && req.method==='PUT') {const data=await req.arrayBuffer();if(data.byteLength>3_000_000 || data.byteLength<100 || new Uint8Array(data)[0]!==255 || new Uint8Array(data)[1]!==216) throw Error('Asset must be a JPEG below 3MB');await env.IMAGES.put(key,data,{expirationTtl:14*86400});return response({stored:true});}
         if(kind==='expose' && req.method==='POST' && (name.endsWith('-card.jpg') || name.endsWith('-story.jpg'))) {
-          const data=await env.IMAGES.get(key,{type:'arrayBuffer'});if(!data) return response({error:'Rendered asset not visible in KV yet'},409);
-          const id=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');await env.IMAGES.put('public:'+id,data,{expirationTtl:14*86400});return response({url:url.origin+'/images/'+id+'.jpg'});
+          const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer'});if(!data) return response({error:'Rendered asset not visible in KV yet'},409);
+          const publicId=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');await env.IMAGES.put('public:'+publicId,data,{expirationTtl:14*86400});return response({url:url.origin+'/images/'+publicId+'.jpg'});
         }
       }
       return response({error:'Not found'},404);

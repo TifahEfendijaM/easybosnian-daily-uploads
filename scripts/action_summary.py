@@ -12,7 +12,7 @@ if Path('build/failure.txt').exists(): text+='\n'+Path('build/failure.txt').read
 platforms=list(Path('build').glob('*/platforms-result.json'))
 if platforms:
     all_results=json.loads(platforms[0].read_text())
-    text=f"Batch: {all_results['batch']}\n\n"
+    text=f"Content date: {all_results['batch']}\n\nBatch ID: {all_results.get('batch_id','legacy date')}\n\n"
     for platform,result in all_results['platforms'].items():
         text+=f"- **{platform}**: {result['status']}\n"
         if result.get('permalink'): text+=f"  Publication: {result['permalink']}\n"

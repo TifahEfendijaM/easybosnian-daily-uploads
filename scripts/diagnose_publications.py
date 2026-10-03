@@ -13,7 +13,7 @@ def diagnose():
     if store.call('GET', '/health').get('project') != PROJECT:
         raise ValueError('Wrong project')
     date = today()
-    items = store.publications(date)
+    items = [item for row in store.history()['days'] if row['date']==date for item in store.publications(row['batch_id'])]
     facebook = Facebook(); facebook.verify_page()
     instagram = Instagram(); instagram.verify_account()
     owned_stories = facebook.story_photos()

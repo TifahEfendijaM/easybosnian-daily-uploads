@@ -15,14 +15,14 @@ POST https://api.github.com/repos/TifahEfendijaM/easybosnian-daily-uploads/actio
 ```
 
 ```json
-{"ref":"main","inputs":{"mode":"daily","batch_target":"today"}}
+{"ref":"main","inputs":{"mode":"daily","batch_target":"none"}}
 ```
 
 Headers retain Bearer authentication, Accept application/vnd.github+json, project User-Agent, Content-Type application/json and GitHub API version 2022-11-28. Only clock/gate decisions and status/mode are logged; credentials, content and provider response bodies are excluded. The gate log occurs before either inactive-time or disabled-start return, so an invoked but skipped event can be distinguished from no invocation. Scheduled failures also produce a generic error log without provider details. Require HTTP 204; non-204 or network failure throws and preserves the claim without retry. redirect:manual remains because Workers does not support redirect:error, and credentials must not follow a redirect.
 
-POST /v1/scheduler/verify is admin-protected and sends mode=verify. It cannot prepare, publish or consume a daily claim. GET /v1/scheduler/status exposes only private recent cron records. Run scripts/test_external_trigger.py after the migration/deployment sequence and require the actual verify run to pass. A manual verify does not prove future cron delivery or publication.
+POST /v1/scheduler/verify is admin-protected and sends mode=verify. It cannot prepare, publish or consume a daily claim. GET /v1/scheduler/status exposes only private recent cron records. For a separately requested dispatch-only check, scripts/test_external_trigger.py starts an actual verify run. The present migration uses main’s protected read-only connection checks and sends no workflow dispatch. A manual verify does not prove future cron delivery or publication.
 
-The workflow on main must accept daily **before** deploying/arming the new Worker, or GitHub rejects the input with 422. Keep PREPARATION_DISPATCH_ENABLED false during rollout. Exact commands, migration effects and unused-secret cleanup are in migration-and-rollout.md.
+The workflow on main must accept daily **before** deploying/arming the new Worker, or GitHub rejects the input with 422. For migration 0005, follow multiple-batches.md: merge first, pause live publishing during the storage cutover, preserve the existing cron claim and dispatch clock, then restore the previous publishing switch after verification. The earlier state-machine removal and unused-secret cleanup are documented separately in migration-and-rollout.md.
 
 ## Clock consistency and deployment
 
@@ -35,4 +35,4 @@ python -c "import sys; sys.path.insert(0, 'scripts'); from cloudflare_deploy imp
 
 CI deployment would remove the manual merge/deploy gap, but needs a separate least-privilege Cloudflare deploy credential, protected environment and a config assembled from this project's resource IDs. It must run after successful checks, perform the same clock check, and verify the live bundle/crons after deployment. Do not reuse the Worker-only GitHub dispatch token or desktop OAuth session. CI deployment is not enabled by this change; no new access was requested.
 
-For the latest-batch change, main must accept the new batch_target input before deploying this Worker revision; otherwise GitHub rejects dispatch with 422. Merge and require checks first, then deploy the same Worker and verify its live bundle/cron without sending a daily test. The clock and per-date claim remain unchanged. Manual form runs default to latest; the Worker explicitly chooses today so each morning creates the new day’s batch. No D1 migration is required.
+For the multiple-batch change, main must accept the new none batch_target choice before deploying this Worker revision; otherwise GitHub rejects dispatch with 422. Merge and require checks first, then deploy the same Worker and verify its live bundle/cron without sending a daily test. The clock and per-date claim remain unchanged. Manual form runs default to latest; the Worker explicitly chooses none so each morning creates the new day’s batch. Migration 0005 is required for multiple independent batches. See multiple-batches.md.

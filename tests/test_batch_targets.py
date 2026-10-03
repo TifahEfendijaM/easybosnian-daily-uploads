@@ -79,7 +79,8 @@ class BatchTargetTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',side_effect=agent))
             result=cloud_run('daily',batch_target='today')
             self.assertEqual(result['date'],'2026-10-04')
-            self.assertIsNone(read_json(root/'build/preparation-context.json')['selection']['previous'])
+            self.assertEqual(read_json(root/'build/preparation-context.json')['selection']['choice'],'new')
+            self.assertIsNone(result['cleanup_batch_id'])
 
     def test_preview_reuses_latest_exactly_without_research_or_live_gate(self):
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cloud_prepare.ROOT',Path(temp)),patch('easybosnian.cloud_prepare.today',return_value='2026-10-04'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.validate'),patch('easybosnian.cloud_prepare.fit_check'),patch('easybosnian.cloud_prepare.run_codex') as agent,patch('easybosnian.cloud_prepare.require_publishing') as live,patch('easybosnian.cloud_prepare.prepare') as save:

@@ -1,7 +1,8 @@
-"""Explicit reuse choices, with narrowly scoped same-date novelty exceptions."""
+"""Explicit reuse choices, with exemptions only for intentionally retained terms."""
 import copy
 from datetime import date as calendar_date
 from .validate import instructional, normalise
+from .batches import identity, latest_record
 
 CHOICES = ('new', 'same_theme', 'same_words', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
@@ -9,28 +10,22 @@ WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
 
 def batch_date(history, run_date, target='latest'):
     """Manual replacements keep the latest complete row's date; routine starts use today."""
-    if target not in ('latest', 'today'): raise ValueError('Batch target must be latest or today')
+    if target not in ('latest', 'none', 'today'): raise ValueError('Batch target must be latest or none')
     if calendar_date.fromisoformat(run_date).isoformat() != run_date:
         raise ValueError('Invalid Sarajevo run date')
-    if target == 'today': return run_date
-    dates=[]
-    for day in history['days']:
-        content=day.get('content')
-        if not isinstance(content,dict) or content.get('schema_version') != 1: continue
-        saved=day['date']
-        if calendar_date.fromisoformat(saved).isoformat() != saved or content.get('date') != saved:
-            raise ValueError('Saved batch date differs from its history row')
-        if saved <= run_date: dates.append(saved)
-    return max(dates,default=run_date)
+    if target in ('none','today'): return run_date
+    record=latest_record(history,run_date)
+    return record['date'] if record else run_date
 
 
-def selection_context(history, date, choice, custom_theme='', custom_words=None, custom_actions=None):
+def selection_context(history, date, choice, custom_theme='', custom_words=None, custom_actions=None, source_batch_id=None):
     if choice not in CHOICES: raise ValueError('Unknown content selection')
-    previous = next((d['content'] for d in history['days'] if d['date'] == date), None)
+    previous = next((d['content'] for d in history['days'] if identity(d)==source_batch_id),None) if source_batch_id else next((d['content'] for d in history['days'] if d['date'] == date), None)
     if previous and previous.get('schema_version') != 1: previous = None
     if choice in ('same_theme', 'same_words') and not previous:
         raise ValueError('Reuse requires a complete saved batch; choose new instead')
     result = {'choice': choice, 'previous': previous}
+    if source_batch_id:result['source_batch_id']=source_batch_id
     if choice == 'custom':
         theme = custom_theme.strip()
         words = [word.strip() for word in (custom_words or ['', '', ''])]
@@ -147,10 +142,18 @@ def word_levels(package, selection, global_level):
 
 
 def novelty_history(history, date, selection, package=None):
-    # Exempt only explicitly reused metadata from the selected replacement row.
-    # All other dates stay authoritative, including this row's words for same_theme.
+    # Exempt explicitly retained terms; newly chosen terms compare every batch.
     result = copy.deepcopy(history)
     if selection['choice'] == 'new': return result
+    if selection.get('source_batch_id'):
+        # Reuse is intentional even if another independent batch teaches the same
+        # retained terms. Newly selected terms still compare against every row.
+        pinned_theme=selection['previous']['theme'] if selection['choice']!='custom' else selection['pinned_theme']
+        changes=replacement_review(package,selection) if package and selection['choice']=='custom' else {}
+        pinned_words=selection['previous']['words'] if selection['choice']=='same_words' else [w for i,w in enumerate(selection.get('pinned_words',[])) if w and i not in changes]
+        result['reused_theme_keys']=[normalise(k) for k in [pinned_theme['name'],*pinned_theme['equivalence_keys']]] if pinned_theme else []
+        result['reused_word_keys']=[normalise(k) for w in pinned_words for k in [w['lemma'],*w['equivalence_keys']]]
+        return result
     for day in result['days']:
         if day['date'] != date: continue
         if selection['choice'] != 'custom' or selection['pinned_theme']:

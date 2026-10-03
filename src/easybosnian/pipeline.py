@@ -1,4 +1,5 @@
 """One Instagram publication per invocation, with immediate content read-back."""
+from .batches import output_key
 import os
 from urllib.parse import urlparse
 from .core import ROOT, require_publishing, write_json
@@ -22,7 +23,7 @@ def verify_media(ig, package, media_id):
 
 
 def publish_instagram(package, assets, record=None):
-    date=package['date']; stage='authorization'; result={'batch':date,'published':False}
+    date=package['date']; stage='authorization'; result={'batch':date,'batch_id':package.get('batch_id'),'published':False}
     publication='nothing published to Instagram'
     try:
         require_publishing()
@@ -38,10 +39,10 @@ def publish_instagram(package, assets, record=None):
         if record: record('feed',media_id,ig.user_id)
         publication='published to Instagram; content read-back pending';stage='publication verification'
         result.update(permalink=verify_media(ig,package,media_id),published=True,status='confirmed Instagram publication')
-        write_json(ROOT/'build'/date/'instagram-result.json',result)
+        write_json(ROOT/'build'/output_key(package)/'instagram-result.json',result)
         return result
     except Exception as error:
         result.update(status=publication,failed_stage=stage)
-        write_json(ROOT/'build'/date/'instagram-result.json',result)
+        write_json(ROOT/'build'/output_key(package)/'instagram-result.json',result)
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
         raise SafeError('Instagram failed at '+stage,stage) from None
