@@ -40,6 +40,30 @@ class ContentTests(unittest.TestCase):
         p=reviewed_fixture(); p['cards'][0]['alt_text']='Correct answer: umbrella.'
         with self.assertRaises(ValueError): validate(p)
 
+    def test_foreign_word_translation_questions_rejected_without_echoing_copy(self):
+        for question in ('Kako se na bosanskom kaže „button” na odjeći?',
+                         'Kako se kaže „button” na bosanskom?',
+                         'Koji je prijevod engleske riječi „button”?'):
+            p=reviewed_fixture(); p['cards'][0]['question']=question
+            with self.subTest(question=question), self.assertRaises(ValueError) as failure:
+                validate(p)
+            self.assertIn('foreign-word translation',str(failure.exception))
+            self.assertNotIn('button',str(failure.exception))
+
+    def test_bosnian_description_and_visual_naming_quizzes_remain_valid(self):
+        p=reviewed_fixture()
+        p['cards'][0]['question']='Kako kažemo za predmet kojim se štitimo od kiše?'
+        validate(p)
+        p['cards'][0]['question']='Kako se zove predmet na slici?'
+        p['cards'][0]['background_prompt']='Photorealistic photograph of a closed blue umbrella resting on a wooden bench beside a rainy window. Soft overcast daylight, realistic fabric and wood textures. An off-centre close-up with softly blurred surroundings. No text, no lettering, no logos.'
+        validate(p)
+        # Permission to depict the referent does not expose the answer in other copy.
+        for field in ('caption','alt_text'):
+            leaked=copy.deepcopy(p)
+            if field=='caption': leaked[field]='Predmet na slici je kišobran.'
+            else: leaked['cards'][0][field]='Na slici je kišobran.'
+            with self.subTest(field=field), self.assertRaises(ValueError): validate(leaked)
+
     def test_repeats_aliases_and_missing_artwork_exclusions_rejected(self):
         p=reviewed_fixture()
         history={'days':[{'date':'2026-10-01','content':p}]}

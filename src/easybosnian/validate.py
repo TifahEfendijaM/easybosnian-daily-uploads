@@ -55,6 +55,13 @@ def validate(package, history=None, include_today=False):
         if normalise(c["word"]) != normalise(w["lemma"]):
             raise ValueError("Each card must use its assigned distinct word")
     quiz = package["cards"][0]
+    question = normalise(quiz["question"])
+    # Catch the foreign-word translation template; the reviewer checks all public
+    # copy for Bosnian correctness and the scene for relevance/semantic leakage.
+    translation_action = re.search(r"\b(?:kaze|kazemo|reci|prevodi|prevesti|prijevod|prevod|znaci|rijec|naziv|translation|translate)\b", question)
+    translation_language = re.search(r"\b(?:na bosanskom|na engleskom|englesk\w*|english)\b", question)
+    if translation_action and translation_language:
+        raise ValueError("Use a Bosnian description, situation or visual question instead of a foreign-word translation exercise")
     if [o["label"] for o in quiz["options"]] != ["A", "B", "C"]:
         raise ValueError("Quiz markers must be A/B/C exactly once")
     if len(set(normalise(o["text"]) for o in quiz["options"])) != 3:
