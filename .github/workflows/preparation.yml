@@ -115,6 +115,9 @@ jobs:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           MODE: ${{ inputs.mode }}
         run: python -m easybosnian.cloud_prepare "$MODE"
+      - name: Read only recorded Meta publication capabilities
+        if: inputs.mode == 'verify'
+        run: python scripts/diagnose_publications.py
       - name: Persist refreshed cloud sign-in privately
         id: persist
         if: always() && steps.auth.outcome == 'success'
