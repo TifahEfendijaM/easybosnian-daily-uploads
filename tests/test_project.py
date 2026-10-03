@@ -40,14 +40,35 @@ class ContentTests(unittest.TestCase):
         p=reviewed_fixture(); p['cards'][0]['alt_text']='Correct answer: umbrella.'
         with self.assertRaises(ValueError): validate(p)
 
-    def test_repeats_aliases_and_mutated_prompts(self):
+    def test_repeats_aliases_and_missing_artwork_exclusions_rejected(self):
         p=reviewed_fixture()
         history={'batches':[{'date':'2026-10-01','reservation_keys':['word:kisobran']}]}
         with self.assertRaises(ValueError): validate(p,history)
         history={'batches':[{'date':'2026-10-01','reservation_keys':['theme:rainy weather']}]}
         with self.assertRaises(ValueError): validate(p,history)
-        p['cards'][0]['background_prompt']=p['cards'][0]['background_prompt'].replace('#a8dcf2','#123456')
-        with self.assertRaises(ValueError): validate(p)
+        for exclusion in ('No text', 'no lettering', 'no logos'):
+            p=reviewed_fixture()
+            p['cards'][0]['background_prompt']=p['cards'][0]['background_prompt'].replace(exclusion,'')
+            with self.subTest(exclusion=exclusion), self.assertRaises(ValueError): validate(p)
+
+    def test_natural_scene_prompt_passes_without_renderer_instructions(self):
+        p=reviewed_fixture()
+        scene='A natural photograph of soft clouds above distant mountains. Gentle daylight, cool blue and grey tones, realistic atmospheric detail. No text, no lettering, no logos.'
+        for card in p['cards']:
+            card['background_prompt']=scene
+        validate(p)
+        # Schema still requires approved renderer metadata independently of FLUX prose.
+        from jsonschema import ValidationError
+        for field, value in (('design_palette','invented'),('design_template','invented')):
+            invalid=copy.deepcopy(p)
+            if field=='design_palette': invalid[field]=value
+            else: invalid['cards'][0][field]=value
+            with self.subTest(field=field), self.assertRaises(ValidationError): validate(invalid)
+
+    def test_reserved_legacy_prompt_remains_valid_for_same_batch_resume(self):
+        p=reviewed_fixture()
+        p['cards'][0]['background_prompt']='A quiet rainy window. framed layout: top x64..1016 y64..900 uncluttered for three answer boxes. Deep slate-blue #041625, misty #f0f8fc, ice-blue #a8dcf2, muted #10324b. No text, no lettering, no logos.'
+        validate(p)
 
     def test_diatrics_alias_normalization(self):
         self.assertEqual(canonical(' KIŠOBRAN! '),canonical('kisobran'))

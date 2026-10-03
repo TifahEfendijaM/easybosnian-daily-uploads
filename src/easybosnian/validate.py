@@ -63,20 +63,15 @@ def validate(package, history=None):
     # The selected word may be the correct option; it is metadata, never a quiz heading.
     if canonical(review["correct_text"]) in canonical(quiz["question"]):
         raise ValueError("Quiz question reveals the answer")
-    palette = json.loads((ROOT / "data/design-palettes.json").read_text())[package["design_palette"]]
     for c in package["cards"]:
         if len(" ".join(instructional(c))) > 460:
             raise ValueError("Instructional copy is too long; rewrite rather than shrink indefinitely")
         prompt = c["background_prompt"].casefold()
         if "no text" not in prompt or "no logos" not in prompt or "no lettering" not in prompt:
             raise ValueError("Background prompts must forbid text, lettering and logos")
-        for field in ("ink", "accent", "panel", "scrim"):
-            if palette[field].casefold() not in prompt:
-                raise ValueError("Prompt must explicitly describe every shared palette colour")
-        if c["design_template"] not in prompt:
-            raise ValueError("Prompt must be written for the chosen layout")
-        if not any(w in prompt for w in ("uncluttered", "negative space")):
-            raise ValueError("Prompt must reserve overlay space")
+        # Palette/layout IDs are validated by the schema and used by Pillow.
+        # FLUX needs a natural scene description, without renderer vocabulary.
+        # Previously reserved packages remain valid for exact same-batch resume.
         if c["kind"] != "quiz" and canonical(c["heading"]) != canonical(c["word"]):
             raise ValueError("Featured heading must be the reviewed word")
         for text in instructional(c):

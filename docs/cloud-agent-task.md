@@ -4,6 +4,13 @@ Read AGENTS.md, docs/master-prompt.md and docs/preparation-task.md in full befor
 The user's current instructions authorize daily posting, waive preview/live tests, defer Healthchecks,
 and move preparation to this private GitHub cloud runner. No paid API or paid fallback.
 
+For new FLUX prompts, follow the simplified scene instructions in preparation-task.md step 6.
+This later user instruction overrides the master attachment's detailed layout/colour instructions
+for FLUX: use short natural scene descriptions with plain colour names and optional broad framing.
+Keep palette/layout choices in metadata for Pillow; omit hex codes, coordinates and all UI/overlay
+descriptions from the image prompt. End with “No text, no lettering, no logos.” Keep quiz backgrounds
+free of answer clues. Old queued prompts are history, not examples to copy for a new batch.
+
 This agent is the research/review stage ONLY. The trusted wrapper already verified the exact private
 repository, Instagram infrastructure and monitoring access. It saved the entire private Cloudflare
 history and every current GitHub queue package in build/preparation-context.json: READ ALL OF IT.
