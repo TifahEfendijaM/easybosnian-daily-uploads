@@ -35,7 +35,7 @@ def equivalents(package):
     return themes,words
 
 
-def validate(package, history=None, include_today=False, require_website_footer=False):
+def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -45,6 +45,12 @@ def validate(package, history=None, include_today=False, require_website_footer=
         raise ValueError(f'Content schema check failed at {path}; inspect the private draft') from None
     if [c["kind"] for c in package["cards"]] != ["quiz", "lesson", "word"]:
         raise ValueError("Cards must be quiz, lesson, word in that order")
+    if target_cefr is not None and package.get('bosnian_level') != target_cefr:
+        raise ValueError('New content must record the shared preparation difficulty')
+    if word_level_targets is not None:
+        for word, target in zip(package['words'],word_level_targets):
+            if target is not None and word.get('bosnian_level') != target:
+                raise ValueError('A regenerated or retained word does not match its required difficulty')
     words = [normalise(w["lemma"]) for w in package["words"]]
     if len(set(words)) != 3:
         raise ValueError("Three different words are required")
@@ -55,6 +61,8 @@ def validate(package, history=None, include_today=False, require_website_footer=
         if normalise(c["word"]) != normalise(w["lemma"]):
             raise ValueError("Each card must use its assigned distinct word")
     quiz = package["cards"][0]
+    if require_quiz_format and 'quiz_format' not in quiz:
+        raise ValueError('New quiz content requires reviewed visual-identification or other format metadata')
     question = normalise(quiz["question"])
     # Catch the foreign-word translation template; the reviewer checks all public
     # copy for Bosnian correctness and the scene for relevance/semantic leakage.

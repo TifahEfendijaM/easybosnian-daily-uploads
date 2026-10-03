@@ -1,4 +1,4 @@
-"""Publish this run's exact cards as Facebook Page photo Stories."""
+"""Publish this run's mixed Story treatments as Facebook Page photo Stories."""
 import os
 import time
 from urllib.parse import urlparse
@@ -53,13 +53,13 @@ def publish_facebook_stories(store, package, assets, record=None):
         for card in package['cards']:
             kind = card['kind']; stage = 'Facebook Stories rendering'
             path = ROOT/'build'/date/f'{kind}-story.jpg'
-            story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'))
+            story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'), card)
             body = path.read_bytes()
             if len(body) > 10_000_000:
                 raise ValueError('Facebook Story exceeds the 10 MB photo limit')
             store.put_file(date, path.name, body); url = store.expose(date, path.name)
             if request('GET', url, raw=True) != body:
-                raise ValueError('Facebook Story bytes differ from the padded card')
+                raise ValueError('Facebook Story bytes differ from the rendered Story')
             stage = 'Facebook Stories photo upload'; require_publishing()
             # Meta forbids reusing a photo already used in a published feed post.
             photo_id = str(facebook.photo(url, card['alt_text']))

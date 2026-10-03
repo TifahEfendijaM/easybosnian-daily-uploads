@@ -147,6 +147,10 @@ def panel(draw, box, style, palette, option=False):
 
 def render(card, palette_id, background, output):
     palette = json.loads((ROOT / "data/design-palettes.json").read_text())[palette_id]
+    if card['kind'] == 'quiz' and card.get('quiz_format') == 'visual_identification':
+        from .story_layouts import visual_quiz_image
+        output = Path(output); output.parent.mkdir(parents=True, exist_ok=True)
+        return visual_quiz_image(card, background, output, palette, height=HEIGHT)
     minimum_body_contrast=min(contrast(palette['ink'],palette['panel']),contrast(palette['ink'],palette['accent']))
     if minimum_body_contrast<4.5: raise ValueError('Approved palette no longer meets text contrast requirements')
     style = card["design_template"]

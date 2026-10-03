@@ -17,6 +17,8 @@ from .daily import daily
 from .buffer import Buffer
 from .notify import failure
 from .render import render
+from .story_layouts import tall_story_image
+from .levels import LEVELS, set_level
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
@@ -59,17 +61,23 @@ def fit_check(package):
     Image.new("RGB",(1080,1350),"#7492a5").save(path)
     for card in package["cards"]:
         render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
+        if card['kind'] != 'quiz' or card.get('quiz_format') == 'visual_identification':
+            palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
+            tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 
 
 def prepare(path,selection=None):
     verify_repository(remote=True)
     package=read_json(path)
     if package['date']!=today(): raise ValueError("Content must use today's Sarajevo date")
-    from .selection import check_selection, novelty_history
+    from .selection import check_selection, novelty_history, word_levels
     store=Store();history=store.history()
     if selection:
-        check_selection(package,selection);history=novelty_history(history,package['date'],selection)
-    validate(package,history,include_today=True,require_website_footer=True);fit_check(package)
+        check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
+    fresh=not selection or selection['choice']!='same_words'
+    from .levels import load_level
+    level=load_level()
+    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
@@ -174,6 +182,7 @@ def main():
     subs.add_parser("create-repository")
     subs.add_parser("history")
     subs.add_parser("check-infrastructure")
+    level=subs.add_parser('set-level');level.add_argument('--level',choices=LEVELS,required=True)
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser('run');p.add_argument('--date',default=None);p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
@@ -189,6 +198,7 @@ def main():
     if args.command=="create-repository": create_repository()
     elif args.command=="history": print(json.dumps(Store().history(),ensure_ascii=False,indent=2))
     elif args.command=="check-infrastructure": print(json.dumps(check_infrastructure(),indent=2))
+    elif args.command=='set-level': print(json.dumps(set_level(args.level)))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
     elif args.command=='run': daily(args.date,args.mode)

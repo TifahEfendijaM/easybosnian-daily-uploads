@@ -75,7 +75,8 @@ class FacebookStoryTests(unittest.TestCase):
             build = root/'build'/package['date']; build.mkdir(parents=True); assets = {}
             for card in package['cards']:
                 path = build/(card['kind']+'-card.jpg'); Image.new('RGB', (1080, 1350), '#648699').save(path)
-                assets[card['kind']] = {'path': path}
+                background = build/(card['kind']+'-background.jpg'); Image.new('RGB', (1024, 1024), '#648699').save(background)
+                assets[card['kind']] = {'path': path, 'background_path': background}
             facebook = MagicMock(); facebook.photo.side_effect = ['101', '102', '103']; facebook.story.side_effect = ['201', '202', '203']
             facebook.stories.return_value = {'data': [story(str(201+i), str(101+i)) for i in range(3)]}
             store = MagicMock(); store.expose.side_effect = lambda date,name: 'https://images.example/'+name
