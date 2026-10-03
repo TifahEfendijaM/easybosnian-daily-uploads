@@ -1,9 +1,10 @@
 """Read only known publication IDs on this project's verified accounts."""
 import json
 
-from easybosnian.core import PROJECT, verify_repository, today
+from easybosnian.core import ROOT, PROJECT, verify_repository, today, write_json
 from easybosnian.meta import Facebook, Instagram
 from easybosnian.store import Store
+from easybosnian.http import redact
 
 
 def diagnose():
@@ -27,6 +28,13 @@ def diagnose():
         try:
             if item['kind'] == 'story':
                 row.update(current_story=object_id in owned_stories, backing_photo_id=owned_stories.get(object_id))
+                full_id = object_id if '_' in object_id else facebook.page_id + '_' + object_id
+                try:
+                    post = facebook.call('GET', full_id, {'fields': 'id,from{id},is_published'})
+                    row.update(full_post_id=post.get('id'), full_post_owner_matches=post.get('from', {}).get('id') == facebook.page_id,
+                               full_post_is_published=post.get('is_published'))
+                except Exception as error:
+                    row['full_post_read_error'] = redact(error)
             elif item['kind'] == 'photo':
                 photo = facebook.call('GET', object_id, {'fields': 'id,from{id},page_story_id,can_delete'})
                 row.update(id_matches=photo.get('id') == object_id,
@@ -38,7 +46,7 @@ def diagnose():
                            owner_matches=post.get('from', {}).get('id') == facebook.page_id,
                            is_published=post.get('is_published'))
         except Exception as error:
-            row.update(read_error_type=type(error).__name__, read_error=str(error))
+            row.update(read_error_type=type(error).__name__, read_error=redact(error))
         rows.append(row)
     return {'date': date, 'facebook_recorded_objects': rows,
             'instagram_current_story_count': len(instagram.stories().get('data', [])),
@@ -46,4 +54,6 @@ def diagnose():
 
 
 if __name__ == '__main__':
-    print(json.dumps(diagnose(), indent=2))
+    result = diagnose()
+    write_json(ROOT/'build'/result['date']/'meta-diagnostics-result.json', result)
+    print(json.dumps(result, indent=2))
