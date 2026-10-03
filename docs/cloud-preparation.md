@@ -1,6 +1,6 @@
 # Cloud preparation
 
-The existing Cloudflare Worker dispatches preparation.yml at 12:00 Europe/Sarajevo with mode=daily. One ubuntu-22.04 job restores a dedicated cloud-only managed ChatGPT credential, runs the official pinned Codex CLI 0.160.0, saves reviewed content in D1, persists the refreshed credential and renders/publishes immediately afterward. No paid OpenAI API or awake Mac. There is no reusable workflow, queue commit, package handoff or recovery mode.
+The existing Cloudflare Worker dispatches preparation.yml at 12:30 Europe/Sarajevo with mode=daily. One ubuntu-22.04 job restores a dedicated cloud-only managed ChatGPT credential, runs the official pinned Codex CLI 0.160.0, saves reviewed content in D1, persists the refreshed credential and renders/publishes immediately afterward. No paid OpenAI API or awake Mac. There is no reusable workflow, queue commit, package handoff or recovery mode.
 
 The research child uses a stripped environment, workspace-write sandbox, live web search, seven-minute limit, private logs, structured ready/blocked output schema and a tracked-file Git diff check. Provider/admin/GitHub secrets stay with the trusted wrapper. It can write unreviewed drafts/private research under build only. Free-form model output and raw events never go into issues or uploaded artifacts. The wrapper requires an actual reviewed draft and validates independently before saving history.
 
