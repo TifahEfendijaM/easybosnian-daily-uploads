@@ -9,10 +9,26 @@ on:
         options: [verify, preview, daily]
         default: verify
       content_selection:
-        description: Daily rerun content (reuse requires today's saved content; all choices create fresh text and images)
+        description: 'Daily content: same_words = new images only; same_theme = new words; new = all new; custom = your theme/words with fresh text'
         type: choice
-        options: [new, same_theme, same_words]
+        options: [same_words, same_theme, new, custom]
         default: new
+      custom_theme:
+        description: 'Custom only: theme (blank = today’s saved theme)'
+        type: string
+        default: ''
+      custom_word_1:
+        description: 'Custom only: Pitanje dana word (blank = today’s quiz word)'
+        type: string
+        default: ''
+      custom_word_2:
+        description: 'Custom only: Znaš li word (blank = today’s lesson word)'
+        type: string
+        default: ''
+      custom_word_3:
+        description: 'Custom only: Riječ dana word (blank = today’s word)'
+        type: string
+        default: ''
       tiktok_previous_removed:
         description: I manually deleted today's previous TikTok post before this daily rerun
         type: boolean
@@ -30,6 +46,10 @@ jobs:
     timeout-minutes: 30
     env:
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
+      CUSTOM_THEME: ${{ inputs.custom_theme }}
+      CUSTOM_WORD_1: ${{ inputs.custom_word_1 }}
+      CUSTOM_WORD_2: ${{ inputs.custom_word_2 }}
+      CUSTOM_WORD_3: ${{ inputs.custom_word_3 }}
       TIKTOK_PREVIOUS_REMOVED: ${{ inputs.tiktok_previous_removed }}
       INSTAGRAM_DELETE_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_DELETE_ACCESS_TOKEN }}
       INSTAGRAM_DELETE_USER_ID: ${{ secrets.INSTAGRAM_DELETE_USER_ID }}

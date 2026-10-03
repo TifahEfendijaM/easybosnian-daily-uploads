@@ -1,38 +1,81 @@
 """Explicit reuse choices, with narrowly scoped same-date novelty exceptions."""
-from .validate import instructional
+import copy
+from .validate import instructional, normalise
 
-CHOICES = ('new', 'same_theme', 'same_words')
+CHOICES = ('new', 'same_theme', 'same_words', 'custom')
 
 
-def selection_context(history, date, choice):
+def selection_context(history, date, choice, custom_theme='', custom_words=None):
     if choice not in CHOICES: raise ValueError('Unknown content selection')
     previous = next((d['content'] for d in history['days'] if d['date'] == date), None)
-    if choice != 'new' and (not previous or previous.get('schema_version') != 1):
+    if previous and previous.get('schema_version') != 1: previous = None
+    if choice in ('same_theme', 'same_words') and not previous:
         raise ValueError('Reuse requires today\'s complete content row; choose new instead')
-    return {'choice': choice, 'previous': previous}
+    result = {'choice': choice, 'previous': previous}
+    if choice == 'custom':
+        theme = custom_theme.strip()
+        words = [word.strip() for word in (custom_words or ['', '', ''])]
+        if len(words) != 3: raise ValueError('Custom content requires exactly three word fields')
+        if not previous and (not theme or not all(words)):
+            raise ValueError('Without today\'s saved content, enter a custom theme and all three words')
+        theme = theme or previous['theme']['name']
+        words = [word or previous['words'][i]['lemma'] for i, word in enumerate(words)]
+        if len(set(normalise(w) for w in words)) != 3:
+            raise ValueError('Custom content requires three distinct words')
+        if len(theme) > 180 or any(len(word) > 180 for word in words):
+            raise ValueError('Custom theme or word exceeds the content schema length limit')
+        pinned_theme = previous['theme'] if previous and normalise(theme) == normalise(previous['theme']['name']) else None
+        old_words = previous['words'] if previous else []
+        pinned_words = [next((w for w in old_words if normalise(w['lemma']) == normalise(word)), None) for word in words]
+        result.update(requested_theme=theme, requested_words=words,
+                      pinned_theme=pinned_theme, pinned_words=pinned_words)
+    return result
 
 
 def check_selection(package, selection):
     choice = selection['choice']; previous = selection['previous']
     if choice == 'new': return
+    if choice == 'custom':
+        if normalise(package['theme']['name']) != normalise(selection['requested_theme']):
+            raise ValueError('Custom theme differs from the requested theme')
+        if selection['pinned_theme'] and package['theme'] != selection['pinned_theme']:
+            raise ValueError('Reused custom theme metadata must stay unchanged')
+        for word, requested, pinned in zip(package['words'], selection['requested_words'], selection['pinned_words']):
+            if normalise(word['lemma']) != normalise(requested) or (pinned and word != pinned):
+                raise ValueError('Custom word or reused equivalence metadata differs from the requested selection')
+        if previous:
+            if package['caption'] == previous['caption']:
+                raise ValueError('Custom content requires a fresh caption')
+            for new in package['cards']:
+                old = next((c for c in previous['cards'] if normalise(c['word']) == normalise(new['word'])), None)
+                if old and (instructional(old) == instructional(new) or old['background_prompt'] == new['background_prompt']):
+                    raise ValueError('Custom reuse requires fresh text and background prompts')
+        return
     if package['theme'] != previous['theme']:
         raise ValueError('The selected theme and equivalence metadata must remain unchanged')
     if choice == 'same_words' and package['words'] != previous['words']:
         raise ValueError('The selected words, order and equivalence metadata must remain unchanged')
     if choice == 'same_words':
+        expected = copy.deepcopy(previous)
         for old, new in zip(previous['cards'], package['cards']):
-            if instructional(old) == instructional(new) or old['background_prompt'] == new['background_prompt']:
-                raise ValueError('Reusing words still requires fresh text and a fresh background prompt per card')
+            if old['background_prompt'] == new['background_prompt']:
+                raise ValueError('Image-only reruns require a fresh background prompt per card')
+        for old, new in zip(expected['cards'], package['cards']): old['background_prompt'] = new['background_prompt']
+        if package != expected:
+            raise ValueError('Image-only reruns must preserve all existing content, palette and layouts')
 
 
 def novelty_history(history, date, selection):
     # Keep every older row authoritative. Exempt only explicitly reused metadata
     # from today's row; do not ignore today's old words for same_theme.
-    import copy
     result = copy.deepcopy(history)
     if selection['choice'] == 'new': return result
     for day in result['days']:
         if day['date'] != date: continue
-        day['content']['theme'] = {'name':'', 'equivalence_keys':[]}
+        if selection['choice'] != 'custom' or selection['pinned_theme']:
+            day['content']['theme'] = {'name':'', 'equivalence_keys':[]}
         if selection['choice'] == 'same_words': day['content']['words'] = []
+        if selection['choice'] == 'custom':
+            reused = [word for word in selection['pinned_words'] if word]
+            day['content']['words'] = [w for w in day['content']['words'] if w not in reused]
     return result

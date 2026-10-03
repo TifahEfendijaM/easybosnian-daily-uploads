@@ -17,6 +17,7 @@ from .daily import daily
 from .buffer import Buffer
 from .notify import failure
 from .render import render
+from .story_layouts import tall_story_image
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
@@ -59,6 +60,9 @@ def fit_check(package):
     Image.new("RGB",(1080,1350),"#7492a5").save(path)
     for card in package["cards"]:
         render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
+        if card['kind'] != 'quiz' or card.get('quiz_format') == 'visual_identification':
+            palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
+            tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 
 
 def prepare(path,selection=None):
@@ -69,7 +73,8 @@ def prepare(path,selection=None):
     store=Store();history=store.history()
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection)
-    validate(package,history,include_today=True,require_website_footer=True);fit_check(package)
+    fresh=not selection or selection['choice']!='same_words'
+    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh);fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package

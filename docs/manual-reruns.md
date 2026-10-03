@@ -10,9 +10,10 @@ Selections:
 |---|---|
 | new (default) | New theme and three new words, compared with all current history |
 | same_theme | Keep today's exact theme metadata; choose three different words |
-| same_words | Keep today's theme and three words in the same order; research fresh questions, explanations, examples and background prompts |
+| same_words | Keep the complete saved content, caption, palette and layouts; generate new background prompts/images only |
+| custom | Use the entered theme/three words, with fresh text, caption and background prompts; each blank field uses today's saved value |
 
-Reuse requires today's complete content row. Old metadata-only imports cannot be rendered or used as a reuse source. All choices re-review sources, Bosnian correctness, quiz secrecy, schema and measured fit. Only explicitly reused same-date metadata is exempt from novelty checks; older rows remain authoritative. Preview still reuses today's row without publishing or deleting. Verify only checks connections/workspace. The scheduled Worker sends mode=daily and receives the default new selection; no dispatch API or cron-claim changes are needed.
+Reuse requires today's complete content row. Old metadata-only imports cannot be rendered or used as a reuse source. Fresh-text choices review sources and Bosnian correctness again. Image-only reuse preserves already-reviewed content and reviews new scene relevance/secrecy. Every choice validates schema and measured feed/Story fit. Only explicitly reused same-date metadata is exempt from novelty checks; older rows remain authoritative. Preview still reuses today's row without publishing or deleting. Verify only checks connections/workspace. The scheduled Worker sends mode=daily and receives the default new selection; no dispatch API or cron-claim changes are needed.
 
 Preparation saves today's replacement row and invalidates cached artwork. After fresh cards render successfully, cleanup checks only that date's stored provider IDs on the verified publishing account. It lists owned media completely before treating a missing ID as manually deleted/expired. Permission, pagination or network errors stop that platform; they never count as already deleted. Known old Instagram carousels and image Stories, Facebook feed posts, photo Stories and uploaded photos are removed before that platform posts replacement content. The global publishing switch also gates deletion. Disabled platforms are not cleaned. Other enabled platforms continue independently after a failure.
 
@@ -28,15 +29,9 @@ There is a small private publication_ids table with date/platform/kind/object_id
 
 The user's original eight card treatments are retained. They primarily place text in the upper portion and vary panels, category styling and spacing. Preparation selects a layout independently per card and matches a short, natural photorealistic composition to its actual text extent. No layout IDs, coordinates, blank regions or text-placement instructions are sent to FLUX. Dynamic body fonts remain 44/38/34 px at 160/240 character boundaries, with measured fit, contrast and unchanged Bosnian diacritics. Separate PRIMJER label and inset accent remain. The proposed wider positional redesign was rejected and is not deployed.
 
-# Deployment sequence
+# Deploying selection/presentation changes
 
-1. Review the full branch diff and the retained layout previews. Run Python and Worker tests, including dense-card fit, selection exemptions, kill switch, partial IDs and ownership/pagination failures.
-2. Merge repository changes into main. The workflow retains exactly verify/preview/daily and accepts optional content_selection and tiktok_previous_removed; the Worker payload remains mode=daily, so no 422 transition is introduced.
-3. Apply D1 migration 0004_publication_ids.sql to this existing database only. It adds an empty identifier table/index, carries history and cron claims unchanged and drops no data.
-4. Validate the real ignored wrangler.toml and example against the Worker gate, deploy this same Worker, then read its actual version, registered `0 3,4 * * *` cron and protected publication-ID endpoint back. The start remains 05:00 Sarajevo, selected from scheduledTime for DST; there is no retry/catch-up.
-5. Complete the separate Instagram deletion authorization and save its exact two repository secrets. Run read-only identity/permissions checks; no live deletion/publication test is necessary or authorized by rollout.
-6. For today's pre-feature successful run, optionally import its known IDs with `python scripts/import_publication_ids.py --run 37119858010 --date 2026-10-03`. The importer checks exact private repo, main workflow/date/success and unique daily artifact, reads only safe diagnostic IDs, then saves/read-verifies them. It does not restore rejected content, touch novelty history or delete any social content. Instagram IDs from this pre-feature import are attributed to the linked Facebook Login Instagram ID verified during authorization. Old runs without available diagnostic IDs are not guessed from account posts.
-7. Confirm the ordinary main checks pass. The user explicitly requested one October 3 daily rerun with content_selection=same_words and confirmed manual TikTok deletion. Dispatch it only after authorization, migration, deployment and today's identifier import succeed. This is a deliberate replacement, not an automatic retry. Subsequent automatic starts stay at 05:00.
+Review the full branch diff and actual card previews, run Python/Worker tests, then merge into main. No Worker payload, cron or D1 migration changes are required: its existing mode=daily dispatch receives the default new selection. Main checks verify the deployed infrastructure without publishing. The start remains 05:00 Europe/Sarajevo and a manual run does not consume or retry the cron claim. No live rerun is automatically launched by deployment.
 
 # Let another person launch runs
 
@@ -45,3 +40,11 @@ This is a private repository owned by a personal account. In repository **Settin
 Official references: [manual workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow), [inviting collaborators](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository), [personal-repository permission levels](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository).
 
 Facebook API references: [Story node operations](https://developers.facebook.com/docs/graph-api/reference/stories/), [Photo deletion](https://developers.facebook.com/docs/graph-api/reference/photo/#Deleting), [Story media identifiers](https://developers.facebook.com/documentation/video-api/page-stories-api). The live provider uses lowercase published even though the guide shows uppercase; publication checks normalize case without weakening identity checks.
+
+# Custom fields and current presentation
+
+For custom only, enter custom_theme and custom_word_1/custom_word_2/custom_word_3 in quiz/lesson/word order. Blank fields resolve from today's current saved row at the start of preparation; GitHub cannot dynamically display those values as form defaults. Leaving all blank deliberately regenerates the same theme/words with fresh instructional copy and captions. If no saved row exists, fill every field. Manual inputs do not bypass research, standard Bosnian or older-history novelty checks. Each replacement overwrites today's active history completely, as before. Keep mode=daily; verify never prepares/publishes and preview reuses today's saved content.
+
+same_words now means images only. It preserves captions and every other content field, including older captions without the website footer, palette, templates and quiz format. Use custom with blank fields when you want fresh text for the same theme/words. This intentional change replaces the earlier same_words meaning. Routine 05:00 Cloudflare dispatches still use new.
+
+Stories use B for word/lesson cards and visual naming quizzes, A for other quizzes. Regular word/lesson posts stay unchanged. Only explicitly reviewed visual_identification quizzes use B on the regular quiz slide too; other quiz types retain the normal overlay. Photos are fully fitted, copy is never truncated and no extra FLUX generation occurs.

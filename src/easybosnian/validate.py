@@ -35,7 +35,7 @@ def equivalents(package):
     return themes,words
 
 
-def validate(package, history=None, include_today=False, require_website_footer=False):
+def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -55,6 +55,8 @@ def validate(package, history=None, include_today=False, require_website_footer=
         if normalise(c["word"]) != normalise(w["lemma"]):
             raise ValueError("Each card must use its assigned distinct word")
     quiz = package["cards"][0]
+    if require_quiz_format and 'quiz_format' not in quiz:
+        raise ValueError('New quiz content requires reviewed visual-identification or other format metadata')
     question = normalise(quiz["question"])
     # Catch the foreign-word translation template; the reviewer checks all public
     # copy for Bosnian correctness and the scene for relevance/semantic leakage.

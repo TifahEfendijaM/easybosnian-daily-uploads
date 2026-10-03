@@ -1,4 +1,4 @@
-"""Publish the current run's exact Instagram cards as padded image Stories."""
+"""Publish reviewed Instagram Stories: quiz treatment A, lesson/word treatment B."""
 import os
 from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageOps
@@ -6,11 +6,14 @@ from .core import ROOT, read_json, require_publishing, write_json
 from .http import SafeError, request
 from .meta import Instagram
 from .notify import failure
+from .story_layouts import tall_story_image
 
 HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
 
-def story_image(source,destination,palette,background=None):
+def story_image(source,destination,palette,background=None,card=None):
+    if card and (card['kind'] in ('lesson','word') or card.get('quiz_format') == 'visual_identification'):
+        return tall_story_image(card,background,destination,palette)
     with Image.open(source) as image:
         if image.size!=(1080,1350): raise ValueError('Story source must be the 1080×1350 published card')
         card=image.convert('RGB')
@@ -47,9 +50,9 @@ def publish_stories(store,package,assets,record=None):
         palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         for card in package['cards']:
             kind=card['kind'];stage='Instagram Stories rendering'
-            path=ROOT/'build'/date/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'))
+            path=ROOT/'build'/date/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
             store.put_file(date,path.name,path.read_bytes());url=store.expose(date,path.name)
-            if request('GET',url,raw=True)!=path.read_bytes(): raise ValueError('Story bytes differ from the padded card')
+            if request('GET',url,raw=True)!=path.read_bytes(): raise ValueError('Story bytes differ from the rendered Story')
             stage='Instagram Stories publishing';require_publishing();container=ig.story(url);ig.ready(container)
             publication='partial or uncertain Instagram Story publication'
             media_id=ig.publish(container)

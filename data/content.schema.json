@@ -28,11 +28,12 @@
       "design_template":{"enum":["editorial","framed","notebook","ribbon","split-cards","minimal","rounded","poster"]},
       "background_prompt":{"type":"string","minLength":100,"maxLength":2048},"alt_text":{"type":"string","minLength":10,"maxLength":300},
       "question":{"type":"string","minLength":5,"maxLength":150},
+      "quiz_format":{"enum":["visual_identification","other"]},
       "options":{"type":"array","minItems":2,"maxItems":4,"items":{"type":"object","additionalProperties":false,"required":["label","text"],"properties":{"label":{"enum":["A","B","C","D"]},"text":{"type":"string","minLength":1,"maxLength":100}}}},
       "heading":{"$ref":"#/$defs/text"},"body":{"type":"string","minLength":10,"maxLength":380},"example":{"type":"string","minLength":5,"maxLength":180}
     },"allOf":[
       {"if":{"properties":{"kind":{"const":"quiz"}}},"then":{"required":["question","options"],"not":{"anyOf":[{"required":["heading"]},{"required":["body"]},{"required":["example"]}]}}},
-      {"if":{"properties":{"kind":{"enum":["lesson","word"]}}},"then":{"required":["heading","body"],"not":{"anyOf":[{"required":["question"]},{"required":["options"]}]}}},
+      {"if":{"properties":{"kind":{"enum":["lesson","word"]}}},"then":{"required":["heading","body"],"not":{"anyOf":[{"required":["question"]},{"required":["options"]},{"required":["quiz_format"]}]}}},
       {"if":{"properties":{"kind":{"const":"word"}}},"then":{"required":["example"]}}
     ]}
   }

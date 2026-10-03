@@ -23,15 +23,21 @@ class SelectionTests(unittest.TestCase):
         wrong=copy.deepcopy(self.old);wrong['words'][0]['equivalence_keys'].append('changed')
         with self.assertRaises(ValueError):check_selection(wrong,chosen)
 
-    def test_same_words_requires_fresh_copy_and_prompts(self):
+    def test_same_words_preserves_copy_palette_layout_and_metadata_with_fresh_prompts(self):
         chosen=selection_context(self.history,self.old['date'],'same_words')
         with self.assertRaises(ValueError):check_selection(self.old,chosen)
         new=copy.deepcopy(self.old)
         for c in new['cards']:
             c['background_prompt']+=' New light.'
-            key='question' if c['kind']=='quiz' else 'body'
-            c[key]+=' Danas.'
         check_selection(new,chosen)
+        for change in ('caption','body','palette','layout','review'):
+            wrong=copy.deepcopy(new)
+            if change=='caption':wrong['caption']+=' Danas.'
+            if change=='body':wrong['cards'][1]['body']+=' Danas.'
+            if change=='palette':wrong['design_palette']='gold-cream'
+            if change=='layout':wrong['cards'][0]['design_template']='minimal'
+            if change=='review':wrong['private_review']['notes']+=' changed'
+            with self.subTest(change=change),self.assertRaises(ValueError):check_selection(wrong,chosen)
         validate(new,novelty_history(self.history,new['date'],chosen),include_today=True)
         # The exemption does not extend to an older day's reused words/theme.
         history=copy.deepcopy(self.history);history['days'].append({'date':'2026-10-01','content':self.old})
@@ -43,6 +49,38 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.history['days'][0]['content']['theme'],self.old['theme'])
         with self.assertRaises(ValueError):validate(self.old,filtered,include_today=True)
         with self.assertRaises(ValueError):validate(self.old,self.history,include_today=True)
+
+    def test_custom_blank_defaults_preserve_metadata_but_require_fresh_text(self):
+        chosen=selection_context(self.history,self.old['date'],'custom')
+        self.assertEqual(chosen['requested_theme'],self.old['theme']['name'])
+        self.assertEqual(chosen['requested_words'],[w['lemma'] for w in self.old['words']])
+        with self.assertRaises(ValueError):check_selection(self.old,chosen)
+        new=copy.deepcopy(self.old);new['caption']+=' Danas.'
+        for c in new['cards']:
+            c['background_prompt']+=' New light.'
+            key='question' if c['kind']=='quiz' else 'body';c[key]+=' Danas.'
+        check_selection(new,chosen)
+        validate(new,novelty_history(self.history,new['date'],chosen),include_today=True)
+        older=copy.deepcopy(self.history);older['days'].append({'date':'2026-10-01','content':self.old})
+        with self.assertRaises(ValueError):validate(new,novelty_history(older,new['date'],chosen),include_today=True)
+
+    def test_custom_partial_defaults_and_novelty_exempt_only_explicit_reuse(self):
+        chosen=selection_context(self.history,self.old['date'],'custom','',['','vjetar',''])
+        self.assertIsNone(chosen['pinned_words'][1]);self.assertEqual(chosen['requested_words'][1],'vjetar')
+        remaining=novelty_history(self.history,self.old['date'],chosen)['days'][0]['content']['words']
+        self.assertEqual(remaining,[self.old['words'][1]])
+        chosen=selection_context(self.history,self.old['date'],'custom','Zimska šetnja',['','',''])
+        self.assertIsNone(chosen['pinned_theme'])
+        self.assertEqual(novelty_history(self.history,self.old['date'],chosen)['days'][0]['content']['theme'],self.old['theme'])
+        with self.assertRaises(ValueError):check_selection(self.old,chosen)
+
+    def test_custom_first_run_requires_all_fields_and_distinct_words(self):
+        history={'days':[]}
+        for theme,words in (('',None),('Kišni dan',['kap','','oblak']),('Kišni dan',['kap','kap','oblak'])):
+            with self.assertRaises(ValueError):selection_context(history,self.old['date'],'custom',theme,words)
+        chosen=selection_context(history,self.old['date'],'custom','Kišni dan',['kišobran','oblak','kap'])
+        check_selection(self.old,chosen)
+        self.assertEqual(chosen['pinned_words'],[None]*3)
 
 
 class ReplacementTests(unittest.TestCase):
