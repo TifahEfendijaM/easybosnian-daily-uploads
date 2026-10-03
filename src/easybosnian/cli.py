@@ -18,6 +18,7 @@ from .buffer import Buffer
 from .notify import failure
 from .render import render
 from .story_layouts import tall_story_image
+from .levels import LEVELS, set_level
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
@@ -74,7 +75,8 @@ def prepare(path,selection=None):
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection)
     fresh=not selection or selection['choice']!='same_words'
-    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh);fit_check(package)
+    from .levels import load_level
+    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=load_level() if fresh else None);fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
@@ -179,6 +181,7 @@ def main():
     subs.add_parser("create-repository")
     subs.add_parser("history")
     subs.add_parser("check-infrastructure")
+    level=subs.add_parser('set-level');level.add_argument('--level',choices=LEVELS,required=True)
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser('run');p.add_argument('--date',default=None);p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
@@ -194,6 +197,7 @@ def main():
     if args.command=="create-repository": create_repository()
     elif args.command=="history": print(json.dumps(Store().history(),ensure_ascii=False,indent=2))
     elif args.command=="check-infrastructure": print(json.dumps(check_infrastructure(),indent=2))
+    elif args.command=='set-level': print(json.dumps(set_level(args.level)))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
     elif args.command=='run': daily(args.date,args.mode)

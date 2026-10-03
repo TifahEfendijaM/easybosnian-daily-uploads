@@ -4,6 +4,7 @@
   "required":["schema_version","project","date","theme","words","design_palette","cards","caption","hashtags","sources","private_review"],
   "properties":{
     "schema_version":{"const":1},
+    "bosnian_level":{"enum":["A1","A2","B1","B2","C1","C2"]},
     "project":{"const":"tifahefendijam-easybosnian-daily-uploads-v1"},
     "date":{"type":"string","format":"date"},
     "theme":{"type":"object","additionalProperties":false,"required":["name","equivalence_keys"],"properties":{"name":{"$ref":"#/$defs/text"},"equivalence_keys":{"$ref":"#/$defs/keys"}}},

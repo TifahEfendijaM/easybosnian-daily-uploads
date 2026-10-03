@@ -54,3 +54,5 @@ Pillow keeps the approved layout placements, with balanced paragraph line breaks
 Every newly prepared caption ends with a fresh contextual Bosnian invitation to learn on EasyBosnian, then easybosnian.com on its own final line. The closing sentence must fit the theme without leaking the quiz answer; it is generated each time, not a fixed slogan. Existing saved posts/content are unchanged.
 
 Manual content choices are new, same_theme, same_words (images only, preserve all copy/layout/palette), and custom (theme/three words; blank fields reuse today, fresh text even with defaults). See docs/manual-reruns.md.
+
+One persistent shared difficulty starts at A2. Change it through [the difficulty workflow](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml) for future 05:00 runs and manual preparation. It writes only data/preparation-settings.json. Image-only runs preserve existing content; fresh text uses the chosen level, and each custom word can be kept, entered or delegated to ChatGPT. Standard GitHub forms show all custom controls, which apply only to custom.

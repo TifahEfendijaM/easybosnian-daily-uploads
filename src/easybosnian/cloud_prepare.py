@@ -12,6 +12,7 @@ from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
 from .selection import selection_context, check_selection, novelty_history
+from .levels import load_level
 
 
 AGENT_FAILURES = {
@@ -150,15 +151,16 @@ def run_codex(prompt, timeout=420):
     return output.read_text(encoding="utf-8").strip()
 
 
-def cloud_run(mode, selection='new', custom_theme='', custom_words=None):
+def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None):
     if mode not in ('verify','preview','daily'): raise ValueError('Unknown workflow mode')
     date=today();stage='cloud preparation infrastructure authorization'
     try:
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
-        chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words) if mode!='verify' else {'choice':'new','previous':None}
-        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen})
+        chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions) if mode!='verify' else {'choice':'new','previous':None}
+        level=load_level()
+        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -187,7 +189,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None):
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
                 fresh=chosen['choice']!='same_words'
-                validate(package,novelty_history(history,date,chosen),include_today=True,require_website_footer=fresh,require_quiz_format=fresh);fit_check(package)
+                validate(package,novelty_history(history,date,chosen),include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None);fit_check(package)
                 stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}
@@ -203,7 +205,8 @@ def main():
     action = parser.parse_args().action
     if action in ("verify", "preview", "daily"):
         cloud_run(action,os.getenv('CONTENT_SELECTION','new'),os.getenv('CUSTOM_THEME',''),
-                  [os.getenv('CUSTOM_WORD_'+str(i),'') for i in (1,2,3)])
+                  [os.getenv('CUSTOM_WORD_'+str(i),'') for i in (1,2,3)],
+                  [os.getenv('CUSTOM_WORD_'+str(i)+'_ACTION','keep_today') for i in (1,2,3)])
         return
     try:
         bootstrap() if action == "bootstrap" else persist()

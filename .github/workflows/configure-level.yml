@@ -1,0 +1,33 @@
+name: Change EasyBosnian difficulty
+run-name: EasyBosnian difficulty → ${{ inputs.level }}
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Save the difficulty for future 05:00 runs and manual reruns (preserved text stays unchanged)
+        type: choice
+        options: [A1, A2, B1, B2, C1, C2]
+        default: A2
+permissions:
+  contents: write
+concurrency:
+  group: easybosnian-preparation-level-settings
+  cancel-in-progress: false
+jobs:
+  configure:
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Save and read back the shared difficulty only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_LEVEL: ${{ inputs.level }}
+        run: easybosnian set-level --level "$TARGET_LEVEL"

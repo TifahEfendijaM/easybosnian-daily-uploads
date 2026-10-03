@@ -14,19 +14,34 @@ on:
         options: [same_words, same_theme, new, custom]
         default: new
       custom_theme:
-        description: 'Custom only: theme (blank = today’s saved theme)'
+        description: 'Custom only: if left empty, the theme from today’s latest batch remains'
         type: string
         default: ''
+      custom_word_1_action:
+        description: 'Pitanje dana: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        type: choice
+        options: [keep_today, chatgpt, entered]
+        default: keep_today
       custom_word_1:
-        description: 'Custom only: Pitanje dana word (blank = today’s quiz word)'
+        description: 'Custom only: Pitanje dana word; fill only when its action is entered'
         type: string
         default: ''
+      custom_word_2_action:
+        description: 'Znaš li: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        type: choice
+        options: [keep_today, chatgpt, entered]
+        default: keep_today
       custom_word_2:
-        description: 'Custom only: Znaš li word (blank = today’s lesson word)'
+        description: 'Custom only: Znaš li word; fill only when its action is entered'
         type: string
         default: ''
+      custom_word_3_action:
+        description: 'Riječ dana: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        type: choice
+        options: [keep_today, chatgpt, entered]
+        default: keep_today
       custom_word_3:
-        description: 'Custom only: Riječ dana word (blank = today’s word)'
+        description: 'Custom only: Riječ dana word; fill only when its action is entered'
         type: string
         default: ''
       tiktok_previous_removed:
@@ -50,6 +65,9 @@ jobs:
       CUSTOM_WORD_1: ${{ inputs.custom_word_1 }}
       CUSTOM_WORD_2: ${{ inputs.custom_word_2 }}
       CUSTOM_WORD_3: ${{ inputs.custom_word_3 }}
+      CUSTOM_WORD_1_ACTION: ${{ inputs.custom_word_1_action }}
+      CUSTOM_WORD_2_ACTION: ${{ inputs.custom_word_2_action }}
+      CUSTOM_WORD_3_ACTION: ${{ inputs.custom_word_3_action }}
       TIKTOK_PREVIOUS_REMOVED: ${{ inputs.tiktok_previous_removed }}
       INSTAGRAM_DELETE_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_DELETE_ACCESS_TOKEN }}
       INSTAGRAM_DELETE_USER_ID: ${{ secrets.INSTAGRAM_DELETE_USER_ID }}
