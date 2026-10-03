@@ -55,14 +55,6 @@ class MetaReadinessTests(unittest.TestCase):
         self.assertEqual(ig.call.call_count, 12)
         self.assertEqual(sleep.call_count, 11)
 
-    def test_refused_facebook_story_photo_deletion_keeps_ids_and_does_not_retry(self):
-        with patch.dict(os.environ, {'META_GRAPH_VERSION': 'v26.0'}):
-            fb = Facebook(token='test', page_id='42')
-        fb.call = MagicMock(side_effect=[{'id': '456', 'from': {'id': '42'}, 'page_story_id': '42_789', 'can_delete': True}, SafeError('Provider rejected the request')])
-        with patch('easybosnian.meta.require_publishing'), self.assertRaisesRegex(SafeError, 'Story 789, photo 456'):
-            fb.delete_story_photo('789', '456')
-        self.assertEqual([call.args[0] for call in fb.call.call_args_list], ['GET', 'DELETE'])
-
     def test_partial_story_failure_preserves_container_and_uses_only_one_publish_attempt(self):
         from PIL import Image
         from easybosnian.core import ROOT

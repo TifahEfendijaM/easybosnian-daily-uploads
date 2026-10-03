@@ -27,12 +27,12 @@ on:
         type: string
         default: ''
       custom_word_2_action:
-        description: 'CUSTOM ONLY - Znaš li: keep_today = keep word; chatgpt = choose word; entered = use typed word'
+        description: 'CUSTOM ONLY - Znaš li: keep_today = keep topic; chatgpt = choose topic; entered = use typed word/topic'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
       custom_word_2:
-        description: 'Custom only: Znaš li word; fill only when its action is entered'
+        description: 'Custom only: Znaš li word, comparison (peći / kuhati), or short topic; fill only when action is entered'
         type: string
         default: ''
       custom_word_3_action:

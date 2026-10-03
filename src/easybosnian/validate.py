@@ -115,7 +115,7 @@ def validate(package, history=None, include_today=False, require_website_footer=
         # Palette/layout IDs are validated by the schema and used by Pillow.
         # FLUX needs a natural scene description, without renderer vocabulary.
         # Actual glyph wrapping and semantic editorial review remain mandatory.
-        if c["kind"] != "quiz" and normalise(c["heading"]) != normalise(c["word"]):
+        if c["kind"] == "word" and normalise(c["heading"]) != normalise(c["word"]):
             raise ValueError("Featured heading must be the reviewed word")
         for text in instructional(c):
             if "\n" in text or any(ord(x) < 32 for x in text):

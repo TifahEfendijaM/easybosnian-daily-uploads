@@ -1,4 +1,4 @@
-"""Delete only known same-date provider objects before deliberate replacement."""
+"""Best-effort cleanup of known same-date supported objects; posting is independent."""
 import os
 
 from .core import require_publishing
@@ -9,6 +9,22 @@ def recorder(store, date, platform):
     def record(kind, object_id, account_id):
         store.remember(date, platform, kind, object_id, account_id)
     return record
+
+
+
+def latest_batch(items):
+    """Only the last recorded feed and its following up-to-three Story IDs.
+
+    The Worker exposes D1 insertion order; no content state, intent or generation
+    record is needed. Never infer recency from provider IDs or an unordered list.
+    """
+    if any(type(x.get('recorded_order')) is not int or x['recorded_order'] <= 0 for x in items):
+        raise ValueError('Publication recording order is unavailable; skip cleanup rather than guess the latest batch')
+    ordered = sorted(items, key=lambda x: x['recorded_order'])
+    feeds = [x for x in ordered if x['kind']=='feed']
+    feed = feeds[-1] if feeds else None
+    stories = [x for x in ordered if x['kind']=='story' and (feed is None or x['recorded_order']>feed['recorded_order'])][-3:]
+    return ([feed] if feed else []) + stories
 
 
 def cleanup(store, date, platform):
@@ -24,6 +40,9 @@ def cleanup(store, date, platform):
         # claiming manual deletion or making the next upload depend on a checkbox.
         return {'removed':0, 'previous_posts_recorded':len(items),
                 'deletion':'manual; not checked or performed'}
+    all_items = items
+    items = latest_batch(items)
+    if not items: return {'removed':0, 'already_absent':0}
     provider = InstagramDeletion() if platform == 'instagram' else Facebook()
     provider.verify_account() if platform == 'instagram' else provider.verify_page()
     # Instagram Login and Facebook Login can identify this verified profile
@@ -32,28 +51,25 @@ def cleanup(store, date, platform):
     if any(x['account_id'] not in expected for x in items):
         raise ValueError('Recorded media belong to a different publishing account')
     result = {'removed':0, 'already_absent':0}
-    # Read the authenticated account's complete owned-media edge. Missing here
-    # is distinct from a permission/network failure; those errors stop cleanup.
-    removed_photos = set()
-    for kind in ('story', 'feed', 'photo'):
-        selected = [x for x in items if x['kind'] == kind and x['object_id'] not in removed_photos]
+    if platform == 'facebook':
+        # Page Stories expose publish/read, not a supported Story DELETE. Never
+        # delete their backing photos as a workaround. Existing photo IDs mix
+        # feed and Story uploads, so leave them intact and delete feed posts only.
+        result.update(stories_recorded=sum(x['kind']=='story' for x in all_items),
+                      photos_preserved=sum(x['kind']=='photo' for x in all_items),
+                      story_deletion='manual; not checked or performed')
+    kinds = ('story', 'feed') if platform == 'instagram' else ('feed',)
+    for kind in kinds:
+        selected = [x for x in items if x['kind'] == kind]
         if not selected: continue
-        story_photos = provider.story_photos() if platform == 'facebook' and kind == 'story' else None
-        owned = set(story_photos) if story_photos is not None else provider.owned_ids(kind)
+        # A complete authenticated edge distinguishes absence from a read error.
+        # Errors stop this cleanup attempt, never the independently checked post.
+        owned = provider.owned_ids(kind)
         for item in selected:
             object_id = item['object_id']; require_publishing()
             if object_id in owned:
-                if story_photos is not None:
-                    photo_id = story_photos[object_id]
-                    if photo_id not in {x['object_id'] for x in items if x['kind'] == 'photo'}:
-                        raise ValueError('The Facebook Story photo is not recorded for this date; refusing cleanup')
-                    provider.delete_story_photo(object_id, photo_id)
-                    store.forget(date, platform, photo_id)
-                    removed_photos.add(photo_id); result['removed'] += 1
-                else: provider.delete(object_id)
-                result['removed'] += 1
+                provider.delete(object_id); result['removed'] += 1
             else: result['already_absent'] += 1
-            # Keep identifiers on any ambiguous deletion/storage failure. A later
-            # deliberate invocation checks ownership again; nothing retries here.
+            # Retain identifiers after ambiguous deletion/storage failure.
             store.forget(date, platform, object_id)
     return result

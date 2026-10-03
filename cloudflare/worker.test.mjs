@@ -175,7 +175,7 @@ test('pre-claim scheduled failures are visible and do not reveal provider detail
 test('minimal publication identifiers are protected, date-scoped and independent of history replacement',async()=>{
   const records=new Map();
   const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){return {bind(...args){this.args=args;return this;},async run(){
-    if(sql.startsWith('INSERT INTO publication_ids')) {const [date,platform,kind,object_id,account_id]=this.args;const key=platform+':'+object_id;if(!records.has(key))records.set(key,{date,platform,kind,object_id,account_id});}
+    if(sql.startsWith('INSERT INTO publication_ids')) {const [date,platform,kind,object_id,account_id]=this.args;const key=platform+':'+object_id;if(!records.has(key))records.set(key,{recorded_order:records.size+1,date,platform,kind,object_id,account_id});}
     else if(sql.startsWith('DELETE')) {const [date,platform,id]=this.args;const key=platform+':'+id;if(records.get(key)?.date===date)records.delete(key);}
     else throw Error('Publication identifiers must not mutate history or claims');
     return {meta:{changes:1}};
@@ -187,6 +187,6 @@ test('minimal publication identifiers are protected, date-scoped and independent
   assert.equal((await send('POST','',{...item,account_id:'43'})).status,409);
   assert.equal((await send('POST','',{...item,object_id:'../../anything'})).status,409);
   assert.equal((await send('POST','',{...item,published:true})).status,409);
-  assert.equal((await send('GET')).status,200);assert.equal((await (await send('GET')).json()).items.length,1);
+  assert.equal((await send('GET')).status,200);const stored=await (await send('GET')).json();assert.equal(stored.items.length,1);assert.equal(stored.items[0].recorded_order,1);
   assert.equal((await send('DELETE','/instagram/123')).status,200);assert.equal(records.size,0);
 });
