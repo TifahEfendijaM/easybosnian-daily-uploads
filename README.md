@@ -2,15 +2,15 @@
 
 Private repository **TifahEfendijaM/easybosnian-daily-uploads**. The existing Cloudflare Worker starts one GitHub workflow at **05:00 daily Europe/Sarajevo**. The clock handles daylight saving automatically. GitHub has no schedule trigger, and there is no automatic retry or missing-run monitor.
 
-One job follows a straight path: a GPT agent through the existing ChatGPT subscription researches and reviews content → the wrapper saves today's Cloudflare history row → refreshed cloud credentials are persisted privately → Pillow renders three cards using Free FLUX backgrounds → Instagram, Facebook and Buffer TikTok publish → Instagram and Facebook upload the same cards as image Stories after their respective feed posts succeed. Publication starts immediately after preparation. No awake Mac or paid OpenAI API is needed.
+One job follows a straight path: a GPT agent through the existing ChatGPT subscription researches and reviews content → the wrapper saves the selected Cloudflare history row → refreshed cloud credentials are persisted privately → Pillow renders three cards using Free FLUX backgrounds → Instagram, Facebook and Buffer TikTok publish → Instagram and Facebook upload the same cards as image Stories after their respective feed posts succeed. Publication starts immediately after preparation. No awake Mac or paid OpenAI API is needed.
 
 ## Three modes
 
 | Mode | Content | Images | Posting |
 |---|---|---|---|
 | verify (default) | Reads history and verifies connections/workspace only | None | None |
-| preview | Reuses today's row, or researches/saves it if absent | Renders private cards | None |
-| daily | Always researches and overwrites today's content | Renders replacement cards | All enabled platforms |
+| preview | Reuses the selected row, or researches/saves it if absent | Renders private cards | None |
+| daily | Researches and overwrites the selected batch’s content | Renders replacement cards | All enabled platforms |
 
 The user chose complete same-date overwrite. A daily run after a preview prepares replacement content rather than posting that preview's exact cards. Earlier same-day themes/words are removed from future novelty checks. Other dates' history remains. Previewed content counts toward history until replaced, even if never posted.
 
@@ -51,9 +51,9 @@ Pitanje dana varies objective Bosnian quizzes with two to four choices, includin
 
 Pillow keeps the approved layout placements, with balanced paragraph line breaks, consistent baselines, point-size-based leading and left alignment. It preserves exact reviewed wording and diacritics, avoids tiny orphan lines without adding extra lines, and measures full accented glyph bounds. Dynamic 44/38/34 px body sizing, PRIMJER hierarchy, panel accents and fit/contrast rejection remain.
 
-Every newly prepared caption ends with a fresh contextual Bosnian invitation to learn on EasyBosnian, then easybosnian.com on its own final line. The closing sentence must fit the theme without leaking the quiz answer; it is generated each time, not a fixed slogan. Existing saved posts/content are unchanged.
+Every newly prepared caption ends with a fresh contextual Bosnian invitation to learn on EasyBosnian, then 👉easybosnian.com on its own final line. The closing sentence must fit the theme without leaking the quiz answer; it is generated each time, not a fixed slogan. Existing saved posts/content are unchanged.
 
-Manual content choices are new, same_theme, same_words (same theme/words, fresh copy/images and palette/layout choices), and custom (theme/three words; blank fields reuse today, fresh text even with defaults). See docs/manual-reruns.md.
+Manual content choices are new, same_theme, same_words (same theme/words, fresh copy/images and palette/layout choices), and custom (theme/three words; blank fields reuse the selected batch, fresh text even with defaults). See docs/manual-reruns.md.
 
 One persistent shared difficulty starts at A2. Change it through [the difficulty workflow](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml) for future 05:00 runs and manual preparation. It writes only data/preparation-settings.json. same_words retains word difficulty while regenerating copy and design; new ChatGPT-selected words use the chosen level. Retained words keep their individual difficulty when rewritten. Each custom word can be kept, entered or delegated; a changed theme delegates keep-today slots, while a thematically incompatible entered word is replaced at the shared level after private review. Standard GitHub forms show all custom controls, which apply only to custom.
 
@@ -66,3 +66,5 @@ Znaš li? may explain a useful difference between two words or a broader topic, 
 Photographic scene planning leads palette selection: pick natural scenes/colours first, then an approved Pillow palette that complements them. Do not colour props or lighting just to match an accent. Measure the actual text panels before choosing a simple full-subject/wider framing sentence for objects that could otherwise disappear behind copy. Prompt planning improves composition but cannot guarantee FLUX follows every direction.
 
 Replacement cleanup selects only the latest recorded batch on the selected Sarajevo date: the last Instagram feed post and up to three Stories recorded after it, and the last Facebook feed post. It leaves earlier same-date batches alone and never fills a partial latest Story batch with older Story IDs. D1 insertion order is exposed as recorded_order in the authenticated ID listing; provider ID sorting is not used as a clock. If order is unavailable, cleanup warns/skips and publishing remains independently gated. Facebook Stories/photos and TikTok posts stay manual. No content history, reservation, intent, retry or daily-claim state is added.
+
+Manual reruns default to batch_target=latest and replace the newest complete saved batch under its original date, so they work after midnight before the next morning’s batch. Preview also uses that target. The 05:00 Worker explicitly sends batch_target=today and prepares a new current-day batch; it does not delete yesterday’s posts. The publisher uses the trusted preparation result’s date. No migration or extra publication state is needed. See docs/manual-reruns.md.

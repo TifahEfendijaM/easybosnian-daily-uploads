@@ -15,7 +15,7 @@ POST https://api.github.com/repos/TifahEfendijaM/easybosnian-daily-uploads/actio
 ```
 
 ```json
-{"ref":"main","inputs":{"mode":"daily"}}
+{"ref":"main","inputs":{"mode":"daily","batch_target":"today"}}
 ```
 
 Headers retain Bearer authentication, Accept application/vnd.github+json, project User-Agent, Content-Type application/json and GitHub API version 2022-11-28. Only clock/gate decisions and status/mode are logged; credentials, content and provider response bodies are excluded. The gate log occurs before either inactive-time or disabled-start return, so an invoked but skipped event can be distinguished from no invocation. Scheduled failures also produce a generic error log without provider details. Require HTTP 204; non-204 or network failure throws and preserves the claim without retry. redirect:manual remains because Workers does not support redirect:error, and credentials must not follow a redirect.
@@ -34,3 +34,5 @@ python -c "import sys; sys.path.insert(0, 'scripts'); from cloudflare_deploy imp
 ```
 
 CI deployment would remove the manual merge/deploy gap, but needs a separate least-privilege Cloudflare deploy credential, protected environment and a config assembled from this project's resource IDs. It must run after successful checks, perform the same clock check, and verify the live bundle/crons after deployment. Do not reuse the Worker-only GitHub dispatch token or desktop OAuth session. CI deployment is not enabled by this change; no new access was requested.
+
+For the latest-batch change, main must accept the new batch_target input before deploying this Worker revision; otherwise GitHub rejects dispatch with 422. Merge and require checks first, then deploy the same Worker and verify its live bundle/cron without sending a daily test. The clock and per-date claim remain unchanged. Manual form runs default to latest; the Worker explicitly chooses today so each morning creates the new day’s batch. No D1 migration is required.

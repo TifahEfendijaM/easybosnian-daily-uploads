@@ -14,7 +14,7 @@ on:
         options: [same_words, same_theme, new, custom]
         default: new
       custom_theme:
-        description: 'Custom only: if left empty, the theme from today’s latest batch remains'
+        description: 'Custom only: if left empty, the theme from the selected saved batch remains'
         type: string
         default: ''
       custom_word_1_action:
@@ -44,6 +44,11 @@ on:
         description: 'Custom only: Riječ dana word; fill only when its action is entered'
         type: string
         default: ''
+      batch_target:
+        description: 'Leave latest for manual reruns, including after midnight; today starts the current date (used automatically at 05:00)'
+        type: choice
+        options: [latest, today]
+        default: latest
 permissions:
   contents: read
   issues: write
@@ -57,6 +62,7 @@ jobs:
     timeout-minutes: 30
     env:
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
+      BATCH_TARGET: ${{ inputs.batch_target || 'latest' }}
       CUSTOM_THEME: ${{ inputs.custom_theme }}
       CUSTOM_WORD_1: ${{ inputs.custom_word_1 }}
       CUSTOM_WORD_2: ${{ inputs.custom_word_2 }}
@@ -124,12 +130,12 @@ jobs:
         env:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
         run: python -m easybosnian.cloud_prepare persist
-      - name: Render today's history row and publish only in daily mode
+      - name: Render the prepared history row and publish only in daily mode
         id: publication
         if: success() && inputs.mode != 'verify'
         env:
           MODE: ${{ inputs.mode }}
-        run: easybosnian run --mode "$MODE"
+        run: easybosnian run --mode "$MODE" --prepared
       - name: Report otherwise unhandled workflow failure
         if: failure()
         env:

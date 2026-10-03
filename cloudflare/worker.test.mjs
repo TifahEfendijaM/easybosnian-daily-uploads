@@ -35,7 +35,7 @@ test('both UTC candidates select one 05:00 Sarajevo dispatch, including DST tran
   }
   const posts=fixture.calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,4);
   for(const {options} of posts) {
-    assert.deepEqual(JSON.parse(options.body),{ref:'main',inputs:{mode:'daily'}});
+    assert.deepEqual(JSON.parse(options.body),{ref:'main',inputs:{mode:'daily',batch_target:'today'}});
     assert.equal(options.headers.Accept,'application/vnd.github+json');
     assert.equal(options.headers.Authorization,'Bearer private-test-token');
     assert.equal(options.headers['X-GitHub-Api-Version'],'2022-11-28');

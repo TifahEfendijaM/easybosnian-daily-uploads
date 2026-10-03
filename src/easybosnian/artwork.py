@@ -1,4 +1,4 @@
-"""Render today's reviewed history row once, sharing its cards across publishers."""
+"""Render the selected reviewed history row once, sharing its cards across publishers."""
 import io
 from PIL import Image
 from .core import ROOT

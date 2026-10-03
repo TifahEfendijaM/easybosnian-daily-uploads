@@ -31,7 +31,7 @@ export async function dispatchPreparation(env,mode) {
   const repository=await identity.json();
   if(repository.full_name!==REPO || repository.private!==true || repository.default_branch!=='main') throw dispatchError('Dispatch target must be the exact private repository with default branch main');
   let result;
-  try {result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),body:JSON.stringify({ref:'main',inputs:{mode}})});}
+  try {result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),body:JSON.stringify({ref:'main',inputs:{mode,...(mode==='daily'?{batch_target:'today'}:{})}})});}
   catch {throw dispatchError('GitHub dispatch network failure; acceptance is uncertain; no automatic retry',null,true);}
   console.log(JSON.stringify({event:'preparation_dispatch_response',mode,http_status:result.status}));
   if(result.status!==204) throw dispatchError(`GitHub dispatch HTTP ${result.status}; expected 204; no automatic retry`,result.status,result.status>=500 || (result.status>=200 && result.status<300));
