@@ -47,7 +47,7 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
 
 def check_selection(package, selection):
     choice = selection['choice']; previous = selection['previous']
-    if choice not in ('custom','same_words') and package.get('private_review',{}).get('word_replacements'):
+    if choice != 'custom' and package.get('private_review',{}).get('word_replacements'):
         raise ValueError('Word replacement reviews apply only to custom selections')
     if choice == 'new': return
     if choice == 'custom':
@@ -60,26 +60,23 @@ def check_selection(package, selection):
             if index in replacements: continue
             if (requested is not None and normalise(word['lemma']) != normalise(requested)) or (pinned and not retained_metadata(word,pinned,previous)):
                 raise ValueError('Custom word or reused equivalence metadata differs from the requested selection')
-        if previous:
-            if package['caption'] == previous['caption']:
-                raise ValueError('Custom content requires a fresh caption')
-            for new in package['cards']:
-                old = next((c for c in previous['cards'] if normalise(c['word']) == normalise(new['word'])), None)
-                if old and (instructional(old) == instructional(new) or old['background_prompt'] == new['background_prompt']):
-                    raise ValueError('Custom reuse requires fresh text and background prompts')
+        if previous: check_fresh_copy(package,previous)
         return
     if package['theme'] != previous['theme']:
         raise ValueError('The selected theme and equivalence metadata must remain unchanged')
-    if choice == 'same_words' and package['words'] != previous['words']:
-        raise ValueError('The selected words, order and equivalence metadata must remain unchanged')
     if choice == 'same_words':
-        expected = copy.deepcopy(previous)
-        for old, new in zip(previous['cards'], package['cards']):
-            if old['background_prompt'] == new['background_prompt']:
-                raise ValueError('Image-only reruns require a fresh background prompt per card')
-        for old, new in zip(expected['cards'], package['cards']): old['background_prompt'] = new['background_prompt']
-        if package != expected:
-            raise ValueError('Image-only reruns must preserve all existing content, palette and layouts')
+        if len(package['words']) != len(previous['words']) or any(not retained_metadata(word,pinned,previous) for word,pinned in zip(package['words'],previous['words'])):
+            raise ValueError('The selected words, order and equivalence metadata must remain unchanged')
+        check_fresh_copy(package,previous)
+
+
+def check_fresh_copy(package, previous):
+    if package['caption'] == previous['caption']:
+        raise ValueError('Reusing words requires a fresh caption')
+    for new in package['cards']:
+        old = next((c for c in previous['cards'] if normalise(c['word']) == normalise(new['word'])), None)
+        if old and (instructional(old) == instructional(new) or old['background_prompt'] == new['background_prompt']):
+            raise ValueError('Reusing words requires fresh text and background prompts')
 
 
 def retained_metadata(word, pinned, previous):
@@ -108,17 +105,21 @@ def replacement_review(package, selection):
     return result
 
 
+def retained_level(word, pinned, previous):
+    target=pinned['bosnian_level'] if 'bosnian_level' in pinned else previous.get('bosnian_level')
+    if target is None and ('bosnian_level' not in word or word['bosnian_level'] is not None):
+        raise ValueError('An unrated retained word must explicitly preserve its unknown level')
+    return target
+
+
 def word_levels(package, selection, global_level):
-    if selection['choice']=='same_words': return None
+    if selection['choice']=='same_words':
+        return [retained_level(word,pinned,selection['previous']) for word,pinned in zip(package['words'],selection['previous']['words'])]
     if selection['choice']!='custom': return [global_level]*3
     changes=replacement_review(package,selection);targets=[]
     for index,(requested,pinned) in enumerate(zip(selection['requested_words'],selection['pinned_words'])):
         if requested is None or index in changes:targets.append(global_level)
-        elif pinned:
-            target=pinned['bosnian_level'] if 'bosnian_level' in pinned else selection['previous'].get('bosnian_level')
-            if target is None and ('bosnian_level' not in package['words'][index] or package['words'][index]['bosnian_level'] is not None):
-                raise ValueError('An unrated retained word must explicitly preserve its unknown level')
-            targets.append(target)
+        elif pinned:targets.append(retained_level(package['words'][index],pinned,selection['previous']))
         else:
             level=package['words'][index].get('bosnian_level')
             if level not in ('A1','A2','B1','B2','C1','C2'):
