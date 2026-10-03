@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       level:
-        description: Save the difficulty for future 05:00 runs and manual reruns (preserved text stays unchanged)
+        description: 'Keep current reads the saved level; choose A1-C2 to change future preparations. The run summary confirms the actual level.'
         type: choice
-        options: [A1, A2, B1, B2, C1, C2]
-        default: A2
+        options: [Keep current, A1, A2, B1, B2, C1, C2]
+        default: Keep current
 permissions:
   contents: write
 concurrency:

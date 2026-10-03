@@ -11,4 +11,4 @@ Za batch_target izaberite latest da zamijenite posljednji paket (radi i poslije 
 
 Uz latest rerun pokušava obrisati posljednju IG objavu i njene storije te FB objavu. Ako brisanje ne uspije, nova objava ipak ide. Stari TikTok i FB storiji brišu se ručno.
 
-Nivo mijenjate [ovdje](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml): Run workflow → main → A1–C2 → zeleno Run workflow. Kad završi, nivo ostaje za buduće pripreme dok ga opet ne promijenite; ovo samo mijenja postavku, ništa ne objavljuje.
+Nivo mijenjate [ovdje](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml): Run workflow → main → A1–C2 → zeleno Run workflow. Ako ostavite Keep current, ostaje već spremljeni nivo. U sažetku završenog runa vidite koji je nivo trenutno spremljen. Kad završi, nivo ostaje za buduće pripreme dok ga opet ne promijenite; ovo samo mijenja postavku, ništa ne objavljuje.

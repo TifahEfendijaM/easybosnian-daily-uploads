@@ -1,13 +1,14 @@
 import base64
 import copy
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.core import ROOT, REPO
-from easybosnian.levels import LEVELS, load_level, set_level, settings_level
+from easybosnian.levels import KEEP_CURRENT, LEVELS, load_level, set_level, settings_level
 from easybosnian.selection import selection_context, novelty_history, check_selection, word_levels
 from easybosnian.validate import validate
 from test_project import reviewed_fixture
@@ -44,6 +45,21 @@ class LevelTests(unittest.TestCase):
         github.assert_not_called()
         with patch('easybosnian.levels.gh',side_effect=[remote('A2'),'{}',remote('A2')]) as github,self.assertRaises(ValueError):set_level('B2')
         self.assertEqual(sum('--method' in call.args for call in github.call_args_list),1)
+
+    def test_keep_current_reads_actual_main_setting_without_resetting_or_writing(self):
+        for level in LEVELS:
+            with self.subTest(level=level),patch('easybosnian.levels.gh',return_value=remote(level)) as github:
+                self.assertEqual(set_level(KEEP_CURRENT),{'bosnian_level':level,'updated':False})
+                github.assert_called_once_with('api',f'repos/{REPO}/contents/data/preparation-settings.json?ref=main')
+
+    def test_configuration_summary_reports_actual_saved_level_not_menu_default(self):
+        from easybosnian.cli import main
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.load_env'),patch('sys.argv',['easybosnian','set-level','--level',KEEP_CURRENT]),patch('easybosnian.levels.gh',return_value=remote('B2')) as github,patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+            main()
+            text=(Path(temp)/'summary.md').read_text()
+            self.assertIn('Current saved difficulty: **B2**',text)
+            self.assertIn('no file was changed',text)
+            self.assertEqual(github.call_count,1)
 
     def test_new_content_records_global_level_while_same_words_retains_individual_levels(self):
         p=reviewed_fixture();validate(p)
@@ -86,7 +102,8 @@ class LevelTests(unittest.TestCase):
 
     def test_configuration_workflow_has_no_publishing_or_provider_secrets(self):
         text=(ROOT/'.github/workflows/configure-level.yml').read_text()
-        self.assertIn('options: [A1, A2, B1, B2, C1, C2]',text)
+        self.assertIn('options: [Keep current, A1, A2, B1, B2, C1, C2]',text)
+        self.assertIn('default: Keep current',text);self.assertNotIn('default: A2',text)
         self.assertIn('contents: write',text);self.assertIn("github.ref == 'refs/heads/main'",text)
         self.assertNotIn('secrets.',text);self.assertNotIn('cloud_prepare',text);self.assertNotIn('easybosnian run',text)
         pipeline=(ROOT/'.github/workflows/preparation.yml').read_text()
