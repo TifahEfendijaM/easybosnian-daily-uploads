@@ -241,5 +241,9 @@ export default {
       return response({error:'Operation rejected; inspect package validity, reservations, state and free limits'},409);
     }
   },
-  async scheduled(controller,env,ctx) {ctx.waitUntil(watchdog(env));}
+  async scheduled(controller,env,ctx) {
+    // Use the trigger's intended time: delivery after 06:59 must not silently
+    // suppress the day's check because the wall clock has advanced a minute.
+    ctx.waitUntil(watchdog(env,new Date(controller.scheduledTime)));
+  }
 };

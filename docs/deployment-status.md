@@ -1,5 +1,13 @@
 # Setup status — 2026-10-02
 
+## Automatic-start investigation — 2026-10-03
+
+At 07:13 Sarajevo, GitHub still listed no October 3 scheduled preparation run. The workflow is active on private main, Actions is enabled and both cloud/daily switches are true. The deployed cron is 05:00 Europe/Sarajevo; its schedule commit was made at 01:58:50 Sarajevo, more than three hours before the expected start. The timezone syntax matches current official GitHub documentation. The same actor triggered yesterday’s schedule and today’s manual recovery. No missing switch or mismatched automatic-event guard was found. The API does not reveal why today’s scheduled event has not arrived. GitHub documents delayed/dropped hour-start events, but that is not a confirmed internal diagnosis.
+
+After verifying no preparation run was active, the workflow registration was disabled and immediately re-enabled, then independently read back as active. Its 05:00 schedule is unchanged; no content dispatch or scheduled retry was added. Registration reset is a troubleshooting action, not proof of reliable future delivery. The user’s scheduling preference is pending: 05:07 with GitHub to avoid the hour boundary, or 05:00 with one daily primary Cloudflare dispatch and a separate repository-restricted Actions-write credential. No new dispatch scheduler or permission expansion has been activated.
+
+A separate reporting defect was fixed and deployed: the Cloudflare scheduled handler now passes controller.scheduledTime to the 06:59 watchdog. Previously it used wall-clock time, which could silently suppress a check delivered in the next minute. A regression test simulates delayed delivery and preserves the inactive other-season trigger. This does not establish why GitHub’s preparation event was missing, or prove that the old watchdog actually suffered that delay. Existing batch and publication state remain untouched.
+
 ## Latest scope — 2026-10-03
 
 The user applied the FLUX prompt simplification on 2026-10-03. New preparation now asks for short natural scene prompts: subject/style/lighting, ordinary colour names and optional broad composition. All pixel coordinates, hex values, layout names and instructional UI descriptions are removed from the prompt instructions. The validator no longer requires those renderer details inside FLUX prose; approved palette/layout metadata and safety/content/fit checks remain. Existing reserved content and generated/published images are unchanged. No new FLUX call or social publication is started by this deployment; visual quality of a future generated batch is still to be inspected.

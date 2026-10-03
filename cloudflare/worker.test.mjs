@@ -77,6 +77,18 @@ test('watchdog only runs at Sarajevo 06:59 in both seasons',async()=>{
   await watchdog(env,new Date('2026-12-01T04:59:00Z')); assert.equal(reads,2);
 });
 
+test('late cron delivery still runs the intended Sarajevo monitoring check',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-03T05:01:00Z')});
+  let reads=0, pending;
+  const env={DB:{prepare(){reads++;return{first:async()=>({value:'{"daily_authorized":false}'})};}}};
+  await worker.scheduled({scheduledTime:new Date('2026-10-03T04:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
+  await pending;
+  assert.equal(reads,1);
+  await worker.scheduled({scheduledTime:new Date('2026-10-03T05:59:00Z').getTime()},env,{waitUntil(p){pending=p;}});
+  await pending;
+  assert.equal(reads,1,'the other-season trigger must remain inactive');
+});
+
 test('email deferral requires verified GitHub reporting',()=>{
   assert.equal(publicationMonitoringReady({healthchecks_deferred:true}),false);
   assert.equal(publicationMonitoringReady({healthchecks_deferred:'true',github_monitoring_ready:true}),false);
