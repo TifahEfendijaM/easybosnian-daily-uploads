@@ -17,11 +17,11 @@ Both preparation and publishing run on private GitHub cloud runners, independent
 
 Cloudflare D1 holds all reserved/used themes, word equivalents, immutable packages and publication state. Atomic unique reservations check both queued and historical content. The preparation task also performs semantic checks for renamed themes and close variants; deterministic normalization cannot prove semantic novelty by itself. Reservations never expire or reset automatically.
 
-Cloudflare KV stores images for 14 days, keeping storage bounded. Only final JPEGs with random 256-bit URLs are public; there is no public listing, history or JSON endpoint. Original/generated backgrounds are private. Final cards are 1080×1350. The renderer also supports 1080×1920 exports, without TikTok posting.
+Cloudflare KV stores images for 14 days, keeping storage bounded. Only final JPEGs with random 256-bit URLs are public; there is no public listing, history or JSON endpoint. Original/generated backgrounds are private. Final cards are 1080×1350 and are shared with Instagram, Facebook and the authorized Buffer TikTok publisher. The optional vertical export is disabled.
 
 All 11 approved palettes are in `data/design-palettes.json`; all eight layouts are in `data/design-layouts.json`. Inter regular, semibold and bold, plus its license, are bundled. Every background prompt is tied to the palette and card layout. Pillow uses measured glyph bounds, content-sized panels and the specified 44/38/34 px density tiers. It rejects overlong copy rather than truncating or dropping diacritics.
 
-Instagram credentials are stored only in GitHub Actions secrets and protected authorization tooling. The pipeline verifies `@easy_bosnian`, refreshes unexpired long-lived tokens around day 40, and persists replacements to GitHub secrets using a token restricted to this repository. No Facebook Page link is needed. Facebook authorization is independent and deferred until Instagram works.
+Instagram credentials are stored only in GitHub Actions secrets and protected authorization tooling. The pipeline verifies `@easy_bosnian`, refreshes unexpired long-lived tokens around day 40, and persists replacements to GitHub secrets using a token restricted to this repository. No Facebook Page link is needed. Facebook authorization is independent; its exact Easy Bosnian Page and published Meta app are verified, and daily Facebook publishing is enabled.
 
 Publication intent is saved before the publish request. Completed backgrounds, cards, child containers and carousel container are reused. After a timeout or uncertain response, rerunning cannot repost; `reconcile` checks recent account media and verifies the actual expected caption, three children and permalink. Green CI alone never means publication. An ambiguous or absent match requires manual inspection.
 
@@ -45,10 +45,10 @@ The `prepare` command validates schema, answer leakage, history keys and actual 
 
 Code checks: `python -m unittest discover -s tests -v` and `node --test cloudflare/worker.test.mjs`. These test rendering, normalization, answer leakage, repository boundaries, publication verification and uncertainty handling. They do not publish or invoke FLUX.
 
-## Later phases
+## Facebook and TikTok publishing
 
-Facebook: select the exact EasyBosnian Page through independent Pages authorization, store its Page ID/token separately, verify the Page identity and then add a publisher with separate publication state. No Facebook posting is enabled in this version.
+Facebook posts the same three cards as a Page photo post, with independent intents, photo IDs, exact caption and permalink verification. Instagram Stories follow verified Instagram feed publication; Highlight additions remain manual.
 
-TikTok: research is documented in `docs/authorization.md`. Public unattended posting is not promised; official audit and creator-control requirements restrict internal one-account utilities. No TikTok API publisher or paid service is configured.
+TikTok uses the user's **Free Buffer account** and its verified **@easy.bosnian** connection. The pipeline submits the same three JPEGs with automatic publishing, saves its submission intent and Buffer post ID, then checks that ID for up to four minutes. It reports success only when Buffer confirms automatic/sent status, the expected account, caption, three ordered asset identities and an actual TikTok permalink. This is Buffer-confirmed publication, not an independent TikTok API inspection. The API key is stored only in this private repository's secrets and has account reading and post reading/writing permissions. Renew it before **2027-10-03**. Buffer handles the underlying TikTok connection; revoked permissions still require reconnecting. No TikTok developer app, privacy change, music selection, paid plan or scheduled retry is used. An unknown submission outcome stops safely; `easybosnian tiktok --mode reconcile --date YYYY-MM-DD` performs read-only reconciliation. The first actual daily TikTok post remains unverified until a live run succeeds.
 
 If a scheduled trigger is missing, manual preparation dispatch defaults to verify. The explicit recover_today mode prepares and publishes today with the same batch/hash checks and three-minute handoff; select it deliberately under the existing daily publication authorization; routine connection checks still cannot publish. It is not a timer or automatic retry.

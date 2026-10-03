@@ -36,6 +36,19 @@ test('only final card and Story JPEGs can be exposed, not private backgrounds or
   }
 });
 
+test('Buffer TikTok account, submission and ordered images cannot change after intent',async()=>{
+  const before={platforms:{tiktok:{publish_intent:true,channel_id:'channel',service_id:'account',post_id:'accepted',image_urls:['one','two','three'],asset_ids:['a','b','c']}}};
+  let writes=0;
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(){return {bind(){return this;},first:async()=>({state:JSON.stringify(before),revision:0}),run:async()=>{writes++;return {meta:{changes:1}};}};}}};
+  const send=async state=>worker.fetch(new Request('https://example.test/v1/batches/2026-10-03',{method:'PATCH',headers:{Authorization:'Bearer private','Content-Type':'application/json'},body:JSON.stringify({revision:0,state})}),env);
+  for(const mutate of [s=>delete s.platforms.tiktok.publish_intent,s=>s.platforms.tiktok.channel_id='other',s=>s.platforms.tiktok.service_id='other',s=>s.platforms.tiktok.post_id='other',s=>s.platforms.tiktok.image_urls.reverse(),s=>s.platforms.tiktok.asset_ids.reverse()]) {
+    const next=structuredClone(before);mutate(next);assert.equal((await send(next)).status,409);
+  }
+  assert.equal(writes,0);
+  const next=structuredClone(before);next.platforms.tiktok.verified=true;
+  assert.equal((await send(next)).status,200);
+});
+
 test('aliases normalize and reserve distinctly',()=>{
   assert.equal(canonical('Kišobran'),canonical('kisobran'));
   const keys=reservationKeys({theme:{equivalence_keys:['Kišni dan']},words:[{lemma:'kišobran',equivalence_keys:['umbrella','kišobran']}]});

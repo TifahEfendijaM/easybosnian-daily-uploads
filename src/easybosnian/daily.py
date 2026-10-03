@@ -6,6 +6,7 @@ from .facebook import pipeline_facebook, export_tiktok
 from .http import redact
 from .pipeline import pipeline
 from .stories import pipeline_stories
+from .buffer import pipeline_tiktok
 
 
 def daily(date=None, mode="preview"):
@@ -18,14 +19,16 @@ def daily(date=None, mode="preview"):
         operations.append(("facebook", lambda: pipeline_facebook(date, "live")))
     else:
         results["facebook"] = {"status": "disabled pending Page authorization", "published": False}
-    if os.getenv("TIKTOK_EXPORT_ENABLED") == "true":
+    if os.getenv("TIKTOK_POSTING_ENABLED") == "true":
+        operations.append(("tiktok", lambda: pipeline_tiktok(date, "live")))
+    elif os.getenv("TIKTOK_EXPORT_ENABLED") == "true":
         operations.append(("tiktok", lambda: export_tiktok(date)))
     else:
         results["tiktok"] = {"status": "export disabled", "published": False}
     for name, operation in operations:
         try:
             state = operation()
-            results[name] = {"status": "confirmed published" if state.get("verified") else state.get("status", "completed"), "permalink": state.get("permalink"), "published": state.get("verified", False)}
+            results[name] = {"status": state.get("status", "confirmed published" if state.get("verified") else "completed"), "permalink": state.get("permalink"), "published": state.get("verified", False)}
         except Exception as error:
             failed.append(name)
             results[name] = {"status": "failed; inspect platform diagnostics", "error": redact(error)}

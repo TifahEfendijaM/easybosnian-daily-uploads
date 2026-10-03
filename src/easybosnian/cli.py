@@ -16,6 +16,7 @@ from .http import redact
 from .meta import Instagram, Facebook, facebook_page_token
 from .facebook import pipeline_facebook, export_tiktok
 from .daily import daily
+from .buffer import Buffer, pipeline_tiktok
 from .stories import pipeline_stories
 from .notify import heartbeat, failure
 from .pipeline import pipeline
@@ -166,6 +167,22 @@ def authorize_facebook():
     print("Verified EasyBosnian Page and stored its separate long-lived credentials; finish the Meta public-app checklist before arming Facebook; no post made")
 
 
+def authorize_buffer(key=None):
+    verify_repository(remote=True)
+    key = key or getpass.getpass("Buffer personal API key (hidden): ").strip()
+    buffer = Buffer(key=key)
+    account = buffer.discover()
+    gh("secret", "set", "BUFFER_API_KEY", "--repo", REPO, input_text=key)
+    for name, value in (("BUFFER_TIKTOK_CHANNEL_ID", buffer.channel_id), ("BUFFER_ORGANIZATION_ID", buffer.organization_id)):
+        gh("variable", "set", name, "--repo", REPO, "--body", value)
+    write_json(ROOT / "docs/buffer-authorization.json", {
+        "provider": "Buffer", "account": "@easy.bosnian", "channel_id": account["id"],
+        "organization_id": account["organizationId"], "service_id": account["serviceId"],
+        "scopes": account["scopes"], "verified_at": datetime.now(timezone.utc).isoformat(),
+        "automatic_connection_verified": True, "publication": "nothing submitted or published during authorization"})
+    print("Verified connected, unpaused @easy.bosnian channel with automatic publishing; credentials stored in the exact repository; nothing published")
+
+
 def activate(action,date=None):
     verify_repository(remote=True)
     store=Store(); config=store.call("GET","/v1/config")
@@ -210,12 +227,14 @@ def main():
     p=subs.add_parser("pipeline"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
     p=subs.add_parser("daily"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
     p=subs.add_parser("facebook"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
+    p=subs.add_parser("tiktok"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
     p=subs.add_parser("export-tiktok"); p.add_argument("--date",default=None)
     p=subs.add_parser("stories"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
     p=subs.add_parser("set-secret"); p.add_argument("name"); p.add_argument("--local",action="store_true")
     p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["NOTIFY_GITHUB_TOKEN","HC_WATCHDOG_URL"])
     subs.add_parser("authorize-instagram")
     subs.add_parser("authorize-facebook")
+    subs.add_parser("authorize-buffer")
     subs.add_parser("verify-facebook")
     p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","defer-healthchecks","enable-daily","disable-daily"]); p.add_argument("--date")
     args=parser.parse_args()
@@ -227,12 +246,14 @@ def main():
     elif args.command=="pipeline": pipeline(args.date,args.mode)
     elif args.command=="daily": daily(args.date,args.mode)
     elif args.command=="facebook": pipeline_facebook(args.date,args.mode)
+    elif args.command=="tiktok": pipeline_tiktok(args.date,args.mode)
     elif args.command=="export-tiktok": export_tiktok(args.date)
     elif args.command=="stories": pipeline_stories(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()
     elif args.command=="authorize-facebook": authorize_facebook()
+    elif args.command=="authorize-buffer": authorize_buffer()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
     elif args.command=="activation": activate(args.action,args.date)
 

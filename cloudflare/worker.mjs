@@ -187,6 +187,11 @@ export default {
             if(old.publish_intent && !next?.publish_intent) throw Error('Platform publication intent cannot be erased');
             if(old.verified && (!next?.verified || next.post_id!==old.post_id)) throw Error('Verified platform publication is immutable');
             if(old.page_id && next?.page_id!==old.page_id) throw Error('Platform Page identity is immutable');
+            if(old.channel_id && next?.channel_id!==old.channel_id) throw Error('Platform channel identity is immutable');
+            if(old.service_id && next?.service_id!==old.service_id) throw Error('Platform account identity is immutable');
+            if(old.post_id && next?.post_id!==old.post_id) throw Error('Platform post identity is immutable');
+            if(old.image_urls && JSON.stringify(next?.image_urls)!==JSON.stringify(old.image_urls)) throw Error('Submitted platform images are immutable');
+            if(old.asset_ids && JSON.stringify(next?.asset_ids)!==JSON.stringify(old.asset_ids)) throw Error('Platform image identities are immutable');
             for(const [kind,item] of Object.entries(old.cards||{})) {
               const updated=next?.cards?.[kind];
               if(item.upload_intent && !updated?.upload_intent) throw Error('Platform upload intent cannot be erased');

@@ -1,0 +1,32 @@
+{
+  "provider": "Buffer",
+  "account": "@easy.bosnian",
+  "channel_id": "6ac0487cea19ca0bde5cac4c",
+  "organization_id": "6ac047d594515db1c96b18c2",
+  "service_id": "_000HunDrmexUM0ZAFSsDJwoGFSr2vFTblCB",
+  "scopes": [
+    "video.insights",
+    "video.list",
+    "user.info.username",
+    "video.publish",
+    "user.info.basic",
+    "comment.list",
+    "comment.list.manage",
+    "user.info.stats",
+    "user.insights"
+  ],
+  "verified_at": "2026-10-03T00:22:23.769285+00:00",
+  "automatic_connection_verified": true,
+  "publication": "nothing submitted or published during authorization",
+  "plan": "Free; verified in the Buffer account dashboard",
+  "api_key_permissions": [
+    "account:read",
+    "posts:read",
+    "posts:write"
+  ],
+  "api_key_expires": "2027-10-03",
+  "post_read_access_verified": true,
+  "live_publishing_schema_verified": true,
+  "daily_publisher_enabled": true,
+  "authorization_status": "Connected automatic channel and protected storage verified; first scheduled TikTok publication remains unverified"
+}

@@ -60,19 +60,25 @@ Meta's documented IG User operations do not include creating Highlights or addin
 - [Story specifications](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media)
 - [Supported account operations](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user)
 
-## TikTok — explicitly skipped
+## TikTok — Free Buffer integration
 
-The user cancelled all TikTok setup on 2026-10-03. TIKTOK_EXPORT_ENABLED is false and its developer login tab was closed. No TikTok app, token, sandbox, account-privacy change, API upload or post exists. The optional export command remains dormant; no daily TikTok files are created. Do not resume this route without a new user request.
+The user explicitly requested this route on 2026-10-03, superseding the earlier cancellation of TikTok. Keep the original private project boundaries and the public profile unchanged. No TikTok developer app or sandbox is used.
 
-For the recorded decision: Personal and Creator accounts can use an approved app. Public Direct Post needs approval/audit, and TikTok excludes internal account-management utilities. Unaudited Direct Post requires SELF_ONLY and a private account at posting time. Sandbox login/development alone does not require a private profile; this restriction concerns posting through the unaudited client. A private GitHub repository is not itself the issue. The user declined changing @easy.bosnian's public visibility.
+1. Sign in to a Free Buffer account and verify its email. Connect only **@easy.bosnian** through TikTok OAuth. The user confirmed the exact account and completed consent. Buffer marked the reduced four-scope connection incomplete; the user then approved its additional analytics/comment permissions and the channel verified connected. The pipeline API key does not include analytics or comment-management access.
+2. In Buffer Settings → API → Personal Access, create a key named **EasyBosnian daily publishing**, with only **account:read**, **posts:read**, **posts:write**. The user generated the key privately, with expiry **2027-10-03**. Enter it via the hidden `easybosnian authorize-buffer` prompt. Never paste it in chat or commit it. The helper discovers exactly one @easy.bosnian channel, checks its service/account/organization identity, required permissions, connection and queue state, and confirms default notifications are off. It stores BUFFER_API_KEY in the exact repository's secrets, and the verified channel/organization IDs in repository variables. Credential storage alone does not arm publishing.
+3. After code/deployed-state/live API checks, enable TIKTOK_POSTING_ENABLED. Keep TIKTOK_EXPORT_ENABLED=false. The daily handoff shares the three reviewed 1080×1350 cards, original transparent logo and public caption. TikTok receives at most the first five reviewed hashtags; overlong captions fail instead of being truncated. Buffer uses shareNow plus schedulingType=automatic. It cannot silently switch to a phone reminder.
+4. Persist the submission intent before the write. Save Buffer's returned post ID before any later validation. Poll that ID with read-only requests for up to four minutes. Verify Buffer's sent status, automatic mode, exact account/caption/three ordered image identities and a TikTok permalink before reporting **Buffer-confirmed publication**. This is not an independent TikTok API read-back. An accepted/pending/uncertain result is not publication. `easybosnian tiktok --mode reconcile --date YYYY-MM-DD` reads the saved submission or uniquely reconciles an unknown ID; it never creates or resubmits a post.
 
-- [Official Direct Post guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines)
-- [General app-review criteria](https://developers.tiktok.com/docs/en/app-review-guidelines)
-- [Sandbox restrictions](https://developers.tiktok.com/docs/en/add-a-sandbox)
+This route is free and uses Buffer's official TikTok partner integration. No account-privacy change, paid API, paid plan or scheduled retry. Renew the scoped personal key before 2027-10-03; reconnect TikTok if Buffer reports revoked or expired access. No test draft or live test is published during setup. The first actual scheduled publication still needs verification.
+
+- [Buffer TikTok publishing and media specifications](https://support.buffer.com/en-us/articles/using-tiktok-with-buffer-oGEroY9Of2)
+- [Buffer API access and official partner integration](https://buffer.com/made-for/developers)
+- [Buffer GraphQL publishing](https://developers.buffer.com/guides/posts-and-scheduling.html)
+- [Buffer TikTok API metadata](https://developers.buffer.com/types/TikTokPostMetadataInput.html)
 
 ## Music
 
-Facebook's photo-post API has no music picker. Instagram's current Audio API supports searching/selecting authorized tracks for Reels through Facebook Login, which requires a linked Page; it is unavailable for this project's independent Instagram Login and image carousels. No music is added by this project. TikTok's photo Direct Post API has auto_add_music for recommended music rather than a particular song; TikTok itself is skipped.
+Facebook's photo-post API has no music picker. Instagram's current Audio API supports searching/selecting authorized tracks for Reels through Facebook Login, which requires a linked Page; it is unavailable for this project's independent Instagram Login and image carousels. No music is added by this project. Buffer cannot select music from TikTok's library for automatic photo posts; adding a particular sound requires completing a notification post manually. This project's automatic Buffer route does not add music.
 
 - [Instagram Audio API](https://developers.facebook.com/documentation/instagram-platform/content-publishing/audio-api)
 - [TikTok photo API](https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post)

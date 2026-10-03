@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from .core import REPO, PROJECT, verify_repository
 from .http import request
 from .meta import Instagram, Facebook
+from .buffer import Buffer
 from .store import Store
 
 
@@ -31,6 +32,10 @@ def check_infrastructure():
             raise ValueError("Facebook protected Page authorization is incomplete")
         Facebook().verify_page()
         facebook = "exact Easy Bosnian Page token/identity verified; " + ("daily publisher enabled" if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" else "daily publisher disabled pending Meta app checklist") + "; no post was made"
+    tiktok = "disabled pending Buffer authorization"
+    if os.getenv("TIKTOK_POSTING_ENABLED") == "true":
+        Buffer().verify_channel()
+        tiktok = "@easy.bosnian Buffer channel identity/automatic connection verified; no post was submitted"
     issued=datetime.fromisoformat(os.environ["INSTAGRAM_TOKEN_ISSUED_AT"].replace("Z", "+00:00"))
     age=(datetime.now(timezone.utc)-issued).total_seconds()
     if age<0 or age>=60*86400:
@@ -47,7 +52,7 @@ def check_infrastructure():
     return {"repository":REPO, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
             "instagram_account_type":info["account_type"], "instagram_stories":stories,
-            "facebook":facebook,
+            "facebook":facebook, "tiktok": tiktok,
             "renewal_access":"repository secrets and queue read access verified",
             "healthchecks":"deferred by user" if config.get("healthchecks_deferred") is True else "not deferred",
             "publication":"nothing published by this read-only check"}

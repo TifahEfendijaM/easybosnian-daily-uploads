@@ -36,5 +36,9 @@ jobs:
           FACEBOOK_POSTING_ENABLED: ${{ vars.FACEBOOK_POSTING_ENABLED }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
+          TIKTOK_POSTING_ENABLED: ${{ vars.TIKTOK_POSTING_ENABLED }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_TIKTOK_CHANNEL_ID: ${{ vars.BUFFER_TIKTOK_CHANNEL_ID }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
           GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
         run: easybosnian check-infrastructure

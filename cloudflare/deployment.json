@@ -6,5 +6,5 @@
   "worker_url": "https://easybosnian-daily-tifah-v1.easybosnian-a480e6f6c5bb.workers.dev",
   "worker_deployed": true,
   "free_workers_verified": true,
-  "free_plan_evidence": "Workers Free marked Current plan in this account dashboard on 2026-10-02; existing project deployment and exact D1/KV bindings verified before update"
+  "free_plan_evidence": "Workers Free plan verified in the project Cloudflare dashboard; existing isolated deployment record"
 }
