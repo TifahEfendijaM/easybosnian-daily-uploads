@@ -1,6 +1,6 @@
 # Reviewed migration and deployment order
 
-Work is on simplify-daily-pipeline. Review the full diff and rendered fixtures before applying production changes. The noon clock and existing credentials stay on the same Worker/resources. There is no reason to keep separate preparation/publication jobs: one job still preserves refreshed cloud credentials before rendering and live posting.
+Work is on simplify-daily-pipeline. Review the full diff and rendered fixtures before applying production changes. The 12:30 clock and existing credentials stay on the same Worker/resources. There is no reason to keep separate preparation/publication jobs: one job still preserves refreshed cloud credentials before rendering and live posting.
 
 ## What migration 0003 does
 
@@ -17,10 +17,10 @@ Use only this checkout. Keep the external start disabled until all steps pass. T
 1. Push/review branch, then merge its repository changes to **main first**. Require the new preparation.yml on private main to list exactly verify/preview/daily. Its checks and publishing-kill-switch checks must pass. Do not deploy a Worker sending daily while main still accepts only verify/recover_today: GitHub returns 422.
 2. Confirm no preparation/publishing run is active. Run the guarded one-time rejected-artwork cleanup **before** dropping the old batches table.
 3. Apply D1 migrations. Existing content is copied, the rejected row excluded and old tables dropped.
-4. Deploy the new Worker with its external start disabled. Check the exact existing D1/KV bindings and **only** cron `0 10,11 * * *`.
+4. Deploy the new Worker with its external start disabled. Check the exact existing D1/KV bindings and **only** cron `30 10,11 * * *`.
 5. Run the protected Worker verify dispatch. Require the actual verify workflow to finish successfully with no history write, FLUX, rendering or publishing. It confirms protected infrastructure, cloud workspace and credential persistence.
 6. Set the existing DAILY_POSTING_ENABLED variable true if routine publication is intended. Deploy/arm the same Worker with PREPARATION_DISPATCH_ENABLED=true, then read back the binding, cron, private history and per-date claim status.
-7. Remove the obsolete credentials/variables below. No automatic content run or retry is dispatched. If noon has passed, today needs a deliberate normal daily dispatch; otherwise the noon cron starts it. Do not send a new verify test as evidence of actual posting.
+7. Remove the obsolete credentials/variables below. No automatic content run or retry is dispatched. If 12:30 has passed, today needs a deliberate normal daily dispatch; otherwise the 12:30 cron starts it. Do not send a new verify test as evidence of actual posting.
 
 Mac commands (existing bundled runtime):
 

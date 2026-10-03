@@ -1,6 +1,6 @@
 # EasyBosnian daily uploads
 
-Private repository **TifahEfendijaM/easybosnian-daily-uploads**. The existing Cloudflare Worker starts one GitHub workflow at **12:00 daily Europe/Sarajevo**. The clock handles daylight saving automatically. GitHub has no schedule trigger, and there is no automatic retry or missing-run monitor.
+Private repository **TifahEfendijaM/easybosnian-daily-uploads**. The existing Cloudflare Worker starts one GitHub workflow at **12:30 daily Europe/Sarajevo**. The clock handles daylight saving automatically. GitHub has no schedule trigger, and there is no automatic retry or missing-run monitor.
 
 One job follows a straight path: a GPT agent through the existing ChatGPT subscription researches and reviews content → the wrapper saves today's Cloudflare history row → refreshed cloud credentials are persisted privately → Pillow renders three cards using Free FLUX backgrounds → Instagram, Facebook and Buffer TikTok publish → Instagram uploads the same cards as image Stories. Publication starts immediately after preparation. No awake Mac or paid OpenAI API is needed.
 
@@ -20,7 +20,7 @@ The user chose complete same-date overwrite. A daily run after a preview prepare
 
 D1 history is the single source of truth: one date, theme, three words with equivalence keys, and the complete reviewed day's content. There is no queue directory, content commit/read-back, package hash, reservation ledger or publication state. Theme/word comparisons still check aliases and normalized spelling, while GPT performs semantic review and source research. Quiz answers remain private. Schema, measured text fit, contrast and diacritics checks reject invalid content without truncation.
 
-Pillow renders exact text and the original transparent watermark onto 1080×1350 cards. Body sizes are 44/38/34 px at 160/240-character boundaries. Licensed Inter, semibold headings, rounded panels, inset accent lines and a PRIMJER label give the definition/example a clearer hierarchy. GPT selects one shared palette and per-card layouts from the approved catalogs. FLUX receives short natural scene descriptions, plain colour names and at most one broad framing direction; Pillow handles text and branding.
+Pillow renders exact text and the original transparent watermark onto 1080×1350 cards. Body sizes are 44/38/34 px at 160/240-character boundaries. Licensed Inter, semibold headings, rounded panels, inset accent lines and a PRIMJER label give the definition/example a clearer hierarchy. GPT selects one shared palette and per-card layouts from the approved catalogs. FLUX receives short, explicitly photorealistic photography prompts with real subjects, natural light, realistic textures and plain colour names and at most one broad framing direction; Pillow handles text and branding.
 
 KV images expire after 14 days. Only final card/Story JPEGs receive random public URLs for social platforms to fetch. Shared backgrounds are cached, and a reviewed content replacement invalidates that date's caches. Instagram Stories pad the actual cards to 1080×1920; Highlights and TikTok Stories require manual action.
 

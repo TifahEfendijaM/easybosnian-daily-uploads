@@ -9,7 +9,10 @@ today's content, and previous same-day words/themes will be overwritten, as the 
 
 Do source-opening research, semantic novelty, Bosnian correctness, caption/quiz secrecy and design
 checks in preparation-task.md. Keep palette/layout IDs in metadata for Pillow. FLUX prompts describe
-only natural scenes with plain colour names, light/mood and at most one broad framing direction.
+only photorealistic photographs of real scenes with plain colour names, natural light, realistic
+textures and at most one broad framing direction. Begin each prompt with “Photorealistic photograph
+of…” or “Photorealistic macro photograph of…”. Do not request illustration, cartoons, diagrams,
+stylised CGI, 3D renders or abstract shapes; keep each prompt concise, usually 30–60 words.
 No coordinates, hex codes, layout IDs, blank panels or UI/overlay descriptions. End every prompt
 with “No text, no lettering, no logos.” A quiz scene cannot depict its answer or identifying clue.
 Pillow supplies the PRIMJER label; example prose must not repeat that template heading.

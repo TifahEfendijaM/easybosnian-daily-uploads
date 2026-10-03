@@ -39,7 +39,7 @@ export async function dispatchPreparation(env,mode) {
 }
 export async function dailyPreparationDispatch(env,when) {
   const f=sarajevoTime(when);
-  if(f.hour!=='12' || f.minute!=='00' || env.PREPARATION_DISPATCH_ENABLED!=='true') return;
+  if(f.hour!=='12' || f.minute!=='30' || env.PREPARATION_DISPATCH_ENABLED!=='true') return;
   if(env.PROJECT_ID!==PROJECT || env.GITHUB_REPOSITORY!==REPO) throw Error('Dispatch repository/project mismatch');
   const date=`${f.year}-${f.month}-${f.day}`;
   // This claim deduplicates cron deliveries only; no publication state is kept.

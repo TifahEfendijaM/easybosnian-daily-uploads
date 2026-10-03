@@ -1,6 +1,8 @@
 # External daily trigger
 
-The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **12:00 Europe/Sarajevo**. Its one cron is `0 10,11 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local noon, selecting 10:00 UTC in summer or 11:00 in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
+The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **12:30 Europe/Sarajevo**. Its one cron is `30 10,11 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local 12:30, selecting 10:30 UTC in summer or 11:30 UTC in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
+
+Today, October 3, has no dispatch claim after the user's rejected-batch reset, so the 12:30 start remains eligible. [Cloudflare documents](https://developers.cloudflare.com/workers/configuration/cron-triggers/) that cron changes can take up to 15 minutes to propagate. The schedule is configured for today as well; a last-minute change does not guarantee its first delivery. No extra retry/catch-up trigger is added.
 
 Before contacting GitHub, D1 atomically inserts the date into preparation_dispatches. Duplicate cron deliveries and failed/uncertain/crash-interrupted claims cannot send another scheduled request. This protects only launch delivery, not publication. There is no automatic retry or missing-run alert.
 
