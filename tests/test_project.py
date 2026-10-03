@@ -64,6 +64,37 @@ class ContentTests(unittest.TestCase):
             else: leaked['cards'][0][field]='Na slici je kišobran.'
             with self.subTest(field=field), self.assertRaises(ValueError): validate(leaked)
 
+    def test_four_options_allow_d_and_reject_missing_duplicate_or_leaked_answers(self):
+        p=reviewed_fixture();q=p['cards'][0]
+        q['options'].append({'label':'D','text':'kišobran'})
+        q['options'][1]['text']='šešir';p['private_review']['correct_option']='D'
+        validate(p)
+        for change in ('gap','duplicate','leak','missing'):
+            bad=copy.deepcopy(p)
+            if change=='gap':bad['cards'][0]['options'][2]['label']='D'
+            if change=='duplicate':bad['cards'][0]['options'][0]['text']='kišobran'
+            if change=='leak':bad['caption']='Tačan odgovor je D.'
+            if change=='missing':bad['cards'][0]['options'].pop()
+            with self.subTest(change=change),self.assertRaises(ValueError):validate(bad)
+
+    def test_yes_no_quiz_allows_ordinary_da_ne_prose_but_not_explicit_answer(self):
+        p=reviewed_fixture();q=p['cards'][0]
+        q['question']='Da li je predmet na slici koristan za zaštitu od kiše?'
+        q['options']=[{'label':'A','text':'Da'},{'label':'B','text':'Ne'}]
+        p['private_review'].update(correct_option='A',correct_text='Da',answer_aliases=['da'],identifying_hints=['tačan odgovor je da'])
+        p['cards'][1]['body']='Ne zaboravi da pogledaš nebo prije izlaska. Oblaci mogu najaviti promjenu vremena.'
+        validate(p)
+        for field in ('caption','body'):
+            bad=copy.deepcopy(p)
+            if field=='caption':bad[field]='Tačan odgovor je Da.'
+            else:bad['cards'][1][field]='Odgovor je Da, pogledaj nebo.'
+            with self.subTest(field=field),self.assertRaises(ValueError):validate(bad)
+
+    def test_captions_cannot_reference_deleted_content_or_corrections(self):
+        for text in ('Mala ispravka: danas biramo odgovor.', 'Ovo je nova verzija objave.', 'Umjesto prethodne objave, pogledaj pitanje.'):
+            p=reviewed_fixture();p['caption']=text
+            with self.subTest(text=text),self.assertRaises(ValueError):validate(p)
+
     def test_repeats_aliases_and_missing_artwork_exclusions_rejected(self):
         p=reviewed_fixture()
         history={'days':[{'date':'2026-10-01','content':p}]}
@@ -144,6 +175,36 @@ class RendererTests(unittest.TestCase):
                         self.assertLess(metrics['panel_bounds'][-1][3],1050)
                         seen.add(output.read_bytes())
             self.assertGreater(len(seen),24)
+
+    def test_accents_and_descenders_keep_uniform_paragraph_baselines(self):
+        from easybosnian.render import draw_rows,measure
+        from unittest.mock import MagicMock
+        face=font(44);rows=['Rasparan šav ne znači da odjeću','moramo baciti. Šiti možemo i kada','popravljamo nešto staro, a ne samo','kada pravimo nešto novo.']
+        draw=MagicMock();draw.textbbox.side_effect=lambda xy,text,font:font.getbbox(text)
+        height=draw_rows(draw,(64,200),rows,face,'#000000')
+        positions=[c.args[0][1] for c in draw.text.call_args_list]
+        step=measure(rows,face)[1]
+        self.assertEqual([positions[i+1]-positions[i] for i in range(len(positions)-1)],[step]*3)
+        boxes=[face.getbbox(row) for row in rows]
+        self.assertGreaterEqual(height,max(positions[i]+box[3]-200 for i,box in enumerate(boxes)))
+
+    def test_balanced_paragraph_preserves_exact_text_without_an_orphan_line(self):
+        face=font(44);text='Rasparan šav ne znači da odjeću moramo baciti. Šiti možemo i kada popravljamo nešto staro, a ne samo kada pravimo nešto novo.'
+        rows=wrap(text,face,852)
+        self.assertEqual(' '.join(rows),text)
+        self.assertTrue(all(face.getlength(row)<=852 for row in rows))
+        self.assertGreater(face.getlength(rows[-1]),852*.35)
+
+    def test_two_and_four_options_fit_every_retained_layout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bg=Path(directory)/'bg.jpg';Image.new('RGB',(1080,1350),'#728192').save(bg)
+            for n in (2,4):
+                for style in LAYOUTS:
+                    c=copy.deepcopy(preview.package()['cards'][0]);c['design_template']=style
+                    c['options']=[{'label':label,'text':text} for label,text in zip('ABCD',['Da','Ne','Možda','Nikada'])][:n]
+                    result=render(c,'blue-ice',bg,Path(directory)/f'{n}-{style}.jpg')
+                    self.assertEqual(len(result['panel_bounds']),n)
+                    self.assertLess(result['panel_bounds'][-1][3],1050)
 
     def test_palettes_and_exact_wrapping(self):
         with tempfile.TemporaryDirectory() as directory:

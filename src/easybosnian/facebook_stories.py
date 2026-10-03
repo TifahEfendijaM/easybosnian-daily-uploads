@@ -21,11 +21,12 @@ def verify_story(facebook, post_id, photo_id):
             for story in result['data']:
                 if str(story.get('post_id', '')) != post_id:
                     continue
-                if str(story.get('media_id', '')) != photo_id or story.get('media_type') != 'photo':
+                if str(story.get('media_id', '')) != photo_id or str(story.get('media_type','')).casefold() != 'photo':
                     raise ValueError('Facebook Story differs from the submitted photo')
-                if story.get('status') == 'ARCHIVED':
+                status = str(story.get('status','')).upper()
+                if status == 'ARCHIVED':
                     raise ValueError('Facebook Story is archived rather than currently published')
-                if story.get('status') != 'PUBLISHED':
+                if status != 'PUBLISHED':
                     continue
                 url = urlparse(story.get('url', ''))
                 if url.scheme != 'https' or url.hostname not in ('facebook.com', 'www.facebook.com', 'm.facebook.com') or not url.path.startswith('/stories/'):

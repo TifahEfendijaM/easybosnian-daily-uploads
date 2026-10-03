@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -28,6 +29,29 @@ def wrap(text, face, width):
             row = token
     if row:
         rows.append(row)
+    # Keep the minimum line count but distribute words across those lines.
+    # This avoids an almost-full paragraph followed by a tiny orphan line.
+    if len(rows) > 1:
+        words = text.split(" ")
+        @lru_cache(None)
+        def balanced(start, remaining):
+            if remaining == 0:
+                return (0, ()) if start == len(words) else (float('inf'), ())
+            best = (float('inf'), ())
+            for end in range(start + 1, len(words) - remaining + 2):
+                line = " ".join(words[start:end])
+                length = face.getlength(line)
+                if length > width: break
+                tail_cost, tail = balanced(end, remaining - 1)
+                slack = (width - length) / width
+                cost = slack * slack * (0.65 if remaining == 1 else 1)
+                if remaining == 1 and length < width * 0.35: cost += 1
+                if len(words[end - 1]) <= 2 and remaining > 1: cost += 0.04
+                candidate = (cost + tail_cost, (line, *tail))
+                if candidate[0] < best[0]: best = candidate
+            return best
+        cost, chosen = balanced(0, len(rows))
+        if chosen: rows = list(chosen)
     if " ".join(rows) != text:
         raise ValueError("Wrapping would alter exact reviewed text")
     return rows
@@ -35,8 +59,9 @@ def wrap(text, face, width):
 
 def measure(rows, face):
     ascent, descent = face.getmetrics()
-    step = round((ascent + descent) * 1.16)
-    glyph_height = max(face.getbbox(row)[3] - face.getbbox(row)[1] for row in rows)
+    boxes = [face.getbbox(row) for row in rows]
+    glyph_height = max(b[3] for b in boxes) - min(b[1] for b in boxes)
+    step = max(round(face.size * 1.30), glyph_height + 6)
     return glyph_height + (len(rows) - 1) * step, step
 
 
@@ -73,9 +98,12 @@ def protect_heading(image, xy, rows, face, palette):
 def draw_rows(draw, xy, rows, face, fill):
     height, step = measure(rows, face)
     x, y = xy
+    # All lines share a baseline origin; per-line top alignment shifts rows
+    # containing accents/descenders and creates visibly uneven paragraph spacing.
+    top = min(face.getbbox(row)[1] for row in rows)
     for i, row in enumerate(rows):
         box = draw.textbbox((0, 0), row, font=face)
-        draw.text((x - box[0], y + i * step - box[1]), row, font=face, fill=fill)
+        draw.text((x - box[0], y + i * step - top), row, font=face, fill=fill)
     return height
 
 
@@ -228,4 +256,4 @@ def render(card, palette_id, background, output):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(output, "JPEG", quality=94, subsampling=0, optimize=True)
-    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}
+    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "paragraph_alignment":"left", "balanced_wrapping":True, "body_line_step":measure(["ČćŠšŽžĐđ"],body_face)[1], "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}
