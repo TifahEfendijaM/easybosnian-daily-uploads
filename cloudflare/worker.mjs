@@ -192,6 +192,7 @@ export default {
             if(old.post_id && next?.post_id!==old.post_id) throw Error('Platform post identity is immutable');
             if(old.image_urls && JSON.stringify(next?.image_urls)!==JSON.stringify(old.image_urls)) throw Error('Submitted platform images are immutable');
             if(old.asset_ids && JSON.stringify(next?.asset_ids)!==JSON.stringify(old.asset_ids)) throw Error('Platform image identities are immutable');
+            if(old.asset_sha256 && JSON.stringify(next?.asset_sha256)!==JSON.stringify(old.asset_sha256)) throw Error('Platform image content hashes are immutable');
             for(const [kind,item] of Object.entries(old.cards||{})) {
               const updated=next?.cards?.[kind];
               if(item.upload_intent && !updated?.upload_intent) throw Error('Platform upload intent cannot be erased');

@@ -1,4 +1,5 @@
 """TikTok publishing through the user's Free Buffer account; no TikTok app/client."""
+import hashlib
 import os
 import re
 import time
@@ -107,7 +108,7 @@ class Buffer:
                              "sort": [{"field": "createdAt", "direction": "desc"}]}})["posts"]
 
 
-def checked_post(buffer, record, actual, capture=False):
+def checked_post(buffer, record, actual, capture=False, store=None, date=None):
     state = record["state"]["platforms"]["tiktok"]
     if (actual.get("id") != state.get("post_id") or actual.get("channelId") != buffer.channel_id
             or actual.get("channelService") != "tiktok" or actual.get("text") != caption(record["package"])
@@ -116,23 +117,32 @@ def checked_post(buffer, record, actual, capture=False):
     assets = actual.get("assets", [])
     if len(assets) != 3 or any(not a.get("mimeType", "").startswith("image/") or not a.get("source") for a in assets):
         raise ValueError("Buffer post does not contain three identified image assets")
+    hashes = None
+    if store is not None:
+        # Buffer backfills accepted media onto its own hosting URLs. Compare the
+        # actual ordered files to the immutable original cards, never just URLs.
+        hashes = [hashlib.sha256(store.get_file(date, card["kind"] + "-card.jpg")).hexdigest()
+                  for card in record["package"]["cards"]]
+        actual_hashes = [hashlib.sha256(request("GET", a["source"], raw=True)).hexdigest() for a in assets]
+        if actual_hashes != hashes or (state.get("asset_sha256") and state["asset_sha256"] != hashes):
+            raise ValueError("Buffer post image bytes or order differ from the three reviewed cards")
     if capture:
-        if [a["source"] for a in assets] != state["image_urls"]:
+        if hashes is None and [a["source"] for a in assets] != state["image_urls"]:
             raise ValueError("Buffer's submitted image URLs differ from the three reviewed cards in order")
-        # The official Asset interface permits a null ID for remote media.
-        # In that case the exact source URL is the stable image identity.
         state["asset_ids"] = [a.get("id") for a in assets]
+        if hashes is not None:
+            state["asset_sha256"] = hashes
     else:
         expected = state.get("asset_ids", [])
         if len(expected) != 3 or any(
-                a.get("id") != asset_id if asset_id else a["source"] != url
+                a.get("id") != asset_id if asset_id else hashes is None and a["source"] != url
                 for a, asset_id, url in zip(assets, expected, state["image_urls"])):
             raise ValueError("Buffer post image identities or order have changed")
     return state
 
 
 def verify_post(buffer, store, date, record, actual):
-    state = checked_post(buffer, record, actual)
+    state = checked_post(buffer, record, actual, store=store, date=date)
     state["buffer_status"] = actual["status"]
     if actual["status"] == "error":
         raise ValueError("Buffer reports TikTok publication failed; inspect the post in Buffer; no retry")
@@ -168,11 +178,11 @@ def reconcile(buffer, store, date, record):
         if len(matches) != 1:
             raise ValueError("TikTok submission remains uncertain; no new Buffer post will be created")
         state["post_id"] = identifier(matches[0]["id"])
-        checked_post(buffer, record, matches[0], capture=True)
+        checked_post(buffer, record, matches[0], capture=True, store=store, date=date)
         store.save(date, record)
     actual = buffer.post(state["post_id"])
     if not state.get("asset_ids"):
-        checked_post(buffer, record, actual, capture=True)
+        checked_post(buffer, record, actual, capture=True, store=store, date=date)
         store.save(date, record)
     return verify_post(buffer, store, date, record, actual)
 
@@ -230,7 +240,10 @@ def pipeline_tiktok(date=None, mode="reconcile"):
                 state["post_id"] = identifier(actual["id"])
                 # Save the returned ID even if later asset/content verification fails.
                 store.save(date, record)
-                checked_post(buffer, record, actual, capture=True)
+                checked_post(buffer, record, actual, capture=True, store=store, date=date)
+                store.save(date, record)
+            elif not state.get("asset_ids"):
+                checked_post(buffer, record, buffer.post(state["post_id"]), capture=True, store=store, date=date)
                 store.save(date, record)
             stage = "TikTok publication verification"
             # Read-only polling of one accepted submission is not a scheduled retry.

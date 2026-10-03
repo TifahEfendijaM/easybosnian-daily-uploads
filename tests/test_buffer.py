@@ -41,7 +41,23 @@ def post():
             "assets": [{"id": str(i), "mimeType": "image/jpeg", "source": url} for i, url in enumerate(URLS, 1)]}
 
 
+CARD_BYTES = [b"reviewed quiz JPEG", b"reviewed lesson JPEG", b"reviewed word JPEG"]
+CDN_URLS = ["https://buffer-updates-media-backfill-bucket.s3.amazonaws.com/post_photo" + suffix + ".jpg"
+            for suffix in ("", "_1", "_2")]
+
+
+def storage():
+    store = Mock()
+    store.get_file.side_effect = lambda date, name: CARD_BYTES[("quiz-card.jpg", "lesson-card.jpg", "word-card.jpg").index(name)]
+    return store
+
+
 class BufferTests(unittest.TestCase):
+    def setUp(self):
+        media = dict(zip(URLS, CARD_BYTES)) | dict(zip(CDN_URLS, CARD_BYTES))
+        self.media = patch("easybosnian.buffer.request", side_effect=lambda method, url, **kwargs: media[url])
+        self.media.start()
+        self.addCleanup(self.media.stop)
     def test_exact_account_and_automatic_connection_are_required(self):
         buffer = Buffer("fake-test-key", CHANNEL, ORG)
         with patch.object(buffer, "call", return_value={"channel": channel()}):
@@ -86,18 +102,18 @@ class BufferTests(unittest.TestCase):
         for status in ("scheduled", "sending"):
             actual = post(); actual["status"] = status; actual["externalLink"] = None
             saved = record()
-            self.assertFalse(verify_post(buffer, Mock(), DATE, saved, actual))
+            self.assertFalse(verify_post(buffer, storage(), DATE, saved, actual))
             self.assertFalse(saved["state"]["platforms"]["tiktok"].get("verified", False))
         for field, value in (("schedulingType", "notification"), ("channelId", "other"), ("text", "mutated"),
                              ("status", "draft"), ("status", "error"),
                              ("externalLink", "https://www.tiktok.com.attacker.test/@easy.bosnian/photo/1234567"),
                              ("externalLink", "https://www.tiktok.com/@other/photo/1234567")):
             actual = post(); actual[field] = value
-            with self.subTest(field=field), self.assertRaises(ValueError): verify_post(buffer, Mock(), DATE, record(), actual)
+            with self.subTest(field=field), self.assertRaises(ValueError): verify_post(buffer, storage(), DATE, record(), actual)
         saved = record(); actual = post(); actual["assets"].reverse()
-        with self.assertRaises(ValueError): verify_post(buffer, Mock(), DATE, saved, actual)
+        with self.assertRaises(ValueError): verify_post(buffer, storage(), DATE, saved, actual)
         saved = record()
-        self.assertTrue(verify_post(buffer, Mock(), DATE, saved, post()))
+        self.assertTrue(verify_post(buffer, storage(), DATE, saved, post()))
         self.assertTrue(saved["state"]["platforms"]["tiktok"]["verified"])
 
     def test_capture_requires_exact_submitted_asset_sources_in_order(self):
@@ -109,9 +125,25 @@ class BufferTests(unittest.TestCase):
         for asset in actual["assets"]: asset["id"] = None
         saved = record(); buffer = Mock(channel_id=CHANNEL)
         checked_post(buffer, saved, actual, capture=True)
-        self.assertTrue(verify_post(buffer, Mock(), DATE, saved, actual))
+        self.assertTrue(verify_post(buffer, storage(), DATE, saved, actual))
         actual["assets"].reverse()
         with self.assertRaises(ValueError): checked_post(buffer, saved, actual)
+
+    def test_buffer_rehosting_is_accepted_only_for_exact_ordered_original_bytes(self):
+        saved = record(); actual = post(); buffer = Mock(channel_id=CHANNEL)
+        for asset, source in zip(actual["assets"], CDN_URLS):
+            asset.update(id=None, source=source)
+        checked_post(buffer, saved, actual, capture=True, store=storage(), date=DATE)
+        self.assertEqual(len(saved["state"]["platforms"]["tiktok"]["asset_sha256"]), 3)
+        self.assertTrue(verify_post(buffer, storage(), DATE, saved, actual))
+        actual["assets"].reverse()
+        with self.assertRaises(ValueError): verify_post(buffer, storage(), DATE, saved, actual)
+
+    def test_same_hosted_url_cannot_hide_changed_image_content(self):
+        saved = record(); actual = post(); buffer = Mock(channel_id=CHANNEL)
+        checked_post(buffer, saved, actual, capture=True, store=storage(), date=DATE)
+        with patch("easybosnian.buffer.request", return_value=b"wrong image"), self.assertRaises(ValueError):
+            verify_post(buffer, storage(), DATE, saved, actual)
 
     def test_uncertain_submission_without_id_never_submits_again(self):
         saved = record(); saved["state"]["platforms"]["tiktok"].pop("post_id")
@@ -125,11 +157,11 @@ class BufferTests(unittest.TestCase):
         saved = record(); saved["state"]["platforms"]["tiktok"].pop("post_id")
         buffer = Mock(channel_id=CHANNEL)
         buffer.recent.return_value = {"edges": [{"node": post()}, {"node": post()}], "pageInfo": {"hasNextPage": False}}
-        with self.assertRaises(ValueError): reconcile(buffer, Mock(), DATE, saved)
+        with self.assertRaises(ValueError): reconcile(buffer, storage(), DATE, saved)
         buffer.create.assert_not_called()
         buffer.recent.return_value = {"edges": [{"node": post()}], "pageInfo": {"hasNextPage": False}}
         buffer.post.return_value = post()
-        self.assertTrue(reconcile(buffer, Mock(), DATE, saved))
+        self.assertTrue(reconcile(buffer, storage(), DATE, saved))
         buffer.create.assert_not_called()
 
     def test_intent_is_persisted_before_timed_out_create(self):
@@ -157,6 +189,7 @@ class BufferTests(unittest.TestCase):
         buffer = Mock(channel_id=CHANNEL); buffer.verify_channel.return_value = channel(); buffer.post.return_value = post()
         with tempfile.TemporaryDirectory() as temp, patch("easybosnian.buffer.ROOT", Path(temp)), patch("easybosnian.buffer.verify_repository"), patch("easybosnian.buffer.checked_batch", return_value=saved), patch("easybosnian.buffer.Store") as store, patch("easybosnian.buffer.Buffer", return_value=buffer), patch("easybosnian.buffer.artwork") as artwork, patch.dict(os.environ, ENV):
             store.return_value.call.return_value = {"daily_enabled": True, "daily_authorized": True, "monitoring_ready": True}
+            store.return_value.get_file.side_effect = storage().get_file.side_effect
             self.assertTrue(pipeline_tiktok(DATE, "live")["verified"])
             buffer.create.assert_not_called(); artwork.assert_not_called()
 
