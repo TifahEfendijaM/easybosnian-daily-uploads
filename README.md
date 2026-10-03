@@ -2,7 +2,7 @@
 
 Private repository **TifahEfendijaM/easybosnian-daily-uploads**. The existing Cloudflare Worker starts one GitHub workflow at **13:30 daily Europe/Sarajevo**. The clock handles daylight saving automatically. GitHub has no schedule trigger, and there is no automatic retry or missing-run monitor.
 
-One job follows a straight path: a GPT agent through the existing ChatGPT subscription researches and reviews content → the wrapper saves today's Cloudflare history row → refreshed cloud credentials are persisted privately → Pillow renders three cards using Free FLUX backgrounds → Instagram, Facebook and Buffer TikTok publish → Instagram uploads the same cards as image Stories. Publication starts immediately after preparation. No awake Mac or paid OpenAI API is needed.
+One job follows a straight path: a GPT agent through the existing ChatGPT subscription researches and reviews content → the wrapper saves today's Cloudflare history row → refreshed cloud credentials are persisted privately → Pillow renders three cards using Free FLUX backgrounds → Instagram, Facebook and Buffer TikTok publish → Instagram and Facebook upload the same cards as image Stories after their respective feed posts succeed. Publication starts immediately after preparation. No awake Mac or paid OpenAI API is needed.
 
 ## Three modes
 
@@ -14,7 +14,7 @@ One job follows a straight path: a GPT agent through the existing ChatGPT subscr
 
 The user chose complete same-date overwrite. A daily run after a preview prepares replacement content rather than posting that preview's exact cards. Earlier same-day themes/words are removed from future novelty checks. Other dates' history remains. Previewed content counts toward history until replaced, even if never posted.
 
-**DAILY_POSTING_ENABLED is the live kill switch.** Every live entry point checks it independently of event type. verify and preview do not depend on it. Separate FACEBOOK_POSTING_ENABLED, TIKTOK_POSTING_ENABLED and INSTAGRAM_STORIES_ENABLED switches control those publishers. PREPARATION_DISPATCH_ENABLED controls only Cloudflare starts.
+**DAILY_POSTING_ENABLED is the live kill switch.** Every live entry point checks it independently of event type. verify and preview do not depend on it. Separate FACEBOOK_POSTING_ENABLED, TIKTOK_POSTING_ENABLED, INSTAGRAM_STORIES_ENABLED and FACEBOOK_STORIES_ENABLED switches control those publishers. Facebook Stories also require Facebook feed publishing to be enabled and confirmed in the current run. PREPARATION_DISPATCH_ENABLED controls only Cloudflare starts.
 
 ## History and validation
 
@@ -22,7 +22,7 @@ D1 history is the single source of truth: each new daily row has one date, theme
 
 Pillow renders exact text and the original transparent watermark onto 1080×1350 cards. Body sizes are 44/38/34 px at 160/240-character boundaries. Licensed Inter, semibold headings, rounded panels, inset accent lines and a PRIMJER label give the definition/example a clearer hierarchy. GPT selects one shared palette and per-card layouts from the approved catalogs. FLUX receives short, explicitly photorealistic photography prompts with real subjects, natural light, realistic textures and plain colour names and at most one broad framing direction; Pillow handles text and branding.
 
-KV images expire after 14 days. Only final card/Story JPEGs receive random public URLs for social platforms to fetch. Shared backgrounds are cached, and a reviewed content replacement invalidates that date's caches. Instagram Stories pad the actual cards to 1080×1920; Highlights and TikTok Stories require manual action.
+KV images expire after 14 days. Only final card/Story JPEGs receive random public URLs for social platforms to fetch. Shared backgrounds are cached, and a reviewed content replacement invalidates that date's caches. Instagram and Facebook Stories pad the actual cards to 1080×1920. Facebook uses separate unpublished photo uploads because Meta forbids reusing previously published feed media IDs, then checks the returned Stories against the Page. No extra FLUX generation or new credentials are needed. Highlights and TikTok Stories require manual action; the documented TikTok/Buffer APIs do not expose a Story publishing option.
 
 ## Deliberate operational tradeoffs
 

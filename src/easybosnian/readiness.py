@@ -27,10 +27,15 @@ def check_infrastructure():
             raise ValueError("Instagram did not confirm read access to the authorized account's Stories")
         stories = "account Stories read access verified; no Story was created or published"
     facebook = "disabled pending independent Page authorization"
+    facebook_stories = "disabled"
     if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" or os.getenv("FACEBOOK_PAGE_TOKEN") or os.getenv("FACEBOOK_PAGE_ID"):
         if not os.getenv("FACEBOOK_PAGE_TOKEN") or not os.getenv("FACEBOOK_PAGE_ID"):
             raise ValueError("Facebook protected Page authorization is incomplete")
-        Facebook().verify_page()
+        page = Facebook(); page.verify_page()
+        if os.getenv('FACEBOOK_STORIES_ENABLED') == 'true':
+            if not isinstance(page.stories().get('data'), list):
+                raise ValueError('Facebook did not confirm Stories read access to the selected Page')
+            facebook_stories = "selected Page Stories read access verified; no Story was created or published"
         facebook = "exact Easy Bosnian Page token/identity verified; " + ("daily publisher enabled" if os.getenv("FACEBOOK_POSTING_ENABLED") == "true" else "daily publisher disabled pending Meta app checklist") + "; no post was made"
     tiktok = "disabled pending Buffer authorization"
     if os.getenv("TIKTOK_POSTING_ENABLED") == "true":
@@ -52,6 +57,6 @@ def check_infrastructure():
     return {"repository":REPO, "daily_posting_enabled":enabled, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
             "instagram_account_type":info["account_type"], "instagram_stories":stories,
-            "facebook":facebook, "tiktok": tiktok,
+            "facebook":facebook, "facebook_stories":facebook_stories, "tiktok": tiktok,
             "renewal_access":"repository secrets write-back access verified",
             "publication":"nothing published by this read-only check"}

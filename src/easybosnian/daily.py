@@ -4,6 +4,7 @@ from .artwork import artwork
 from .buffer import publish_tiktok
 from .core import ROOT, require_publishing, today, verify_repository, write_json
 from .facebook import publish_facebook
+from .facebook_stories import publish_facebook_stories
 from .http import redact
 from .notify import failure
 from .pipeline import publish_instagram
@@ -43,6 +44,11 @@ def daily(date=None,mode='preview'):
         except Exception as error:
             failed.append('instagram_stories');results['instagram_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['instagram_stories']={'status':'disabled or Instagram feed publication not confirmed in this run','published':False}
+    if os.getenv('FACEBOOK_STORIES_ENABLED')=='true' and results['facebook'].get('published'):
+        try: results['facebook_stories']=publish_facebook_stories(store,package,assets)
+        except Exception as error:
+            failed.append('facebook_stories');results['facebook_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
+    else: results['facebook_stories']={'status':'disabled or Facebook feed publication not confirmed in this run','published':False}
     results['tiktok_stories']={'status':'manual upload required; Buffer integration publishes feed posts only','published':False}
     write_json(ROOT/'build'/date/'platforms-result.json',{'batch':date,'platforms':results})
     if failed: raise RuntimeError('Daily run failed for: '+', '.join(failed))
