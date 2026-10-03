@@ -62,26 +62,36 @@ def validate(package, history=None, include_today=False):
     translation_language = re.search(r"\b(?:na bosanskom|na engleskom|englesk\w*|english)\b", question)
     if translation_action and translation_language:
         raise ValueError("Use a Bosnian description, situation or visual question instead of a foreign-word translation exercise")
-    if [o["label"] for o in quiz["options"]] != ["A", "B", "C"]:
-        raise ValueError("Quiz markers must be A/B/C exactly once")
-    if len(set(normalise(o["text"]) for o in quiz["options"])) != 3:
+    labels = [o["label"] for o in quiz["options"]]
+    if labels not in (["A", "B"], ["A", "B", "C"], ["A", "B", "C", "D"]):
+        raise ValueError("Quiz markers must be A/B, A/B/C or A/B/C/D exactly once")
+    if len(set(normalise(o["text"]) for o in quiz["options"])) != len(quiz["options"]):
         raise ValueError("Quiz options must differ")
-    if any(re.match(r"^[ABC][).:\s]", o["text"]) for o in quiz["options"]):
-        raise ValueError("Option text must not duplicate its A/B/C marker")
+    if any(re.match(r"^[ABCD][).:\s]", o["text"]) for o in quiz["options"]):
+        raise ValueError("Option text must not duplicate its option marker")
     review = package["private_review"]
+    if review["correct_option"] not in labels:
+        raise ValueError("Private correct_option must be one of the provided options")
     correct = next(o["text"] for o in quiz["options"] if o["label"] == review["correct_option"])
     if normalise(correct) != normalise(review["correct_text"]):
         raise ValueError("Private correct_text must match the selected option")
     outside_quiz = normalise(public_text(package))
+    binary = len(quiz["options"]) == 2 and {normalise(o["text"]) for o in quiz["options"]} == {"da", "ne"}
     banned = [review["correct_text"], *review["answer_aliases"], *review["identifying_hints"]]
     for answer in banned:
+        # Da/ne are ordinary Bosnian words, not identifying clues by themselves.
+        if binary and normalise(answer) in {"da", "ne"}: continue
         if re.search(r"(?<!\w)" + re.escape(normalise(answer)) + r"(?!\w)", outside_quiz):
             raise ValueError("Quiz answer or identifying hint leaks into other cards, caption, hashtags or alt text")
     caption = normalise(package["caption"])
-    if re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?[abc](?!\w)", caption):
+    if re.search(r"\b(?:mala ispravka|ispravka prethodn\w*|prethodn\w* objav\w*|(?:obrisan|izbrisan)\w* objav\w*|nova verzija objave)\b", caption):
+        raise ValueError("Captions must stand alone without referring to corrections or deleted posts")
+    if re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?[abcd](?!\w)", caption):
         raise ValueError("Public caption identifies an answer letter")
+    if binary and re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?(?:da|ne)(?!\w)", outside_quiz):
+        raise ValueError("Public text identifies the yes/no answer")
     # The selected word may be the correct option; it is metadata, never a quiz heading.
-    if normalise(review["correct_text"]) in normalise(quiz["question"]):
+    if not binary and normalise(review["correct_text"]) in normalise(quiz["question"]):
         raise ValueError("Quiz question reveals the answer")
     for c in package["cards"]:
         if len(" ".join(instructional(c))) > 460:

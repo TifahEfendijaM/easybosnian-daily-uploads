@@ -113,6 +113,14 @@ class FacebookStoryTests(unittest.TestCase):
             publish_facebook_stories(None, reviewed_fixture(), {})
         facebook.assert_not_called()
 
+    def test_live_lowercase_published_status_is_confirmed_and_lowercase_archived_rejected(self):
+        facebook=MagicMock()
+        for status in ('published','PUBLISHED'):
+            facebook.stories.return_value={'data':[{**story(),'status':status}]}
+            self.assertEqual(verify_story(facebook,'201','101'),'https://www.facebook.com/stories/201')
+        facebook.stories.return_value={'data':[{**story(),'status':'archived'}]}
+        with self.assertRaisesRegex(ValueError,'archived'):verify_story(facebook,'201','101')
+
     def test_facebook_stories_run_even_when_instagram_or_its_stories_fail(self):
         for instagram_fails in (True, False):
             with patch.dict(os.environ, {'FACEBOOK_POSTING_ENABLED': 'true', 'FACEBOOK_STORIES_ENABLED': 'true', 'TIKTOK_POSTING_ENABLED': 'true', 'INSTAGRAM_STORIES_ENABLED': 'true'}), \
