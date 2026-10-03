@@ -46,12 +46,36 @@ def inspect(date):
     print(json.dumps(result, indent=2))
 
 
+def capabilities(date):
+    """Read the confirmed channel's content types; never submit a Story probe."""
+    verify_repository(remote=True)
+    buffer = Buffer()
+    buffer.verify_channel()
+    config = buffer.call(
+        "query($input: ConfigurationInput!) { configuration(input:$input) { channels { "
+        "channelId service channelType content { configurationContentTypes supportedProperties } "
+        "} } }", {"input": {"organizationId": buffer.organization_id}})["configuration"]
+    matches = [c for c in config["channels"] if c.get("channelId") == buffer.channel_id]
+    if len(matches) != 1 or matches[0].get("service") != "tiktok":
+        raise ValueError("Buffer configuration did not identify the confirmed TikTok channel")
+    channel = matches[0]
+    types = sorted({t for c in channel["content"] for t in c["configurationContentTypes"]})
+    result = {"date": date, "account": "@easy.bosnian", "channel_id": buffer.channel_id,
+              "channel_type": channel["channelType"], "content_types": types,
+              "content": channel["content"], "stories_supported": "story" in types,
+              "operation": "read-only capability query; no post created or edited"}
+    write_json(ROOT / "build" / date / "tiktok-capabilities.json", result)
+    print(json.dumps(result, indent=2))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["inspect", "reconcile"])
+    parser.add_argument("mode", choices=["inspect", "reconcile", "capabilities"])
     parser.add_argument("date")
     args = parser.parse_args()
     if args.mode == "inspect":
         inspect(args.date)
+    elif args.mode == "capabilities":
+        capabilities(args.date)
     else:
         pipeline_tiktok(args.date, "reconcile")

@@ -5,7 +5,7 @@ on:
       mode:
         description: Read an existing submission only; never create a post
         type: choice
-        options: [inspect, reconcile]
+        options: [inspect, reconcile, capabilities]
         default: inspect
       batch_date:
         description: Existing Sarajevo batch date YYYY-MM-DD
@@ -49,6 +49,7 @@ jobs:
           name: easybosnian-tiktok-readback-${{ github.run_id }}
           path: |
             build/*/tiktok-inspection.json
+            build/*/tiktok-capabilities.json
             build/*/tiktok-result.json
             build/failure.txt
           retention-days: 7
