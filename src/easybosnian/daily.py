@@ -1,4 +1,4 @@
-"""Read today's history, render once, then attempt each enabled publisher."""
+"""Read the selected history batch, render once, then attempt each enabled publisher."""
 import os
 from .artwork import artwork
 from .buffer import publish_tiktok

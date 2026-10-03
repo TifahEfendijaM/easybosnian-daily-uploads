@@ -99,7 +99,7 @@ class CloudPreparationTests(unittest.TestCase):
                 self.assertEqual(result['status'],'cloud connection verified')
 
     def test_preview_reuses_today_without_research_or_live_gate(self):
-        date='2026-10-03';package={'date':date}
+        date='2026-10-03';package={'date':date,'schema_version':1}
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cloud_prepare.ROOT',Path(temp)),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex') as agent,patch('easybosnian.cloud_prepare.require_publishing') as live,patch('easybosnian.cloud_prepare.validate'),patch('easybosnian.cloud_prepare.fit_check'):
             store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':package}]}
             cloud_run('preview');agent.assert_not_called();live.assert_not_called()

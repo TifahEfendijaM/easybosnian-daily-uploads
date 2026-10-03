@@ -5,7 +5,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import date as calendar_date, datetime, timezone
 from pathlib import Path
 
 from PIL import Image
@@ -66,12 +66,13 @@ def fit_check(package):
             tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 
 
-def prepare(path,selection=None):
+def prepare(path,selection=None,batch_target='today',run_date=None):
     verify_repository(remote=True)
     package=read_json(path)
-    if package['date']!=today(): raise ValueError("Content must use today's Sarajevo date")
-    from .selection import check_selection, novelty_history, word_levels
+    from .selection import batch_date, check_selection, novelty_history, word_levels
     store=Store();history=store.history()
+    if package['date']!=batch_date(history,run_date or today(),batch_target):
+        raise ValueError('Content must use the selected Sarajevo batch date')
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
     from .levels import load_level
@@ -80,6 +81,17 @@ def prepare(path,selection=None):
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
+
+
+def prepared_date(mode):
+    """Use the trusted preparation result's date, never the clock at publication time."""
+    result=read_json(ROOT/'build/preparation-result.json')
+    date=result.get('date')
+    if (mode not in ('preview','daily') or result.get('mode')!=mode or result.get('project')!=PROJECT
+            or result.get('status')!='reviewed content available in private history'
+            or not isinstance(date,str) or calendar_date.fromisoformat(date).isoformat()!=date or date>today()):
+        raise ValueError('No successful preparation result for this mode and batch date')
+    return date
 
 
 def set_secret(name,local=False):
@@ -184,7 +196,7 @@ def main():
     level=subs.add_parser('set-level');level.add_argument('--level',choices=LEVELS,required=True)
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
-    p=subs.add_parser('run');p.add_argument('--date',default=None);p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
+    p=subs.add_parser('run');target=p.add_mutually_exclusive_group();target.add_argument('--date',default=None);target.add_argument('--prepared',action='store_true');p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
     p=subs.add_parser("set-secret"); p.add_argument("name"); p.add_argument("--local",action="store_true")
     p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["GITHUB_DISPATCH_TOKEN"])
     subs.add_parser("authorize-instagram")
@@ -200,7 +212,7 @@ def main():
     elif args.command=='set-level': print(json.dumps(set_level(args.level)))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
-    elif args.command=='run': daily(args.date,args.mode)
+    elif args.command=='run': daily(prepared_date(args.mode) if args.prepared else args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()

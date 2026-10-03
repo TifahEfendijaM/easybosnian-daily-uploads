@@ -100,16 +100,19 @@ class ContentTests(unittest.TestCase):
         validate(p)  # Previously saved content remains renderable without rewriting it.
         with self.assertRaisesRegex(ValueError,'final line'):
             validate(p,require_website_footer=True)
-        p['caption']+='\n\nDa ti razgovor ne zapne na prvoj rečenici, nastavi učiti bosanski uz EasyBosnian. 👇\neasybosnian.com'
+        p['caption']+='\n\nDa ti razgovor ne zapne na prvoj rečenici, nastavi učiti bosanski uz EasyBosnian.\n👉easybosnian.com'
         validate(p,require_website_footer=True)
         for suffix in ('\nJoš nešto.', '\n', ''):
             bad=copy.deepcopy(p)
-            if suffix=='\n':bad['caption']=bad['caption'].replace('👇\neasybosnian.com','👇\n\neasybosnian.com')
+            if suffix=='\n':bad['caption']=bad['caption'].replace('\n👉easybosnian.com','\n\n👉easybosnian.com')
             elif not suffix:bad['caption']=bad['caption'].replace('easybosnian.com','easybosnian.example')
             else:bad['caption']+=suffix
             with self.subTest(suffix=suffix),self.assertRaises(ValueError):validate(bad,require_website_footer=True)
         bad=copy.deepcopy(p);bad['caption']='easybosnian.com\n'+bad['caption']
         with self.assertRaises(ValueError):validate(bad,require_website_footer=True)
+        for ending in ('easybosnian.com','👇\neasybosnian.com','👉 easybosnian.com'):
+            bad=copy.deepcopy(p);bad['caption']=bad['caption'].replace('👉easybosnian.com',ending)
+            with self.subTest(ending=ending),self.assertRaises(ValueError):validate(bad,require_website_footer=True)
         bad=copy.deepcopy(p);bad['caption']=bad['caption'].replace('Da ti razgovor','Da ti kišobran')
         with self.assertRaisesRegex(ValueError,'leaks'):
             validate(bad,require_website_footer=True)

@@ -11,7 +11,7 @@ from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
-from .selection import selection_context, check_selection, novelty_history, word_levels
+from .selection import batch_date, selection_context, check_selection, novelty_history, word_levels
 from .levels import load_level
 
 
@@ -151,16 +151,18 @@ def run_codex(prompt, timeout=420):
     return output.read_text(encoding="utf-8").strip()
 
 
-def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None):
+def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None, batch_target='latest'):
     if mode not in ('verify','preview','daily'): raise ValueError('Unknown workflow mode')
-    date=today();stage='cloud preparation infrastructure authorization'
+    run_date=today();date=run_date;stage='cloud preparation infrastructure authorization'
     try:
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
+        if mode!='verify': date=batch_date(history,run_date,batch_target)
         chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions) if mode!='verify' else {'choice':'new','previous':None}
         level=load_level()
-        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level})
+        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
+                                                       'batch_date':date,'run_date':run_date,'batch_target':batch_target})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -177,7 +179,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                     'chatgpt_workspace_read_write':True,'publication':'No content prepared, saved, rendered or published'}
         else:
             existing=next((x for x in history['days'] if x['date']==date),None)
-            if mode=='preview' and existing:
+            if mode=='preview' and existing and existing['content'].get('schema_version')==1:
                 # User chose saved previews; no claim that this content was published.
                 package=existing['content'];validate(package,history);fit_check(package)
             else:
@@ -189,9 +191,10 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
                 validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
-                stage='preparation/history save';prepare(draft,selection=chosen)
+                stage='preparation/history save';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}
+        result.update(project=PROJECT,mode=mode,run_date=run_date,batch_target=batch_target)
         write_json(ROOT/'build/preparation-result.json',result);print(json.dumps(result,indent=2));return result
     except Exception as error:
         print(failure(date,stage,error,'nothing published by this preparation step',os.getenv('GITHUB_RUN_URL')))
@@ -205,7 +208,8 @@ def main():
     if action in ("verify", "preview", "daily"):
         cloud_run(action,os.getenv('CONTENT_SELECTION','new'),os.getenv('CUSTOM_THEME',''),
                   [os.getenv('CUSTOM_WORD_'+str(i),'') for i in (1,2,3)],
-                  [os.getenv('CUSTOM_WORD_'+str(i)+'_ACTION','keep_today') for i in (1,2,3)])
+                  [os.getenv('CUSTOM_WORD_'+str(i)+'_ACTION','keep_today') for i in (1,2,3)],
+                  batch_target=os.getenv('BATCH_TARGET','latest'))
         return
     try:
         bootstrap() if action == "bootstrap" else persist()

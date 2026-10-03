@@ -1,9 +1,27 @@
 """Explicit reuse choices, with narrowly scoped same-date novelty exceptions."""
 import copy
+from datetime import date as calendar_date
 from .validate import instructional, normalise
 
 CHOICES = ('new', 'same_theme', 'same_words', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
+
+
+def batch_date(history, run_date, target='latest'):
+    """Manual replacements keep the latest complete row's date; routine starts use today."""
+    if target not in ('latest', 'today'): raise ValueError('Batch target must be latest or today')
+    if calendar_date.fromisoformat(run_date).isoformat() != run_date:
+        raise ValueError('Invalid Sarajevo run date')
+    if target == 'today': return run_date
+    dates=[]
+    for day in history['days']:
+        content=day.get('content')
+        if not isinstance(content,dict) or content.get('schema_version') != 1: continue
+        saved=day['date']
+        if calendar_date.fromisoformat(saved).isoformat() != saved or content.get('date') != saved:
+            raise ValueError('Saved batch date differs from its history row')
+        if saved <= run_date: dates.append(saved)
+    return max(dates,default=run_date)
 
 
 def selection_context(history, date, choice, custom_theme='', custom_words=None, custom_actions=None):
@@ -11,7 +29,7 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
     previous = next((d['content'] for d in history['days'] if d['date'] == date), None)
     if previous and previous.get('schema_version') != 1: previous = None
     if choice in ('same_theme', 'same_words') and not previous:
-        raise ValueError('Reuse requires today\'s complete content row; choose new instead')
+        raise ValueError('Reuse requires a complete saved batch; choose new instead')
     result = {'choice': choice, 'previous': previous}
     if choice == 'custom':
         theme = custom_theme.strip()
@@ -21,7 +39,7 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         if len(actions) != 3 or any(action not in WORD_ACTIONS for action in actions):
             raise ValueError('Choose keep_today, chatgpt or entered for each custom word')
         if not previous and (not theme or 'keep_today' in actions):
-            raise ValueError('Without today\'s saved content, enter a theme and enter or delegate every word')
+            raise ValueError('Without a saved batch, enter a theme and enter or delegate every word')
         for i, action in enumerate(actions):
             if action == 'entered' and not words[i]:
                 raise ValueError('The entered word action requires a word in its matching field')
@@ -129,8 +147,8 @@ def word_levels(package, selection, global_level):
 
 
 def novelty_history(history, date, selection, package=None):
-    # Keep every older row authoritative. Exempt only explicitly reused metadata
-    # from today's row; do not ignore today's old words for same_theme.
+    # Exempt only explicitly reused metadata from the selected replacement row.
+    # All other dates stay authoritative, including this row's words for same_theme.
     result = copy.deepcopy(history)
     if selection['choice'] == 'new': return result
     for day in result['days']:
