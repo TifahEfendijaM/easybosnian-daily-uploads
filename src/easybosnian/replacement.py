@@ -3,6 +3,7 @@ import os
 
 from .core import require_publishing
 from .meta import Facebook, InstagramDeletion
+from .batches import BATCH_ID
 
 
 def recorder(store, date, platform):
@@ -30,6 +31,8 @@ def latest_batch(items):
 def cleanup(store, date, platform):
     require_publishing()
     items = [x for x in store.publications(date) if x['platform'] == platform]
+    if BATCH_ID.fullmatch(date) and any(x.get('batch_id')!=date for x in items):
+        raise ValueError('Publication identifiers belong to a different batch; refusing cleanup')
     if not items: return {'removed':0, 'already_absent':0}
     if platform == 'tiktok':
         from .buffer import Buffer

@@ -22,6 +22,7 @@ from .levels import LEVELS, set_level
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
+from .batches import BATCH_ID, identity, plan_batch
 
 
 def load_env():
@@ -66,13 +67,22 @@ def fit_check(package):
             tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 
 
-def prepare(path,selection=None,batch_target='today',run_date=None):
+def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
     verify_repository(remote=True)
     package=read_json(path)
     from .selection import batch_date, check_selection, novelty_history, word_levels
     store=Store();history=store.history()
     if package['date']!=batch_date(history,run_date or today(),batch_target):
         raise ValueError('Content must use the selected Sarajevo batch date')
+    if plan:
+        expected=plan_batch(history,run_date or today(),batch_target)
+        existing=any(identity(row)==plan['batch_id'] for row in history['days'])
+        if (not BATCH_ID.fullmatch(plan['batch_id']) or package.get('batch_id')!=plan['batch_id']
+                or plan['date']!=package['date'] or plan['source_batch_id']!=expected['source_batch_id']
+                or plan['cleanup_batch_id']!=expected['cleanup_batch_id']
+                or (expected['cleanup_batch_id'] and plan['batch_id']!=expected['batch_id'])
+                or (not expected['cleanup_batch_id'] and existing)):
+            raise ValueError('Draft does not match the trusted independent/replacement batch plan')
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
     from .levels import load_level
@@ -92,6 +102,16 @@ def prepared_date(mode):
             or not isinstance(date,str) or calendar_date.fromisoformat(date).isoformat()!=date or date>today()):
         raise ValueError('No successful preparation result for this mode and batch date')
     return date
+
+
+def prepared_batch(mode):
+    date=prepared_date(mode);result=read_json(ROOT/'build/preparation-result.json')
+    batch_id=result.get('batch_id');cleanup=result.get('cleanup_batch_id')
+    if (not isinstance(batch_id,str) or not BATCH_ID.fullmatch(batch_id)
+            or cleanup not in (None,batch_id) or result.get('batch_target') not in ('latest','none','today')
+            or (result['batch_target']!='latest' and cleanup is not None)):
+        raise ValueError('No trusted batch identity and cleanup scope for this preparation')
+    return date,batch_id,cleanup is not None
 
 
 def set_secret(name,local=False):
@@ -212,7 +232,10 @@ def main():
     elif args.command=='set-level': print(json.dumps(set_level(args.level)))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
-    elif args.command=='run': daily(prepared_date(args.mode) if args.prepared else args.date,args.mode)
+    elif args.command=='run':
+        if args.prepared:
+            date,batch_id,replace=prepared_batch(args.mode);daily(date,args.mode,batch_id=batch_id,replace=replace)
+        else:daily(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()

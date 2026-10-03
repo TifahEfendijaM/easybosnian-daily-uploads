@@ -35,7 +35,7 @@ test('both UTC candidates select one 05:00 Sarajevo dispatch, including DST tran
   }
   const posts=fixture.calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,4);
   for(const {options} of posts) {
-    assert.deepEqual(JSON.parse(options.body),{ref:'main',inputs:{mode:'daily',batch_target:'today'}});
+    assert.deepEqual(JSON.parse(options.body),{ref:'main',inputs:{mode:'daily',batch_target:'none'}});
     assert.equal(options.headers.Accept,'application/vnd.github+json');
     assert.equal(options.headers.Authorization,'Bearer private-test-token');
     assert.equal(options.headers['X-GitHub-Api-Version'],'2022-11-28');
@@ -131,23 +131,75 @@ test('private history requires authorization and no watchdog/config/state endpoi
   assert.equal((await worker.fetch(new Request('https://example.test/privacy'),env)).status,200);
 });
 
-test('same-date reviewed replacements are allowed and invalidate artwork caches',async()=>{
-  const writes=[],deleted=[];
-  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){assert.ok(sql.startsWith('INSERT INTO history'));return {bind(...args){writes.push(args);return this;},run:async()=>({meta:{changes:1}})};}},IMAGES:{delete:async key=>deleted.push(key)}};
-  const p={project:PROJECT,schema_version:1,date:'2026-10-03',theme:{name:'one',equivalence_keys:['one']},words:['a','b','c'].map(lemma=>({lemma,equivalence_keys:[lemma]})),cards:['quiz','lesson','word'].map(kind=>({kind})),private_review:{standard_bosnian_checked:true,sources_checked:true,semantic_history_checked:true,no_answer_leak_checked:true}};
-  const send=async()=>worker.fetch(new Request('https://example.test/v1/history/'+p.date,{method:'PUT',headers:{Authorization:'Bearer private','Content-Type':'application/json'},body:JSON.stringify(p)}),env);
-  assert.equal((await send()).status,200);p.theme.name='replacement';assert.equal((await send()).status,200);
-  assert.equal(writes.length,2);assert.equal(deleted.length,24);
-  assert.ok(deleted.includes('private-ai:2026-10-03:quiz'));
-  p.private_review.sources_checked=false;assert.equal((await send()).status,409);assert.equal(writes.length,2);
+const A='b-'+'a'.repeat(32),B='b-'+'b'.repeat(32),C='b-'+'c'.repeat(32);
+function content(id,date='2026-10-04',prompt='reviewed prompt') {
+  return {project:PROJECT,schema_version:1,batch_id:id,date,theme:{name:'one',equivalence_keys:['one']},words:['a','b','c'].map(lemma=>({lemma,equivalence_keys:[lemma]})),cards:['quiz','lesson','word'].map(kind=>({kind,background_prompt:prompt})),private_review:{standard_bosnian_checked:true,sources_checked:true,semantic_history_checked:true,no_answer_leak_checked:true}};
+}
+function batchFixture() {
+  const history=new Map(),ids=new Map(),kv=new Map(),deleted=[];let nextOrder=0,generated=0;
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){return {bind(...args){this.args=args;return this;},async first(){
+    if(sql.includes('FROM history WHERE batch_id'))return history.get(this.args[0]) || null;
+    if(sql.includes('FROM publication_ids WHERE platform'))return ids.get(this.args.join(':')) || null;
+    throw Error('Unexpected first query');
+  },async all(){
+    if(sql.includes('FROM history')) {let rows=[...history.values()];if(sql.includes('WHERE date='))rows=rows.filter(x=>x.date===this.args[0]);rows.sort((a,b)=>a.created_at.localeCompare(b.created_at)||a.created_order-b.created_order);if(sql.includes('DESC'))rows.reverse();if(sql.includes('LIMIT 2'))rows=rows.slice(0,2);return {results:rows};}
+    if(sql.includes('FROM publication_ids'))return {results:[...ids.values()].filter(x=>x.batch_id===this.args[0])};
+    throw Error('Unexpected list query');
+  },async run(){
+    if(sql.startsWith('INSERT INTO history')) {
+      const [batch_id,date,created_at,theme_json,words_json,content_json]=this.args,old=history.get(batch_id);
+      if(old && old.date!==date)return {meta:{changes:0}};
+      history.set(batch_id,{batch_id,date,created_at:old?.created_at || created_at,created_order:old?.created_order || ++nextOrder,theme_json,words_json,content_json});
+    } else if(sql.startsWith('INSERT INTO publication_ids')) {
+      const [batch_id,date,platform,kind,object_id,account_id]=this.args,key=platform+':'+object_id;
+      if(!ids.has(key))ids.set(key,{recorded_order:ids.size+1,batch_id,date,platform,kind,object_id,account_id});
+    } else if(sql.startsWith('DELETE FROM publication_ids')) {
+      const [batch_id,platform,object_id]=this.args,key=platform+':'+object_id;if(ids.get(key)?.batch_id===batch_id)ids.delete(key);
+    } else throw Error('Unexpected write query');
+    return {meta:{changes:1}};
+  }};}},IMAGES:{get:async key=>kv.get(key),delete:async key=>{deleted.push(key);kv.delete(key);},put:async(key,value,options)=>{assert.equal(options.expirationTtl,14*86400);kv.set(key,value);}},AI:{run:async(model,options)=>{generated++;assert.equal(model,'@cf/black-forest-labs/flux-1-schnell');assert.equal(options.steps,4);return {image:'image-'+options.prompt};}}};
+  const send=(method,path,body)=>worker.fetch(new Request('https://example.test'+path,{method,headers:{Authorization:'Bearer private','Content-Type':'application/json'},...(body!==undefined?{body:JSON.stringify(body)}:{})}),env);
+  const save=p=>send('PUT','/v1/history/batches/'+p.batch_id,p);
+  return {env,history,ids,kv,deleted,send,save,get generated(){return generated;}};
+}
+
+test('same-date batches coexist; replacement preserves creation time and invalidates only its caches',async()=>{
+  const f=batchFixture();assert.equal((await f.save(content(A))).status,200);assert.equal((await f.save(content(B))).status,200);
+  const created=f.history.get(A).created_at;f.kv.set('private-ai:'+B+':quiz','other batch');
+  const p=content(A);p.theme.name='replacement';assert.equal((await f.save(p)).status,200);
+  assert.equal(f.history.size,2);assert.equal(f.history.get(A).created_at,created);assert.equal(f.kv.get('private-ai:'+B+':quiz'),'other batch');
+  const history=await (await f.send('GET','/v1/history')).json();assert.equal(history.days.length,2);assert.equal(history.storage_version,2);
+  p.private_review.sources_checked=false;assert.equal((await f.save(p)).status,409);
+  assert.equal((await f.save(content(A,'2026-10-03'))).status,409);assert.equal(f.history.get(A).date,'2026-10-04');
 });
 
-test('FLUX uses reviewed prompt and cache without a generation intent table',async()=>{
-  const p={cards:[{kind:'quiz',background_prompt:'reviewed prompt'}]};let generated=0,saved;
-  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){assert.ok(sql.includes('FROM history'));return {bind(){return this;},first:async()=>({content_json:JSON.stringify(p)})};}},IMAGES:{get:async()=>saved,put:async(key,value,options)=>{assert.equal(options.expirationTtl,14*86400);saved=value;}},AI:{run:async(model,options)=>{generated++;assert.equal(model,'@cf/black-forest-labs/flux-1-schnell');assert.equal(options.prompt,'reviewed prompt');return {image:'image-data'};}}};
-  const send=async prompt=>worker.fetch(new Request('https://example.test/v1/generate',{method:'POST',headers:{Authorization:'Bearer private','Content-Type':'application/json'},body:JSON.stringify({date:'2026-10-03',kind:'quiz',prompt})}),env);
-  assert.equal((await send('wrong')).status,409);assert.equal(generated,0);
-  assert.equal((await send('reviewed prompt')).status,200);assert.equal((await send('reviewed prompt')).status,200);assert.equal(generated,1);
+test('FLUX prompt binding, cached background and private/public artwork are isolated by batch ID',async()=>{
+  const f=batchFixture();await f.save(content(A,'2026-10-04','first prompt'));await f.save(content(B,'2026-10-04','second prompt'));
+  const generate=(id,prompt)=>f.send('POST','/v1/generate',{batch_id:id,date:'2026-10-04',kind:'quiz',prompt});
+  assert.equal((await generate(A,'second prompt')).status,409);assert.equal(f.generated,0);
+  for(const [id,prompt] of [[A,'first prompt'],[B,'second prompt'],[A,'first prompt']])assert.equal((await generate(id,prompt)).status,200);
+  assert.equal(f.generated,2);assert.notEqual(f.kv.get('private-ai:'+A+':quiz'),f.kv.get('private-ai:'+B+':quiz'));
+  const jpeg=new Uint8Array(100);jpeg[0]=255;jpeg[1]=216;jpeg[2]=12;
+  for(const id of [A,B]) {
+    const result=await worker.fetch(new Request('https://example.test/v1/private/batches/'+id+'/quiz-card.jpg',{method:'PUT',headers:{Authorization:'Bearer private'},body:jpeg}),f.env);assert.equal(result.status,200);
+    jpeg[2]++;
+  }
+  const one=await (await f.send('POST','/v1/expose/batches/'+A+'/quiz-card.jpg')).json(),two=await (await f.send('POST','/v1/expose/batches/'+B+'/quiz-card.jpg')).json();
+  assert.notEqual(one.url,two.url);assert.match(one.url,/\/images\/[a-f0-9]{64}\.jpg$/);
+  await f.save(content(A,'2026-10-04','replacement prompt'));
+  assert.ok(f.kv.has('private:'+B+':quiz-card.jpg'));assert.ok(f.kv.has('public:'+new URL(two.url).pathname.split('/').pop().slice(0,-4)));
+});
+
+test('legacy date reads remain compatible; ambiguous date writes and generation refuse to guess',async()=>{
+  const f=batchFixture(),legacy=content('legacy-2026-10-03','2026-10-03');
+  await f.save(legacy);f.kv.set('private-ai:2026-10-03:quiz','legacy image');
+  const old=await f.send('POST','/v1/generate',{date:'2026-10-03',kind:'quiz',prompt:'reviewed prompt'});assert.equal(old.status,200);assert.equal((await old.json()).image,'legacy image');
+  await f.save(content(A,'2026-10-03'));
+  assert.equal((await f.send('GET','/v1/history/2026-10-03')).status,200);
+  assert.equal((await f.send('PUT','/v1/history/2026-10-03',legacy)).status,409);
+  assert.equal((await f.send('GET','/v1/publications/2026-10-03')).status,409);
+  assert.equal((await f.send('POST','/v1/generate',{date:'2026-10-03',kind:'quiz',prompt:'reviewed prompt'})).status,409);
+  await f.save(legacy);assert.ok(f.deleted.includes('private-ai:2026-10-03:quiz'));
 });
 
 test('gate logs distinguish inactive delivery and disabled starts without secrets',async t=>{
@@ -172,21 +224,19 @@ test('pre-claim scheduled failures are visible and do not reveal provider detail
   assert.equal(fixture.records.size,0);assert.equal(fixture.calls.length,0);
 });
 
-test('minimal publication identifiers are protected, date-scoped and independent of history replacement',async()=>{
-  const records=new Map();
-  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'private',DB:{prepare(sql){return {bind(...args){this.args=args;return this;},async run(){
-    if(sql.startsWith('INSERT INTO publication_ids')) {const [date,platform,kind,object_id,account_id]=this.args;const key=platform+':'+object_id;if(!records.has(key))records.set(key,{recorded_order:records.size+1,date,platform,kind,object_id,account_id});}
-    else if(sql.startsWith('DELETE')) {const [date,platform,id]=this.args;const key=platform+':'+id;if(records.get(key)?.date===date)records.delete(key);}
-    else throw Error('Publication identifiers must not mutate history or claims');
-    return {meta:{changes:1}};
-  },async first(){const [platform,id]=this.args;return records.get(platform+':'+id);},async all(){return {results:[...records.values()].filter(x=>x.date===this.args[0])};}};}}};
-  const send=(method,path='',body)=>worker.fetch(new Request('https://example.test/v1/publications/2026-10-03'+path,{method,headers:{Authorization:'Bearer private','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),env);
-  assert.equal((await worker.fetch(new Request('https://example.test/v1/publications/2026-10-03'),env)).status,401);
+test('publication identifiers are protected and cleanup cannot cross batches on the same date',async()=>{
+  const f=batchFixture();await f.save(content(A));await f.save(content(B));
+  const path=id=>'/v1/publications/batches/'+id;
   const item={platform:'instagram',kind:'feed',object_id:'123',account_id:'42'};
-  assert.equal((await send('POST','',item)).status,200);assert.equal((await send('POST','',item)).status,200);
-  assert.equal((await send('POST','',{...item,account_id:'43'})).status,409);
-  assert.equal((await send('POST','',{...item,object_id:'../../anything'})).status,409);
-  assert.equal((await send('POST','',{...item,published:true})).status,409);
-  assert.equal((await send('GET')).status,200);const stored=await (await send('GET')).json();assert.equal(stored.items.length,1);assert.equal(stored.items[0].recorded_order,1);
-  assert.equal((await send('DELETE','/instagram/123')).status,200);assert.equal(records.size,0);
+  assert.equal((await worker.fetch(new Request('https://example.test'+path(A)),f.env)).status,401);
+  assert.equal((await f.send('POST',path(A),item)).status,200);
+  assert.equal((await f.send('POST',path(A),item)).status,200);
+  assert.equal((await f.send('POST',path(B),item)).status,409);
+  assert.equal((await f.send('POST',path(B),{...item,object_id:'456'})).status,200);
+  assert.equal((await f.send('POST',path(C),{...item,object_id:'789'})).status,409);
+  for(const change of [{object_id:'../../anything'},{account_id:'43'},{published:true}])assert.equal((await f.send('POST',path(A),{...item,...change})).status,409);
+  let listed=await (await f.send('GET',path(A))).json();assert.equal(listed.items.length,1);assert.equal(listed.items[0].batch_id,A);
+  assert.equal((await f.send('DELETE',path(B)+'/instagram/123')).status,200);assert.ok(f.ids.has('instagram:123'));
+  await f.send('DELETE',path(A)+'/instagram/123');assert.ok(f.ids.has('instagram:456'));assert.equal(f.ids.size,1);
+  await f.save(content(B));listed=await (await f.send('GET',path(B))).json();assert.equal(listed.items[0].object_id,'456');
 });

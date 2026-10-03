@@ -7,17 +7,19 @@ from .store import Store
 
 class BackgroundProvider(ABC):
     @abstractmethod
-    def generate(self, prompt, date=None, kind=None):
+    def generate(self, prompt, date=None, kind=None, batch_id=None):
         """Return artwork bytes without instructional text or branding."""
 
 
 class CloudflareFlux(BackgroundProvider):
     model = "@cf/black-forest-labs/flux-1-schnell"
 
-    def generate(self, prompt, date=None, kind=None):
+    def generate(self, prompt, date=None, kind=None, batch_id=None):
         # The private Worker AI binding avoids a broad Cloudflare deployment token in Actions.
         # It verifies the prompt against the reviewed history content and caches completed artwork.
-        result = Store().call("POST", "/v1/generate", {"date":date,"kind":kind,"prompt":prompt})
+        data={"date":date,"kind":kind,"prompt":prompt}
+        if batch_id:data["batch_id"]=batch_id
+        result = Store().call("POST", "/v1/generate", data)
         return base64.b64decode(result["image"], validate=True)
 
 

@@ -1,4 +1,5 @@
 """Straight-line Facebook Page photo publication and actual post verification."""
+from .batches import output_key
 import os
 from urllib.parse import urlparse
 from .core import ROOT, require_publishing, write_json
@@ -27,7 +28,7 @@ def verify_post(facebook, package, post_id, photo_ids):
 
 
 def publish_facebook(package, assets, record=None):
-    date=package['date'];stage='Facebook authorization';result={'batch':date,'published':False}
+    date=package['date'];stage='Facebook authorization';result={'batch':date,'batch_id':package.get('batch_id'),'published':False}
     publication='nothing published to Facebook'
     try:
         require_publishing()
@@ -43,8 +44,8 @@ def publish_facebook(package, assets, record=None):
         if record: record('feed',post_id,facebook.page_id)
         stage='Facebook publication verification';publication='published to Facebook; content read-back pending'
         result.update(permalink=verify_post(facebook,package,post_id,photo_ids),published=True,status='confirmed Facebook publication')
-        write_json(ROOT/'build'/date/'facebook-result.json',result);return result
+        write_json(ROOT/'build'/output_key(package)/'facebook-result.json',result);return result
     except Exception as error:
-        result.update(status=publication,failed_stage=stage);write_json(ROOT/'build'/date/'facebook-result.json',result)
+        result.update(status=publication,failed_stage=stage);write_json(ROOT/'build'/output_key(package)/'facebook-result.json',result)
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
         raise SafeError('Facebook failed at '+stage,stage) from None

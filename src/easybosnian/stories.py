@@ -1,4 +1,5 @@
 """Publish reviewed Instagram Stories: quiz treatment A, lesson/word treatment B."""
+from .batches import output_key
 import os
 from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageOps
@@ -50,8 +51,8 @@ def publish_stories(store,package,assets,record=None):
         palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         for card in package['cards']:
             kind=card['kind'];stage='Instagram Stories rendering'
-            path=ROOT/'build'/date/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
-            store.put_file(date,path.name,path.read_bytes());url=store.expose(date,path.name)
+            path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
+            store.put_file(output_key(package),path.name,path.read_bytes());url=store.expose(output_key(package),path.name)
             if request('GET',url,raw=True)!=path.read_bytes(): raise ValueError('Story bytes differ from the rendered Story')
             stage='Instagram Stories container creation';require_publishing();container=ig.story(url)
             diagnostic={'slide':kind,'container_id':container};containers.append(diagnostic)
@@ -62,14 +63,14 @@ def publish_stories(store,package,assets,record=None):
             if record: record('story',media_id,ig.user_id)
             item={'slide':kind,'media_id':media_id,'highlight':HIGHLIGHTS[kind],'highlight_status':'manual addition required'}
             stories.append(item);stage='Instagram Stories verification';item['permalink']=verify_story(ig,media_id)
-        result={'batch':date,'published':True,'status':'three image Stories confirmed published; Highlights need manual addition','stories':stories}
-        write_json(ROOT/'build'/date/'instagram-stories-result.json',result);return result
+        result={'batch':date,'batch_id':package.get('batch_id'),'published':True,'status':'three image Stories confirmed published; Highlights need manual addition','stories':stories}
+        write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',result);return result
     except Exception as error:
         if containers and stage=='Instagram Stories publishing':
             try:
                 containers[-1]['status_after_failure']=ig.call('GET',containers[-1]['container_id'],{'fields':'status_code'}).get('status_code')
             except Exception:
                 containers[-1]['status_readback']='unavailable; no retry'
-        write_json(ROOT/'build'/date/'instagram-stories-result.json',{'batch':date,'status':publication,'stories':stories,'containers':containers,'failed_stage':stage})
+        write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',{'batch':date,'batch_id':package.get('batch_id'),'status':publication,'stories':stories,'containers':containers,'failed_stage':stage})
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
         raise SafeError('Instagram Stories failed at '+stage,stage) from None
