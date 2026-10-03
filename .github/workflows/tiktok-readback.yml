@@ -1,0 +1,55 @@
+name: EasyBosnian existing TikTok post read-back
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read an existing submission only; never create a post
+        type: choice
+        options: [inspect, reconcile]
+        default: inspect
+      batch_date:
+        description: Existing Sarajevo batch date YYYY-MM-DD
+        required: true
+        type: string
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: easybosnian-instagram-single-publisher
+  cancel-in-progress: false
+jobs:
+  readback:
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      EASYBOSNIAN_WORKER_URL: ${{ secrets.EASYBOSNIAN_WORKER_URL }}
+      EASYBOSNIAN_ADMIN_TOKEN: ${{ secrets.EASYBOSNIAN_ADMIN_TOKEN }}
+      BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+      BUFFER_TIKTOK_CHANNEL_ID: ${{ vars.BUFFER_TIKTOK_CHANNEL_ID }}
+      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+      MODE: ${{ inputs.mode }}
+      BATCH_DATE: ${{ inputs.batch_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Inspect or reconcile the accepted Buffer post without publishing
+        run: python scripts/tiktok_readback.py "$MODE" "$BATCH_DATE"
+      - name: Preserve private read-back result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easybosnian-tiktok-readback-${{ github.run_id }}
+          path: |
+            build/*/tiktok-inspection.json
+            build/*/tiktok-result.json
+            build/failure.txt
+          retention-days: 7
+          if-no-files-found: ignore
