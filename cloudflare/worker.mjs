@@ -83,7 +83,7 @@ export default {
       if(publications) {
         const [,date,platform,id]=publications;
         if(req.method==='GET' && !platform) {
-          const result=await env.DB.prepare('SELECT date,platform,kind,object_id,account_id FROM publication_ids WHERE date=? ORDER BY platform,kind,object_id').bind(date).all();
+          const result=await env.DB.prepare('SELECT rowid AS recorded_order,date,platform,kind,object_id,account_id FROM publication_ids WHERE date=? ORDER BY rowid').bind(date).all();
           return response({project:PROJECT,items:result.results});
         }
         if(req.method==='POST' && !platform) {

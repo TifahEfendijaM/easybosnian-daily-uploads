@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 from test_project import reviewed_fixture
-from easybosnian.replacement import cleanup, recorder
+from easybosnian.replacement import cleanup, recorder, latest_batch
 from easybosnian.selection import selection_context, check_selection, novelty_history
 from easybosnian.validate import validate
 from easybosnian.meta import owned_ids, InstagramDeletion, Facebook, instagram_deletion_token
@@ -92,7 +92,23 @@ class SelectionTests(unittest.TestCase):
 
 class ReplacementTests(unittest.TestCase):
     def item(self,kind='feed',id='123',platform='instagram'):
-        return {'date':'2026-10-03','platform':platform,'kind':kind,'object_id':id,'account_id':'42'}
+        return {'recorded_order':int(id.split('_')[-1]) if id.isdigit() or '_' in id else 1,'date':'2026-10-03','platform':platform,'kind':kind,'object_id':id,'account_id':'42'}
+
+    def test_only_latest_feed_and_its_three_stories_are_deleted(self):
+        items=[self.item(kind=kind,id=str(index)) for index,kind in [(10,'feed'),(11,'story'),(12,'story'),(13,'story'),(20,'feed'),(21,'story'),(22,'story'),(23,'story')]]
+        store=MagicMock();store.publications.return_value=list(reversed(items))
+        ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={x['object_id'] for x in items}
+        with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
+            result=cleanup(store,'2026-10-03','instagram')
+        self.assertEqual(result['removed'],4)
+        self.assertEqual([call.args[0] for call in ig.delete.call_args_list],['21','22','23','20'])
+        self.assertEqual({call.args[2] for call in store.forget.call_args_list},{'20','21','22','23'})
+
+    def test_latest_partial_batch_never_deletes_older_stories_to_make_three(self):
+        items=[self.item(kind=kind,id=str(index)) for index,kind in [(10,'feed'),(11,'story'),(12,'story'),(13,'story'),(20,'feed'),(21,'story')]]
+        self.assertEqual([x['object_id'] for x in latest_batch(items)],['20','21'])
+        items[-1].pop('recorded_order')
+        with self.assertRaisesRegex(ValueError,'skip cleanup'):latest_batch(items)
 
     def test_no_previous_ids_needs_no_deletion_authorization(self):
         store=MagicMock();store.publications.return_value=[]
@@ -174,22 +190,23 @@ class ReplacementTests(unittest.TestCase):
             for result in ({'success':False},{'success':True,'deleted_id':'other'}):
                 with patch.object(ig,'call',return_value=result),self.assertRaises(ValueError):ig.delete('123')
 
-    def test_facebook_cleanup_includes_stories_posts_and_partial_photos(self):
+    def test_facebook_deletes_only_feed_and_never_story_or_backing_photos(self):
         store=MagicMock();store.publications.return_value=[self.item(kind=kind,id=id,platform='facebook') for kind,id in [('feed','42_123'),('photo','456'),('story','42_789')]]
-        fb=MagicMock();fb.page_id='42';fb.owned_ids.side_effect=lambda kind:{'42_123','456','42_789'}
-        fb.story_photos.return_value={'42_789':'456'}
+        fb=MagicMock();fb.page_id='42';fb.owned_ids.return_value={'42_123'}
         with patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.Facebook',return_value=fb):
-            self.assertEqual(cleanup(store,'2026-10-03','facebook')['removed'],3)
-        fb.delete_story_photo.assert_called_once_with('42_789','456')
-        self.assertEqual([c.args[0] for c in fb.delete.call_args_list],['42_123'])
-        self.assertEqual(store.forget.call_count,3)
+            result=cleanup(store,'2026-10-03','facebook')
+        self.assertEqual(result['removed'],1)
+        self.assertEqual(result['stories_recorded'],1);self.assertEqual(result['photos_preserved'],1)
+        fb.owned_ids.assert_called_once_with('feed');fb.delete.assert_called_once_with('42_123')
+        fb.story_photos.assert_not_called();store.forget.assert_called_once_with('2026-10-03','facebook','42_123')
 
-    def test_facebook_story_photo_must_be_recorded_for_the_same_date(self):
-        store=MagicMock();store.publications.return_value=[self.item(kind='story',id='789',platform='facebook')]
-        fb=MagicMock();fb.page_id='42';fb.story_photos.return_value={'789':'456'}
+    def test_facebook_only_story_ids_never_request_deletion_or_story_listing(self):
+        store=MagicMock();store.publications.return_value=[self.item(kind='story',id='789',platform='facebook'),self.item(kind='photo',id='456',platform='facebook')]
+        fb=MagicMock();fb.page_id='42'
         with patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.Facebook',return_value=fb):
-            with self.assertRaisesRegex(ValueError,'not recorded'):cleanup(store,'2026-10-03','facebook')
-        fb.delete_story_photo.assert_not_called();store.forget.assert_not_called()
+            result=cleanup(store,'2026-10-03','facebook')
+        self.assertEqual(result['removed'],0);self.assertEqual(result['story_deletion'],'manual; not checked or performed')
+        fb.delete.assert_not_called();fb.owned_ids.assert_not_called();fb.story_photos.assert_not_called();store.forget.assert_not_called()
 
     def test_facebook_story_mapping_completes_cursor_reads_and_keeps_video_identity(self):
         with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}):fb=Facebook(token='test',page_id='42')
@@ -200,22 +217,6 @@ class ReplacementTests(unittest.TestCase):
         for response in ({}, {'data':[{}]}, {'data':[first],'paging':{'next':'untrusted'}}, {'data':[first,{**first,'media_id':'999'}]}):
             fb.stories=MagicMock(return_value=response)
             with self.assertRaises(ValueError):fb.story_photos()
-
-    def test_facebook_story_deletes_its_owned_photo_once_and_requires_removal(self):
-        with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}):fb=Facebook(token='test',page_id='42')
-        photo={'id':'456','from':{'id':'42'},'page_story_id':'42_789','can_delete':True}
-        fb.call=MagicMock(return_value=photo);fb.delete=MagicMock();fb.story_photos=MagicMock(return_value={})
-        with patch('easybosnian.meta.require_publishing'):
-            fb.delete_story_photo('789','456')
-        fb.delete.assert_called_once_with('456')
-        for change in ({'id':'wrong'},{'from':{'id':'other'}},{'page_story_id':'42_999'},{'can_delete':False}):
-            fb.call.return_value={**photo,**change};fb.delete.reset_mock()
-            with patch('easybosnian.meta.require_publishing'),self.assertRaises(ValueError):fb.delete_story_photo('789','456')
-            fb.delete.assert_not_called()
-        fb.call.return_value=photo;fb.story_photos.return_value={'789':'456'};fb.delete.reset_mock()
-        with patch('easybosnian.meta.require_publishing'),patch('easybosnian.meta.time.sleep'),self.assertRaisesRegex(ValueError,'no second deletion'):
-            fb.delete_story_photo('789','456')
-        fb.delete.assert_called_once_with('456')
 
     def test_returned_facebook_photo_id_is_recorded_before_later_upload_failure(self):
         from easybosnian.facebook import publish_facebook
@@ -251,10 +252,33 @@ class ReplacementTests(unittest.TestCase):
                 with patch('easybosnian.meta.request',side_effect=[{'access_token':'private'},page,{'data':{**debug,'data_access_expires_at':access_expiry}}]):
                     with self.assertRaises(ValueError):instagram_deletion_token('short','secret')
 
-    def test_new_assets_render_before_any_cleanup_and_failed_cleanup_blocks_that_platform(self):
+    def test_failed_meta_cleanup_does_not_block_feed_or_story_publishing(self):
         from easybosnian.daily import daily
+        from contextlib import ExitStack
         sequence=[];store=MagicMock();store.content.return_value=reviewed_fixture();store.history.return_value={'days':[]}
-        def deletion(*args):sequence.append('cleanup');raise ValueError('authorization missing')
-        with patch.dict(os.environ,{'FACEBOOK_POSTING_ENABLED':'false','TIKTOK_POSTING_ENABLED':'false'}),patch('easybosnian.daily.verify_repository'),patch('easybosnian.daily.require_publishing'),patch('easybosnian.daily.Store',return_value=store),patch('easybosnian.daily.validate'),patch('easybosnian.daily.artwork',side_effect=lambda *a,**k:sequence.append('render') or {}),patch('easybosnian.daily.cleanup',side_effect=deletion),patch('easybosnian.daily.publish_instagram') as publish,patch('easybosnian.daily.write_json'),patch('easybosnian.daily.failure',return_value='failure'):
+        def deletion(*args):sequence.append('cleanup '+args[-1]);raise ValueError('authorization missing')
+        env={'GITHUB_ACTIONS':'true','DAILY_POSTING_ENABLED':'true','FACEBOOK_POSTING_ENABLED':'true','TIKTOK_POSTING_ENABLED':'false','INSTAGRAM_STORIES_ENABLED':'true','FACEBOOK_STORIES_ENABLED':'true'}
+        with patch.dict(os.environ,env,clear=True),ExitStack() as stack:
+            for name in ('verify_repository','write_json'):
+                stack.enter_context(patch('easybosnian.daily.'+name))
+            stack.enter_context(patch('easybosnian.daily.Store',return_value=store))
+            stack.enter_context(patch('easybosnian.daily.artwork',side_effect=lambda *a,**k:sequence.append('render') or {}))
+            stack.enter_context(patch('easybosnian.daily.cleanup',side_effect=deletion))
+            publishers={}
+            for name in ('publish_instagram','publish_facebook','publish_stories','publish_facebook_stories'):
+                publishers[name]=stack.enter_context(patch('easybosnian.daily.'+name,return_value={'published':True}))
+            notice=stack.enter_context(patch('easybosnian.daily.failure',return_value='safe cleanup warning'))
+            result=daily('2026-10-03','daily')
+        self.assertEqual(sequence,['render','cleanup instagram','cleanup facebook'])
+        for publisher in publishers.values():publisher.assert_called_once()
+        for platform in ('instagram','facebook'):
+            self.assertTrue(result[platform]['published'])
+            self.assertIn('failed',result[platform]['replacement_cleanup']['status'])
+        self.assertEqual(notice.call_count,2)
+        self.assertTrue(all('new feed publication confirmed' in call.args[3] for call in notice.call_args_list))
+
+    def test_cleanup_failure_never_bypasses_live_publishing_kill_switch(self):
+        from easybosnian.daily import daily
+        with patch.dict(os.environ,{'GITHUB_ACTIONS':'true','DAILY_POSTING_ENABLED':'false'},clear=True),patch('easybosnian.daily.verify_repository'),patch('easybosnian.daily.Store') as store,patch('easybosnian.daily.cleanup') as clean,patch('easybosnian.daily.publish_instagram') as submit,patch('easybosnian.daily.failure',return_value='disabled'):
             with self.assertRaises(RuntimeError):daily('2026-10-03','daily')
-        self.assertEqual(sequence,['render','cleanup']);publish.assert_not_called()
+        store.assert_not_called();clean.assert_not_called();submit.assert_not_called()

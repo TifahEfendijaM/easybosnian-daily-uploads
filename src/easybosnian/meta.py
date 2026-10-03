@@ -192,25 +192,6 @@ class Facebook:
             after = cursor
         raise ValueError('Facebook Story ownership exceeded the bounded listing')
 
-    def delete_story_photo(self, post_id, photo_id):
-        """Delete the exact photo backing an owned Story, then read its edge."""
-        if not re.fullmatch(r'\d+(?:_\d+)?', post_id) or not re.fullmatch(r'\d+', photo_id):
-            raise ValueError('Invalid Facebook Story/photo identifier')
-        expected_post = post_id if '_' in post_id else self.page_id + '_' + post_id
-        photo = self.call('GET', photo_id, {'fields':'id,from{id},page_story_id,can_delete'})
-        if (str(photo.get('id')) != photo_id or photo.get('from', {}).get('id') != self.page_id
-                or photo.get('page_story_id') != expected_post or photo.get('can_delete') is not True):
-            raise ValueError('Facebook Story photo ownership or deletion capability differs from the recorded Story')
-        require_publishing()
-        try:
-            self.delete(photo_id)
-        except SafeError as error:
-            raise SafeError(f'Facebook refused the recorded Story photo deletion (Story {post_id}, photo {photo_id}): {error}. Removal is unconfirmed; remove this Story manually before same-date replacement.') from None
-        for attempt in range(6):
-            if post_id not in self.story_photos(): return
-            if attempt < 5: time.sleep(3)
-        raise ValueError('Facebook has not confirmed removal of the Story photo; no second deletion request')
-
     def delete(self, object_id):
         if not re.fullmatch(r'\d+(?:_\d+)?', object_id): raise ValueError('Invalid Facebook media identifier')
         try:
@@ -218,7 +199,7 @@ class Facebook:
         except SafeError as error:
             raise SafeError(f'Facebook DELETE of recorded object {object_id} failed: {error}') from None
         if result.get('success') is not True:
-            raise ValueError('Facebook did not confirm deletion; replacement stopped')
+            raise ValueError('Facebook did not confirm deletion; old content may remain')
 
 
 def owned_ids(provider, path, values, field='id'):

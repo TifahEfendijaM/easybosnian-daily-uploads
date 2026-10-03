@@ -43,7 +43,7 @@ def check_infrastructure():
             InstagramDeletion().verify_account()
             deletion = "exact linked Page/profile and deletion scopes verified; nothing deleted"
         except Exception:
-            deletion = "deletion authorization needs renewal/repair before a same-date Instagram replacement"
+            deletion = "deletion authorization needs renewal/repair; old content may remain but publishing is independently checked"
     tiktok = "disabled pending Buffer authorization"
     if os.getenv("TIKTOK_POSTING_ENABLED") == "true":
         Buffer().verify_channel()
