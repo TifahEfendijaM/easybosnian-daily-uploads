@@ -19,7 +19,9 @@ GITHUB_DISPATCH_TOKEN expires 2027-10-03. BUFFER_API_KEY expires 2027-10-03. The
 
 The pipeline checks the exact Instagram username/professional type, Facebook Page name/ID and Buffer @easy.bosnian channel/organization/service identity, connected/unpaused state, publishing scopes and automatic (non-reminder) setting. Buffer sends the three reviewed images and caption, checks actual rehosted bytes in order and requires sent status plus a TikTok permalink. This is Buffer confirmation, not an independent TikTok API read-back. No direct TikTok app, music picker, private-profile change or paid Buffer plan is introduced.
 
-Automatic Instagram image Stories retain exact padded card uploads. Highlights (Pitanje dana, Znaš li?, Riječ dana) and TikTok Stories remain manual. INSTAGRAM_STORIES_ENABLED controls image Stories; the obsolete native-reshare mode switch is unused.
+Automatic Instagram and Facebook image Stories retain exact padded card uploads. Facebook Stories use the existing separate Page token and pages_manage_posts, pages_read_engagement and pages_show_list permissions; no broader consent or additional credential is introduced. Fresh unpublished photos are uploaded separately from feed media, then photo_stories publishes them. Protected connection checks read /PAGE_ID/stories without publishing. FACEBOOK_STORIES_ENABLED controls Facebook Stories alongside FACEBOOK_POSTING_ENABLED and the global live kill switch. Highlights (Pitanje dana, Znaš li?, Riječ dana) and TikTok Stories remain manual. INSTAGRAM_STORIES_ENABLED controls Instagram image Stories; the obsolete native-reshare mode switch is unused.
+
+Current API references: [Meta Page Stories](https://developers.facebook.com/documentation/video-api/page-stories-api), [TikTok photo publishing](https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post) and [Buffer API](https://developers.buffer.com/reference.html). TikTok/Buffer expose feed publishing, not an automatic Story option. Buffer deletion cannot remove already-published TikTok content.
 
 ## Unused after this branch is deployed
 
@@ -30,6 +32,6 @@ Automatic Instagram image Stories retain exact padded card uploads. Highlights (
 - EXPECTED_PACKAGE_HASH and BATCH_DATE workflow environment/output plumbing are removed; they are not stored secrets in the current listing.
 - D1 settings flags daily_enabled, daily_authorized, preparation_verified, active_since, healthchecks_deferred, monitoring_ready and github_monitoring_ready disappear with the settings table. They are not GitHub variables to revoke.
 
-DAILY_POSTING_ENABLED, FACEBOOK_POSTING_ENABLED, TIKTOK_POSTING_ENABLED, INSTAGRAM_STORIES_ENABLED, BUFFER_TIKTOK_CHANNEL_ID and BUFFER_ORGANIZATION_ID remain. PREPARATION_DISPATCH_ENABLED remains a Worker configuration variable. GitHub issues use the workflow's native GITHUB_TOKEN; the Worker no longer needs an issue token.
+DAILY_POSTING_ENABLED, FACEBOOK_POSTING_ENABLED, TIKTOK_POSTING_ENABLED, INSTAGRAM_STORIES_ENABLED, FACEBOOK_STORIES_ENABLED, BUFFER_TIKTOK_CHANNEL_ID and BUFFER_ORGANIZATION_ID remain. PREPARATION_DISPATCH_ENABLED remains a Worker configuration variable. GitHub issues use the workflow's native GITHUB_TOKEN; the Worker no longer needs an issue token.
 
 Remove obsolete secrets/variables and revoke the old notification PAT only after rollout. See migration-and-rollout.md for the exact sequence and commands. No live credential is removed during branch review.

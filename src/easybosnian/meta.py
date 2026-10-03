@@ -136,6 +136,19 @@ class Facebook:
     def post(self, post_id):
         return self.call("GET", post_id, {"fields": "id,from,message,is_published,permalink_url,attachments{type,target,subattachments{type,target}}"})
 
+    def story(self, photo_id):
+        result = self.call("POST", self.page_id + "/photo_stories", {"photo_id": photo_id})
+        post_id = str(result.get('post_id', ''))
+        if result.get('success') is not True or not re.fullmatch(r"\d+(?:_\d+)?", post_id):
+            raise ValueError('Facebook did not confirm acceptance of the photo Story')
+        return post_id
+
+    def stories(self, after=None):
+        values = {"limit": 100}
+        if after:
+            values['after'] = after
+        return self.call("GET", self.page_id + "/stories", values)
+
 
 
 def facebook_page_token(user_token, app_id, app_secret, page_id):
