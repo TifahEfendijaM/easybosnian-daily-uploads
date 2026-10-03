@@ -6,6 +6,7 @@ The trusted wrapper verified the exact private TifahEfendijaM/easybosnian-daily-
 and saved the complete private history in build/preparation-context.json. Read all of it, including
 today's previous content, then choose a NEW theme and three NEW Bosnian lemmas. Daily mode replaces
 today's content, and previous same-day words/themes will be overwritten, as the user requested.
+Older metadata-only legacy_word_history rows are authoritative for theme/word novelty too. Their dates may be estimated and themes inferred; do not invent missing original text, review flags or sources, and do not treat them as renderable packages.
 
 Do source-opening research, semantic novelty, Bosnian correctness, caption/quiz secrecy and design
 checks in preparation-task.md. Keep palette/layout IDs in metadata for Pillow. FLUX prompts describe
@@ -34,3 +35,5 @@ Work within seven minutes. Read build/cloud-agent-result-schema.json. Only after
 exists and every required check passes, return {"status":"ready","reason":"none"}. Otherwise
 return {"status":"blocked","reason":"<one allowed reason>"}. No free-form result, quiz answers,
 acknowledgement or intention counts as completion. Never claim publication.
+
+Background framing must follow the chosen per-card Pillow layout and the measured text extent. Read data/design-layouts.json and src/easybosnian/render.py before writing each prompt. The eight current treatments all place text toward the upper portion, but vary panel/label styling and spacing; they are not eight arbitrary text positions. Choose at most one short, natural framing phrase appropriate to that actual scene: for example an off-centre close-up with softly blurred surroundings, or a distant view with a low horizon. Do not mechanically repeat “Keep the main subject in the lower part of the frame, with a calm, naturally uncluttered upper area.” Do not use that direction when it conflicts with the selected layout. A naturally quiet scene needs no added framing sentence. Never ask FLUX to create blank/empty areas, reserve space for text, draw panels, or follow coordinates.

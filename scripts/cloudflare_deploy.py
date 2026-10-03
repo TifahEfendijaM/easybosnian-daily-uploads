@@ -8,6 +8,8 @@ import subprocess
 import time
 import tomllib
 from pathlib import Path
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from easybosnian.core import ROOT, PROJECT, REPO, gh, verify_repository, write_json
 from easybosnian.http import SafeError, request
@@ -16,7 +18,27 @@ NAME='easybosnian-daily-tifah-v1'
 RUNTIME=Path('/Users/fatih_efe/.cache/codex-runtimes/codex-primary-runtime/dependencies')
 
 
+def validate_schedule(config_path=None):
+    """Refuse split clocks before uploading; the Worker gate is authoritative."""
+    source=(ROOT/'cloudflare/worker.mjs').read_text()
+    gate=re.search(r"f\.hour\s*!==\s*['\"](\d{2})['\"].*?f\.minute\s*!==\s*['\"](\d{2})['\"]",source,re.S)
+    if not gate: raise ValueError('Cannot identify the Worker local clock; refuse deployment')
+    hour,minute=map(int,gate.groups())
+    zone=ZoneInfo('Europe/Sarajevo')
+    utc_hours=sorted({datetime(2026,month,15,hour,minute,tzinfo=zone).astimezone(timezone.utc).hour for month in (1,7)})
+    expected=f"{minute} {','.join(map(str,utc_hours))} * * *"
+    paths=[ROOT/'cloudflare/wrangler.example.toml',config_path or ROOT/'cloudflare/wrangler.toml']
+    for path in dict.fromkeys(map(Path,paths)):
+        config=tomllib.loads(path.read_text())
+        if config.get('triggers',{}).get('crons')!=[expected]:
+            raise ValueError(f'Cloudflare clock mismatch in {path.name}; expected {expected}; refuse deployment')
+    return expected
+
+
 def wrangler(*args,input_text=None):
+    if args and args[0]=='deploy':
+        config=ROOT/'cloudflare'/args[args.index('--config')+1] if '--config' in args else None
+        validate_schedule(config)
     env=dict(os.environ)
     if (RUNTIME/'node/bin/node').exists():
         env['PATH']=str(RUNTIME/'node/bin')+os.pathsep+env['PATH']
