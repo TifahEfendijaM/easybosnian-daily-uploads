@@ -62,7 +62,9 @@ def capabilities(date):
     types = sorted({t for c in channel["content"] for t in c["configurationContentTypes"]})
     result = {"date": date, "account": "@easy.bosnian", "channel_id": buffer.channel_id,
               "channel_type": channel["channelType"], "content_types": types,
-              "content": channel["content"], "stories_supported": "story" in types,
+              "content": channel["content"], "story_configuration_exposed": "story" in types,
+              "feed_post_configuration_exposed": "post" in types,
+              "note": "Experimental catalog can omit working feed publishing; absence alone does not prove API support or non-support.",
               "operation": "read-only capability query; no post created or edited"}
     write_json(ROOT / "build" / date / "tiktok-capabilities.json", result)
     print(json.dumps(result, indent=2))

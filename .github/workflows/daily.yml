@@ -54,6 +54,7 @@ jobs:
       BUFFER_TIKTOK_CHANNEL_ID: ${{ vars.BUFFER_TIKTOK_CHANNEL_ID }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
       INSTAGRAM_STORIES_ENABLED: ${{ vars.INSTAGRAM_STORIES_ENABLED }}
+      INSTAGRAM_STORY_MODE: ${{ vars.INSTAGRAM_STORY_MODE || 'native_reshare_manual' }}
       GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
       HC_PIPELINE_URL: ${{ secrets.HC_PIPELINE_URL }}
       BATCH_DATE: ${{ inputs.batch_date }}

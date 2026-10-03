@@ -32,7 +32,14 @@ def daily(date=None, mode="preview"):
         except Exception as error:
             failed.append(name)
             results[name] = {"status": "failed; inspect platform diagnostics", "error": redact(error)}
-    if os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
+    if os.getenv("INSTAGRAM_STORY_MODE", "native_reshare_manual") == "native_reshare_manual":
+        results["instagram_stories"] = {
+            "status": "manual native post reshare required; Meta has no documented carousel-to-Story publishing endpoint",
+            "published": False, "automatic_supported": False,
+            "post_permalink": results["instagram"].get("permalink"),
+            "highlights": "manual addition required",
+            "action": "Open the published carousel in Instagram, use Share → Add to story, then publish it in the app."}
+    elif os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
         if results["instagram"].get("published"):
             try:
                 state = pipeline_stories(date, "live")
@@ -42,6 +49,12 @@ def daily(date=None, mode="preview"):
                 results["instagram_stories"] = {"status": "failed; inspect saved Story IDs", "error": redact(error)}
         else:
             results["instagram_stories"] = {"status": "waiting for verified Instagram carousel", "published": False}
+    results["tiktok_stories"] = {
+        "status": "manual Story upload required; current Buffer integration supports TikTok feed publishing, not Stories",
+        "published": False, "automatic_supported": False,
+        "post_permalink": results["tiktok"].get("permalink"),
+        "slides": [kind + "-card.jpg" for kind in ("quiz", "lesson", "word")],
+        "action": "Upload each published card to a Story in the TikTok app; no automatic Story request was sent."}
     write_json(ROOT / "build" / date / "platforms-result.json", {"batch": date, "platforms": results})
     if failed:
         raise RuntimeError("Daily batch failed for: " + ", ".join(failed) + "; inspect each independent platform outcome")

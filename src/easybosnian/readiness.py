@@ -21,8 +21,8 @@ def check_infrastructure():
         raise ValueError("Cloudflare health/history does not belong to this project")
     config=store.call("GET", "/v1/config")
     info=Instagram().verify_account()
-    stories = "not requested"
-    if os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
+    stories = "native post reshare requires manual action in Instagram; standalone image Stories disabled"
+    if os.getenv("INSTAGRAM_STORY_MODE", "native_reshare_manual") == "image" and os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
         if not isinstance(Instagram().stories().get("data"), list):
             raise ValueError("Instagram did not confirm read access to the authorized account's Stories")
         stories = "account Stories read access verified; no Story was created or published"

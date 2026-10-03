@@ -44,11 +44,17 @@ class StoriesTests(unittest.TestCase):
 
     def test_uncertain_story_does_not_send_another_publish_request(self):
         record = {"package": {"design_palette": "blue-ice", "cards": [{"kind": "quiz"}]}, "state": {"verified": True, "platforms": {"instagram_stories": {"publish_intent": True, "cards": {"quiz": {"publish_intent": True}}}}}}
-        with patch("easybosnian.stories.verify_repository"), patch("easybosnian.stories.checked_batch", return_value=record), patch("easybosnian.stories.Store") as store, patch("easybosnian.stories.Instagram") as ig, patch("easybosnian.stories.artwork"), patch("easybosnian.stories.failure", return_value="uncertain"), patch.dict(os.environ, {"INSTAGRAM_STORIES_ENABLED": "true"}):
+        with patch("easybosnian.stories.verify_repository"), patch("easybosnian.stories.checked_batch", return_value=record), patch("easybosnian.stories.Store") as store, patch("easybosnian.stories.Instagram") as ig, patch("easybosnian.stories.artwork"), patch("easybosnian.stories.failure", return_value="uncertain"), patch.dict(os.environ, {"INSTAGRAM_STORIES_ENABLED": "true", "INSTAGRAM_STORY_MODE": "image"}):
             store.return_value.call.return_value = {"daily_enabled": True, "daily_authorized": True, "monitoring_ready": True}
             with self.assertRaises(RuntimeError): pipeline_stories("2026-10-03", "live")
             ig.return_value.publish.assert_not_called()
             ig.return_value.story.assert_not_called()
+
+    def test_native_reshare_request_blocks_old_image_story_writer_even_when_enabled(self):
+        record = {"state": {"verified": True, "platforms": {"instagram_stories": {}}}}
+        with patch("easybosnian.stories.verify_repository"), patch("easybosnian.stories.checked_batch", return_value=record), patch("easybosnian.stories.Store"), patch("easybosnian.stories.Instagram") as ig, patch("easybosnian.stories.failure", return_value="native sharing is manual"), patch.dict(os.environ, {"INSTAGRAM_STORIES_ENABLED": "true", "INSTAGRAM_STORY_MODE": "native_reshare_manual"}):
+            with self.assertRaises(RuntimeError): pipeline_stories("2026-10-03", "live")
+            ig.assert_not_called()
 
     def test_highlight_mapping_is_explicit_and_no_answer_is_exported(self):
         self.assertEqual(HIGHLIGHTS, {"quiz": "Pitanje dana", "lesson": "Znaš li?", "word": "Riječ dana"})

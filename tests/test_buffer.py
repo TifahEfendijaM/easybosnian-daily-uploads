@@ -194,7 +194,7 @@ class BufferTests(unittest.TestCase):
             buffer.create.assert_not_called(); artwork.assert_not_called()
 
     def test_tiktok_failure_does_not_prevent_verified_instagram_stories(self):
-        with tempfile.TemporaryDirectory() as temp, patch("easybosnian.daily.ROOT", Path(temp)), patch("easybosnian.daily.pipeline", return_value={"verified": True}), patch("easybosnian.daily.pipeline_facebook", return_value={"verified": True}) as fb, patch("easybosnian.daily.pipeline_tiktok", side_effect=RuntimeError("Buffer failed")) as tt, patch("easybosnian.daily.pipeline_stories", return_value={"verified": True, "status": "confirmed Stories"}) as stories, patch.dict(os.environ, {**ENV, "FACEBOOK_POSTING_ENABLED": "true", "INSTAGRAM_STORIES_ENABLED": "true"}):
+        with tempfile.TemporaryDirectory() as temp, patch("easybosnian.daily.ROOT", Path(temp)), patch("easybosnian.daily.pipeline", return_value={"verified": True}), patch("easybosnian.daily.pipeline_facebook", return_value={"verified": True}) as fb, patch("easybosnian.daily.pipeline_tiktok", side_effect=RuntimeError("Buffer failed")) as tt, patch("easybosnian.daily.pipeline_stories", return_value={"verified": True, "status": "confirmed Stories"}) as stories, patch.dict(os.environ, {**ENV, "FACEBOOK_POSTING_ENABLED": "true", "INSTAGRAM_STORIES_ENABLED": "true", "INSTAGRAM_STORY_MODE": "image"}):
             with self.assertRaises(RuntimeError): daily(DATE, "live")
             fb.assert_called_once(); tt.assert_called_once(); stories.assert_called_once()
 

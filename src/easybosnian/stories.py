@@ -47,6 +47,8 @@ def pipeline_stories(date=None, mode="live"):
     store = Store()
     try:
         record = checked_batch(store, date)
+        if mode == "live" and os.getenv("INSTAGRAM_STORY_MODE", "native_reshare_manual") != "image":
+            raise ValueError("Native post resharing requires the Instagram app; standalone image Stories were superseded by the user's request")
         if mode not in ("live", "reconcile") or not record["state"].get("verified"):
             raise ValueError("Stories require independently confirmed publication of this exact three-slide Instagram post")
         state = record["state"].setdefault("platforms", {}).setdefault("instagram_stories", {})

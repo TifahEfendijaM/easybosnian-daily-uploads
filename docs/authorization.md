@@ -52,13 +52,17 @@ The daily handoff attempts Instagram and Facebook independently, reusing the sam
 
 ## Instagram Stories and Highlights
 
-The user requested all three published Instagram slides as Stories. The pipeline pads the exact published 1080×1350 cards to 1080×1920 without cropping, rewriting or changing their watermark. It posts only after independently verifying the daily feed carousel. Each Story has its own saved intent, container/media IDs, actual account/Story read-back and permalink. Partial or uncertain publication cannot be silently repeated. Known media IDs can be checked using `easybosnian stories --mode reconcile --date YYYY-MM-DD`.
+On 2026-10-03 the user clarified that the desired Stories are native tappable **shares of the original carousel**. The prior implementation uploaded standalone padded images, which does not meet that request. It is now disabled: `INSTAGRAM_STORIES_ENABLED=false`, `INSTAGRAM_STORY_MODE=native_reshare_manual`. The native mode takes precedence even if the old enable flag is accidentally left true. Daily results report the manual requirement, never a successful native reshare.
 
-Meta's documented IG User operations do not include creating Highlights or adding Stories to them. This part requires a manual action in Instagram: add the quiz Story to **Pitanje dana**, the lesson to **Znaš li?**, and the word to **Riječ dana**. The private daily artifact includes these mappings and verified Story links, and never claims Highlight completion. Enable native Story archiving if you want to add them after their 24-hour visibility period.
+Meta's documented media publisher creates new image/video Story containers using a hosted image/video URL. It exposes no parameter for resharing an existing feed carousel as a native post sticker. Story stickers, including link stickers, are unsupported. The separate Sharing to Stories SDK passes assets to the Android/iOS Instagram composer, where the user must publish; it does not enable a GitHub cloud job to perform a native post reshare. To do the requested share, open the published carousel in Instagram and use **Share → Add to story**.
+
+Read-only reconciliation of the three standalone image Stories already published on 2026-10-03 remains available with `easybosnian stories --mode reconcile --date 2026-10-03`. Do not remove or republish these without user instruction. The old image writer must not be re-enabled without a renewed user request.
+
+Meta's documented IG User operations do not include creating Highlights or adding Stories to them. The requested mapping remains a manual action in Instagram: quiz → **Pitanje dana**, lesson → **Znaš li?**, word → **Riječ dana**. No automated Highlight completion is claimed.
 
 - [Publishing Stories](https://developers.facebook.com/documentation/instagram-platform/content-publishing)
-- [Story specifications](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media)
-- [Supported account operations](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user)
+- [Story media parameters and sticker limitations](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media)
+- [Sharing to Stories requires the Instagram app composer](https://developers.facebook.com/documentation/instagram-platform/sharing-to-stories)
 
 ## TikTok — Free Buffer integration
 
@@ -75,6 +79,16 @@ This route is free and uses Buffer's official TikTok partner integration. No acc
 - [Buffer API access and official partner integration](https://buffer.com/made-for/developers)
 - [Buffer GraphQL publishing](https://developers.buffer.com/guides/posts-and-scheduling.html)
 - [Buffer TikTok API metadata](https://developers.buffer.com/types/TikTokPostMetadataInput.html)
+
+## TikTok Stories
+
+The user requested each published slide as a TikTok Story on 2026-10-03. The current official Buffer route supports automatic photo/video feed posts, with no TikTok Story target in its connected @easy.bosnian composer. TikTok's documented Content Posting photo API likewise describes feed publishing/uploads and has no Story destination. This request cannot be automated through the current integration; upload the exact published cards in the TikTok app if Stories are needed. The daily artifact lists the three existing card filenames and records Story publication as false/manual. The feed carousel publisher remains enabled; no extra feed posts or Story test are submitted.
+
+[Read-only capability check 37097445548](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/37097445548) queried only this confirmed channel. Buffer's experimental catalog returned comment/text content only, despite actual feed publishing having succeeded. This catalog is incomplete for the current posting API; absence of a Story entry alone is not treated as proof. The decision also uses the connected composer and current official publishing documentation. No new credentials, scopes, plan or account-privacy change is required.
+
+- [Buffer's current TikTok publishing route](https://support.buffer.com/en-us/articles/using-tiktok-with-buffer-oGEroY9Of2)
+- [TikTok photo-post API](https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post)
+- [Manual TikTok Story creation](https://support.tiktok.com/en/using-tiktok/creating-videos/tiktok-stories)
 
 ## Music
 

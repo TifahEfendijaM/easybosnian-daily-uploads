@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import tempfile
 import unittest
@@ -71,6 +72,18 @@ class PlatformTests(unittest.TestCase):
             result = (Path(directory) / "build" / DATE / "platforms-result.json").read_text()
             self.assertIn("confirmed published", result)
             self.assertIn("manual publication required", result)
+
+    def test_native_story_requests_never_upload_image_stories_or_block_feed_posts(self):
+        with tempfile.TemporaryDirectory() as directory, patch("easybosnian.daily.ROOT", Path(directory)), patch("easybosnian.daily.pipeline", return_value={"verified": True, "permalink": "https://www.instagram.com/p/confirmed/"}) as ig, patch("easybosnian.daily.pipeline_facebook", return_value={"verified": True}) as fb, patch("easybosnian.daily.pipeline_tiktok", return_value={"verified": True, "permalink": "https://tiktok.com/@easy.bosnian/photo/123"}) as tt, patch("easybosnian.daily.pipeline_stories") as stories, patch.dict(os.environ, {"FACEBOOK_POSTING_ENABLED": "true", "TIKTOK_POSTING_ENABLED": "true", "INSTAGRAM_STORIES_ENABLED": "true"}, clear=True):
+            results = daily(DATE, "live")
+            ig.assert_called_once(); fb.assert_called_once(); tt.assert_called_once()
+            stories.assert_not_called()
+            saved = json.loads((Path(directory) / "build" / DATE / "platforms-result.json").read_text())
+            for name in ("instagram_stories", "tiktok_stories"):
+                self.assertFalse(saved["platforms"][name]["published"])
+                self.assertFalse(saved["platforms"][name]["automatic_supported"])
+            self.assertEqual(results["instagram_stories"]["post_permalink"], "https://www.instagram.com/p/confirmed/")
+            self.assertEqual(results["tiktok_stories"]["slides"], ["quiz-card.jpg", "lesson-card.jpg", "word-card.jpg"])
 
     def test_instagram_token_cannot_authorize_facebook(self):
         with patch.dict(os.environ, {"META_GRAPH_VERSION": "v26.0"}), patch("easybosnian.meta.request", return_value={"id": "17841429077454658", "name": "EasyBosnian"}):
