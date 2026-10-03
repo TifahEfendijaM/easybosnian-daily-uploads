@@ -30,7 +30,12 @@ def validate_schedule(config_path=None):
     paths=[ROOT/'cloudflare/wrangler.example.toml',config_path or ROOT/'cloudflare/wrangler.toml']
     for path in dict.fromkeys(map(Path,paths)):
         config=tomllib.loads(path.read_text())
-        if config.get('triggers',{}).get('crons')!=[expected]:
+        crons=config.get('triggers',{}).get('crons')
+        fields=crons[0].split() if isinstance(crons,list) and len(crons)==1 and isinstance(crons[0],str) else []
+        # A literal minute is numeric: 05 and 5 describe the same clock slot.
+        if len(fields)==5 and fields[0].isascii() and fields[0].isdigit():
+            fields[0]=str(int(fields[0]))
+        if ' '.join(fields)!=expected:
             raise ValueError(f'Cloudflare clock mismatch in {path.name}; expected {expected}; refuse deployment')
     return expected
 
