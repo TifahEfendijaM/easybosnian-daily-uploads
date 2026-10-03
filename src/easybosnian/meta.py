@@ -79,9 +79,9 @@ class Instagram:
             if status in ("FINISHED", "PUBLISHED"):
                 return status
             if status in ("ERROR", "EXPIRED"):
-                raise ValueError(f"Instagram media container is {status}; inspect the saved container ID")
+                raise ValueError(f"Instagram media container is {status}; inspect the current run’s container ID")
             time.sleep(5)
-        raise ValueError("Instagram container is still processing; deliberately rerun later after inspecting state")
+        raise ValueError("Instagram container is still processing; inspect the platform before another manual daily run")
 
     def carousel(self, children, caption):
         return self.call("POST", self.user_id + "/media", {"media_type": "CAROUSEL", "children": ",".join(children), "caption": caption})["id"]
@@ -91,9 +91,6 @@ class Instagram:
 
     def media(self, media_id):
         return self.call("GET", media_id, {"fields": "id,permalink,caption,media_type,children{id,media_type}"})
-
-    def recent(self):
-        return self.call("GET", self.user_id + "/media", {"fields": "id,caption,permalink,timestamp,media_type", "limit": 50})["data"]
 
     def story(self, url):
         return self.call("POST", self.user_id + "/media", {"image_url": url, "media_type": "STORIES"})["id"]
@@ -139,8 +136,6 @@ class Facebook:
     def post(self, post_id):
         return self.call("GET", post_id, {"fields": "id,from,message,is_published,permalink_url,attachments{type,target,subattachments{type,target}}"})
 
-    def recent(self, since):
-        return self.call("GET", self.page_id + "/published_posts", {"fields": "id,message,created_time", "since": since, "limit": 100})
 
 
 def facebook_page_token(user_token, app_id, app_secret, page_id):

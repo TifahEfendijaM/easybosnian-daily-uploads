@@ -35,7 +35,7 @@ def wrap(text, face, width):
 
 def measure(rows, face):
     ascent, descent = face.getmetrics()
-    step = round((ascent + descent) * 1.12)
+    step = round((ascent + descent) * 1.16)
     glyph_height = max(face.getbbox(row)[3] - face.getbbox(row)[1] for row in rows)
     return glyph_height + (len(rows) - 1) * step, step
 
@@ -97,7 +97,7 @@ def panel(draw, box, style, palette, option=False):
     if style == "rounded":
         draw.rounded_rectangle(box, radius=38 if not option else (b - y) // 2, fill=paper)
     else:
-        draw.rectangle(box, fill=accent if style == "poster" and option else paper)
+        draw.rounded_rectangle(box, radius=18, fill=accent if style == "poster" and option else paper)
     if style == "editorial":
         draw.rectangle((x, y, x + 5, b), fill=accent)
     elif style == "framed":
@@ -117,14 +117,14 @@ def panel(draw, box, style, palette, option=False):
         draw.rectangle((x, y, x + 10, b), fill=ink)
 
 
-def render(card, palette_id, background, output, tiktok=False):
+def render(card, palette_id, background, output):
     palette = json.loads((ROOT / "data/design-palettes.json").read_text())[palette_id]
     minimum_body_contrast=min(contrast(palette['ink'],palette['panel']),contrast(palette['ink'],palette['accent']))
     if minimum_body_contrast<4.5: raise ValueError('Approved palette no longer meets text contrast requirements')
     style = card["design_template"]
     if style not in LAYOUTS:
         raise ValueError("Unapproved layout")
-    height = 1920 if tiktok else HEIGHT
+    height = HEIGHT
     image = ImageOps.fit(Image.open(background).convert("RGB"), (WIDTH, height), method=Image.Resampling.LANCZOS).convert("RGBA")
     # Palette-matched gradient protects headings while leaving lower artwork visible.
     overlay = Image.new("RGBA", image.size)
@@ -159,7 +159,7 @@ def render(card, palette_id, background, output, tiktok=False):
     full_width = WIDTH - 2 * MARGIN
     blocks = []
     if card["kind"] == "quiz":
-        title_face = font(52 if style != "poster" else 58, "Bold")
+        title_face = font(52 if style != "poster" else 58, "SemiBold")
         question_rows = wrap(card["question"], title_face, full_width)
         if len(question_rows) > 3:
             raise ValueError("Quiz question exceeds three lines; rewrite")
@@ -172,10 +172,10 @@ def render(card, palette_id, background, output, tiktok=False):
             rows = wrap(option["text"], body_face, full_width - 142)
             text_height, _ = measure(rows, body_face)
             box_height = max(92, text_height + 2 * padding)
-            blocks.append((y, box_height, rows, option["label"]))
+            blocks.append((y, box_height, rows, option["label"], False))
             y += box_height + 16
     else:
-        title_face = font(70 if style != "poster" else 80, "Bold")
+        title_face = font(74 if style != "poster" else 80, "SemiBold")
         rows = wrap(card["heading"], title_face, full_width)
         if len(rows) > 2:
             raise ValueError("Heading too long; rewrite")
@@ -184,22 +184,20 @@ def render(card, palette_id, background, output, tiktok=False):
         draw=ImageDraw.Draw(image)
         draw_rows(draw, (MARGIN, y), rows, title_face, paper)
         y += title_height + 28
-        if style == "split-cards":
-            groups = [card["body"]] + ([card["example"]] if card.get("example") else [])
-        else:
-            groups = [card["body"]] + ([card["example"]] if card.get("example") else [])
-        for text in groups:
-            rows = wrap(text, body_face, full_width - 2 * padding - (10 if style == "notebook" else 0))
+        groups = [(card["body"], False)] + ([(card["example"], True)] if card.get("example") else [])
+        for text, is_example in groups:
+            rows = wrap(text, body_face, full_width - 2 * padding - 24)
             text_height, _ = measure(rows, body_face)
-            # Examples have the same exact readable font, a subtle accent bar, no repeated prose.
-            box_height = text_height + 2 * padding
-            blocks.append((y, box_height, rows, None))
+            # Measure the separate template label too, rather than overlapping the example.
+            example_label_height = measure(["PRIMJER"], font(22, "SemiBold"))[0] + 16 if is_example else 0
+            box_height = text_height + 2 * padding + example_label_height
+            blocks.append((y, box_height, rows, None, is_example))
             y += box_height + (22 if style == "split-cards" else 14)
     panel_area = sum(b[1] * full_width for b in blocks)
-    if y > min(height - 180, 1050 if not tiktok else 1250) or panel_area > WIDTH * height * 0.49:
+    if y > min(height - 180, 1050) or panel_area > WIDTH * height * 0.49:
         raise ValueError("Copy does not fit while preserving artwork; rewrite reviewed package")
     bounds = []
-    for index, (top, block_height, rows, marker) in enumerate(blocks):
+    for index, (top, block_height, rows, marker, is_example) in enumerate(blocks):
         box = (MARGIN, top, WIDTH - MARGIN, top + block_height)
         panel(draw, box, style, palette, option=marker is not None)
         if marker:
@@ -212,9 +210,13 @@ def render(card, palette_id, background, output, tiktok=False):
             text_height, _ = measure(rows, body_face)
             draw_rows(draw, (MARGIN + 110, top + (block_height - text_height) / 2), rows, body_face, ink)
         else:
-            draw_rows(draw, (MARGIN + padding + (10 if style == "notebook" else 0), top + padding), rows, body_face, ink)
-            if index == 1 and style == "split-cards":
-                draw.rectangle((MARGIN, top, MARGIN + 7, top + block_height), fill=accent)
+            # A quiet inset accent line ties the definition and example panels together.
+            draw.rounded_rectangle((MARGIN + 18, top + padding, MARGIN + 23, top + block_height - padding), radius=2, fill=accent)
+            text_x, text_y = MARGIN + padding + 24, top + padding
+            if is_example:
+                label_face = font(22, "SemiBold")
+                text_y += draw_rows(draw, (text_x, text_y), ["PRIMJER"], label_face, ink) + 16
+            draw_rows(draw, (text_x, text_y), rows, body_face, ink)
         bounds.append([round(x) for x in box])
     logo = Image.open(ROOT / "assets/watermark.png")
     if logo.mode != "RGBA" or logo.getextrema()[3][0] != 0 or logo.getextrema()[3][1] == 0:
@@ -226,4 +228,4 @@ def render(card, palette_id, background, output, tiktok=False):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(output, "JPEG", quality=94, subsampling=0, optimize=True)
-    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}
+    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}

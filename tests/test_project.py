@@ -9,10 +9,10 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from easybosnian.core import ROOT, LAYOUTS, canonical, digest, verify_repository
+from easybosnian.core import ROOT, LAYOUTS, verify_repository
 from easybosnian.render import density, font, render, wrap
-from easybosnian.validate import validate, reservations
-from easybosnian.pipeline import pipeline, verify_media, reconcile
+from easybosnian.validate import validate, normalise
+from easybosnian.pipeline import verify_media
 from easybosnian.http import redact
 
 spec=importlib.util.spec_from_file_location('preview',ROOT / 'scripts/preview.py')
@@ -42,9 +42,9 @@ class ContentTests(unittest.TestCase):
 
     def test_repeats_aliases_and_missing_artwork_exclusions_rejected(self):
         p=reviewed_fixture()
-        history={'batches':[{'date':'2026-10-01','reservation_keys':['word:kisobran']}]}
+        history={'days':[{'date':'2026-10-01','content':p}]}
         with self.assertRaises(ValueError): validate(p,history)
-        history={'batches':[{'date':'2026-10-01','reservation_keys':['theme:rainy weather']}]}
+        history={'days':[{'date':'2026-10-01','content':p}]}
         with self.assertRaises(ValueError): validate(p,history)
         for exclusion in ('No text', 'no lettering', 'no logos'):
             p=reviewed_fixture()
@@ -58,21 +58,33 @@ class ContentTests(unittest.TestCase):
             card['background_prompt']=scene
         validate(p)
         # Schema still requires approved renderer metadata independently of FLUX prose.
-        from jsonschema import ValidationError
         for field, value in (('design_palette','invented'),('design_template','invented')):
             invalid=copy.deepcopy(p)
             if field=='design_palette': invalid[field]=value
             else: invalid['cards'][0][field]=value
-            with self.subTest(field=field), self.assertRaises(ValidationError): validate(invalid)
+            with self.subTest(field=field), self.assertRaises(ValueError): validate(invalid)
 
-    def test_reserved_legacy_prompt_remains_valid_for_same_batch_resume(self):
+    def test_schema_failure_does_not_echo_private_answer_or_model_prose(self):
+        p=reviewed_fixture()
+        p['private_review']['correct_text']='private-answer-'+('x'*200)
+        with self.assertRaises(ValueError) as failure: validate(p)
+        self.assertNotIn('private-answer',str(failure.exception))
+        self.assertIn('schema check failed',str(failure.exception))
+
+    def test_validated_legacy_prompt_can_be_migrated(self):
         p=reviewed_fixture()
         p['cards'][0]['background_prompt']='A quiet rainy window. framed layout: top x64..1016 y64..900 uncluttered for three answer boxes. Deep slate-blue #041625, misty #f0f8fc, ice-blue #a8dcf2, muted #10324b. No text, no lettering, no logos.'
         validate(p)
 
     def test_diatrics_alias_normalization(self):
-        self.assertEqual(canonical(' KIŠOBRAN! '),canonical('kisobran'))
-        self.assertEqual(canonical('Đak'),canonical('dak'))
+        self.assertEqual(normalise(' KIŠOBRAN! '),normalise('kisobran'))
+        self.assertEqual(normalise('Đak'),normalise('dak'))
+
+    def test_template_example_label_cannot_leak_the_quiz_answer(self):
+        p=reviewed_fixture();p['words'][0]={'lemma':'primjer','equivalence_keys':['example']}
+        p['cards'][0]['word']='primjer';p['cards'][0]['options'][1]['text']='primjer'
+        p['private_review']['correct_text']='primjer'
+        with self.assertRaises(ValueError):validate(p)
 
     def test_marker_and_mismatched_private_answer(self):
         p=reviewed_fixture(); p['cards'][0]['options'][0]['text']='A) torba'
@@ -109,13 +121,11 @@ class RendererTests(unittest.TestCase):
                         seen.add(output.read_bytes())
             self.assertGreater(len(seen),24)
 
-    def test_palettes_and_tiktok_and_exact_wrapping(self):
+    def test_palettes_and_exact_wrapping(self):
         with tempfile.TemporaryDirectory() as directory:
             bg=Path(directory)/'bg.jpg'; Image.new('RGB',(1080,1350),'#728192').save(bg)
             for palette in json.loads((ROOT/'data/design-palettes.json').read_text()):
                 render(preview.package()['cards'][2],palette,bg,Path(directory)/f'{palette}.jpg')
-            out=Path(directory)/'tiktok.jpg'; render(preview.package()['cards'][2],'blue-ice',bg,out,True)
-            with Image.open(out) as image: self.assertEqual(image.size,(1080,1920))
         text='Često čujemo: ćilim, šuma, žaba i đak.'
         self.assertEqual(' '.join(wrap(text,font(44),400)),text)
 
@@ -138,32 +148,14 @@ class PublishingTests(unittest.TestCase):
             with self.assertRaises(RuntimeError): verify_repository()
 
     def test_verification_requires_actual_three_card_permalink(self):
-        p=reviewed_fixture(); record={'package':p,'state':{'media_id':'123'}}
+        p=reviewed_fixture()
         class FakeIG:
             def media(self,id):
-                return {'caption':p['caption']+'\n\n'+' '.join(p['hashtags']),'media_type':'CAROUSEL_ALBUM','children':{'data':[{}, {}, {}]},'permalink':'https://www.instagram.com/p/test/'}
-        self.assertTrue(verify_media(FakeIG(),record).startswith('https://'))
+                return {'id':'123','caption':p['caption']+'\n\n'+' '.join(p['hashtags']),'media_type':'CAROUSEL_ALBUM','children':{'data':[{'media_type':'IMAGE'}]*3},'permalink':'https://www.instagram.com/p/test/'}
+        self.assertTrue(verify_media(FakeIG(),p,'123').startswith('https://'))
         class Wrong(FakeIG):
             def media(self,id): r=super().media(id); r.pop('permalink'); return r
-        with self.assertRaises(ValueError): verify_media(Wrong(),record)
-
-    def test_uncertain_publish_does_not_repost(self):
-        p=reviewed_fixture()
-        class FakeStore:
-            def call(self,*a): return {'daily_enabled':True,'daily_authorized':True,'monitoring_ready':True}
-            def batch(self,date): return {'package':p,'hash':digest(p),'state':{'publish_intent':True,'publish_intent_at':'2026-10-02T12:00:00+00:00'},'revision':0}
-            def history(self): return {'batches':[]}
-            def save(self,*a): pass
-        with patch('easybosnian.pipeline.verify_repository'),patch('easybosnian.pipeline.Store',FakeStore),patch('easybosnian.pipeline.read_json',return_value=p),patch('easybosnian.pipeline.failure',return_value='uncertain'),patch('easybosnian.pipeline.Instagram') as ig,patch.dict(os.environ,{'HC_PIPELINE_URL':''}):
-            with self.assertRaises(RuntimeError): pipeline('2026-10-02','live')
-            ig.assert_not_called()
-
-    def test_reconcile_absence_remains_uncertain(self):
-        class FakeIG:
-            def recent(self): return []
-            def publish(self,*a): raise AssertionError('must never publish during reconciliation')
-        record={'package':reviewed_fixture(),'state':{'publish_intent':True,'publish_intent_at':'2026-10-02T12:00:00+00:00'}}
-        with self.assertRaises(ValueError): reconcile(FakeIG(),None,'2026-10-02',record)
+        with self.assertRaises(ValueError): verify_media(Wrong(),p,'123')
 
     def test_secrets_are_redacted(self):
         with patch.dict(os.environ,{'INSTAGRAM_ACCESS_TOKEN':'secret-value'}):

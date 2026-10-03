@@ -6,8 +6,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from easybosnian.cli import activate
-from easybosnian.cloud_prepare import bootstrap, cloud_run, managed_auth, persist, publication_state, require_agent_ready, run_codex
+from easybosnian.cloud_prepare import bootstrap, cloud_run, managed_auth, persist, require_agent_ready, run_codex
 from easybosnian.core import PROJECT, REPO, write_json
 
 
@@ -72,63 +71,6 @@ class CloudPreparationTests(unittest.TestCase):
                 self.assertTrue(path.exists())
                 self.assertEqual(os.environ["GH_TOKEN"],"native")
 
-    def test_connection_check_never_reserves_activates_or_publishes(self):
-        with tempfile.TemporaryDirectory() as temp:
-            def fake_agent(*args, **kwargs):
-                write_json(Path(temp)/"build/cloud-file-probe.json",{"status":"ready","reason":"none"})
-                return '{"status":"ready","reason":"none"}'
-            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex",side_effect=fake_agent), patch("easybosnian.cloud_prepare.save_proof") as proof, patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate") as activate_mock, patch.dict(os.environ,{"GITHUB_RUN_URL":"https://github.com/"+REPO+"/actions/runs/1"}):
-                store.return_value.history.return_value={"project":PROJECT,"batches":[]}
-                store.return_value.call.return_value={"healthchecks_deferred":True,"github_monitoring_ready":True}
-                cloud_run("verify")
-                proof.assert_called_once()
-                self.assertTrue(proof.call_args.args[0]["chatgpt_workspace_read_write"])
-                prepare.assert_not_called(); activate_mock.assert_not_called()
-                self.assertTrue(all(x.args[0]=="GET" for x in store.return_value.call.call_args_list))
-
-    def test_cloud_activation_needs_armed_schedule_but_no_variable_write(self):
-        for enabled in ("false","true"):
-            config={"preparation_verified":True,"healthchecks_deferred":True,"github_monitoring_ready":True}
-            with patch.dict(os.environ,{"GITHUB_ACTIONS":"true","DAILY_POSTING_ENABLED":enabled}), patch("easybosnian.cli.verify_repository"), patch("easybosnian.cli.Store") as store, patch("easybosnian.cli.gh") as gh:
-                store.return_value.call.return_value=config
-                if enabled=="false":
-                    with self.assertRaises(ValueError): activate("enable-daily")
-                    self.assertEqual(store.return_value.call.call_count,1)
-                else:
-                    activate("enable-daily")
-                    self.assertEqual(store.return_value.call.call_count,2)
-                gh.assert_not_called()
-
-    def test_existing_publication_state_is_reported_honestly(self):
-        for state, expected in (({},"nothing published by preparation; inspect the separate pipeline run"),
-                                ({"publish_intent":True},"publication uncertain; reconcile existing batch"),
-                                ({"verified":True},"already verified published")):
-            self.assertEqual(publication_state({"batches":[{"date":"2026-10-02","state":state}]},"2026-10-02"),expected)
-
-    def test_same_date_reservation_resumes_exact_package_without_research(self):
-        date="2026-10-02"; package={"date":date,"immutable":"same reserved content"}
-        with tempfile.TemporaryDirectory() as temp:
-            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex") as agent, patch("easybosnian.cloud_prepare.validate"), patch("easybosnian.cloud_prepare.fit_check"), patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate"):
-                store.return_value.history.return_value={"project":PROJECT,"batches":[{"date":date,"state":{}}]}
-                store.return_value.batch.return_value={"package":package}
-                store.return_value.call.side_effect=[{"healthchecks_deferred":True,"github_monitoring_ready":True},{"daily_enabled":True,"preparation_verified":True}]
-                cloud_run("prepare")
-                agent.assert_not_called()
-                path=prepare.call_args.args[0]
-                self.assertEqual(json.loads(path.read_text()),package)
-
-    def test_verified_same_date_batch_has_no_new_preparation_or_handoff(self):
-        date="2026-10-03"
-        with tempfile.TemporaryDirectory() as temp:
-            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex") as agent, patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate") as activation:
-                store.return_value.history.return_value={"project":PROJECT,"batches":[{"date":date,"state":{"verified":True}}]}
-                store.return_value.call.return_value={"healthchecks_deferred":True,"github_monitoring_ready":True}
-                cloud_run("prepare")
-                result=json.loads((Path(temp)/"build/preparation-result.json").read_text())
-                from easybosnian.handoff import reviewed_result
-                self.assertIsNone(reviewed_result(result,date))
-                agent.assert_not_called(); prepare.assert_not_called(); activation.assert_not_called()
-
     def test_completion_contract_never_exposes_free_form_agent_output(self):
         require_agent_ready('{"status":"ready","reason":"none"}')
         for value in ('READY', '{"status":"ready","reason":"other"}',
@@ -140,49 +82,39 @@ class CloudPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Reliable source opening"):
             require_agent_ready('{"status":"blocked","reason":"research_sources"}')
 
-    def test_fresh_research_blocks_before_reservation_on_missing_or_unreviewed_draft(self):
-        date="2026-10-03"
-        for response in ('{"status":"ready","reason":"none"}',
-                         '{"status":"blocked","reason":"research_sources"}'):
-            with self.subTest(response=response), tempfile.TemporaryDirectory() as temp:
-                root=Path(temp); (root/"docs").mkdir()
-                (root/"docs/cloud-agent-task.md").write_text("Prepare {{DATE}}")
-                with patch("easybosnian.cloud_prepare.ROOT",root), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex",return_value=response), patch("easybosnian.cloud_prepare.validate") as validation, patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate") as activation, patch("easybosnian.cloud_prepare.failure",return_value="safe failure") as report:
-                    store.return_value.history.return_value={"project":PROJECT,"batches":[]}
-                    store.return_value.call.return_value={"healthchecks_deferred":True,"github_monitoring_ready":True}
-                    # A stale unreserved file must not be mistaken for this agent's result.
-                    write_json(root/f"build/preparation/{date}.json",{"date":date})
-                    with self.assertRaises(RuntimeError): cloud_run("prepare")
-                    self.assertEqual(report.call_args.args[1],"cloud ChatGPT research/review")
-                    validation.assert_not_called(); prepare.assert_not_called(); activation.assert_not_called()
-                    self.assertFalse((root/"build/preparation-result.json").exists())
-
-    def test_fresh_reviewed_draft_passes_validation_before_saving_and_handoff(self):
-        date="2026-10-03"; package={"date":date,"reviewed":"fixture"}; order=[]
+    def test_verify_only_reads_history_and_writes_private_probe(self):
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp); (root/"docs").mkdir()
-            (root/"docs/cloud-agent-task.md").write_text("Prepare {{DATE}}")
-            def fake_agent(prompt, **kwargs):
-                self.assertIn(date,prompt)
-                write_json(root/f"build/preparation/{date}.json",package)
+            root=Path(temp)
+            def agent(*args,**kwargs):
+                write_json(root/'build/cloud-file-probe.json',{'status':'ready','reason':'none'})
                 return '{"status":"ready","reason":"none"}'
-            with patch("easybosnian.cloud_prepare.ROOT",root), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex",side_effect=fake_agent), patch("easybosnian.cloud_prepare.validate",side_effect=lambda *args:order.append("validate")), patch("easybosnian.cloud_prepare.fit_check",side_effect=lambda *args:order.append("fit")), patch("easybosnian.cloud_prepare.prepare",side_effect=lambda *args:order.append("save")), patch("easybosnian.cloud_prepare.activate",side_effect=lambda *args:order.append("activate")):
-                store.return_value.history.return_value={"project":PROJECT,"batches":[]}
-                store.return_value.call.side_effect=[{"healthchecks_deferred":True,"github_monitoring_ready":True},{"daily_enabled":True,"preparation_verified":True}]
-                cloud_run("prepare")
-                self.assertEqual(order,["validate","fit","save","activate"])
-                result=json.loads((root/"build/preparation-result.json").read_text())
-                self.assertEqual(result["date"],date)
-                self.assertEqual(len(result["package_hash"]),64)
+            with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.prepare') as save,patch('easybosnian.cloud_prepare.require_publishing') as live:
+                store.return_value.history.return_value={'project':PROJECT,'days':[]}
+                result=cloud_run('verify')
+                save.assert_not_called();live.assert_not_called();store.return_value.save_content.assert_not_called()
+                self.assertEqual(result['status'],'cloud connection verified')
 
-    def test_connection_ready_message_without_actual_probe_is_rejected(self):
+    def test_preview_reuses_today_without_research_or_live_gate(self):
+        date='2026-10-03';package={'date':date}
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cloud_prepare.ROOT',Path(temp)),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex') as agent,patch('easybosnian.cloud_prepare.require_publishing') as live,patch('easybosnian.cloud_prepare.validate'),patch('easybosnian.cloud_prepare.fit_check'):
+            store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':package}]}
+            cloud_run('preview');agent.assert_not_called();live.assert_not_called()
+
+    def test_daily_always_researches_replacement_then_validates_and_saves(self):
+        date='2026-10-03';order=[]
         with tempfile.TemporaryDirectory() as temp:
-            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex",return_value='{"status":"ready","reason":"none"}'), patch("easybosnian.cloud_prepare.save_proof") as proof, patch("easybosnian.cloud_prepare.failure",return_value="safe failure") as report:
-                store.return_value.history.return_value={"project":PROJECT,"batches":[]}
-                store.return_value.call.return_value={"healthchecks_deferred":True,"github_monitoring_ready":True}
-                with self.assertRaises(RuntimeError): cloud_run("verify")
-                proof.assert_not_called()
-                self.assertEqual(report.call_args.args[1],"cloud ChatGPT workspace verification")
+            root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
+            def agent(*args):
+                order.append('research');write_json(root/f'build/preparation/{date}.json',{'date':date})
+                return '{"status":"ready","reason":"none"}'
+            with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate',side_effect=lambda *a,**k:order.append('validate')),patch('easybosnian.cloud_prepare.fit_check',side_effect=lambda *a:order.append('fit')),patch('easybosnian.cloud_prepare.prepare',side_effect=lambda *a:order.append('save')):
+                store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':{'old':'content'}}]}
+                cloud_run('daily');self.assertEqual(order,['research','validate','fit','save'])
 
-
-if __name__=="__main__": unittest.main()
+    def test_missing_draft_never_saves_or_renders(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
+            with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',return_value='{"status":"ready","reason":"none"}'),patch('easybosnian.cloud_prepare.prepare') as save,patch('easybosnian.cloud_prepare.failure',return_value='safe failure'):
+                store.return_value.history.return_value={'project':PROJECT,'days':[]}
+                with self.assertRaises(RuntimeError):cloud_run('preview')
+                save.assert_not_called()

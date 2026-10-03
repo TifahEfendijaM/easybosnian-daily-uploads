@@ -1,9 +1,6 @@
-import hashlib
 import json
 import os
-import re
 import subprocess
-import unicodedata
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -17,16 +14,6 @@ LAYOUTS = ("editorial", "framed", "notebook", "ribbon", "split-cards", "minimal"
 
 def today():
     return datetime.now(ZONE).date().isoformat()
-
-
-def canonical(value):
-    value = value.replace("đ", "d").replace("Đ", "D")
-    value = unicodedata.normalize("NFKD", value.casefold())
-    return " ".join(re.sub(r"[^a-z0-9 ]", " ", "".join(c for c in value if not unicodedata.combining(c))).split())
-
-
-def digest(package):
-    return hashlib.sha256(json.dumps(package, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
 def read_json(path):
@@ -59,8 +46,13 @@ def gh(*args, input_text=None):
     return result.stdout
 
 
-def publication_monitoring_ready(config):
-    return config.get("monitoring_ready") is True or (
-        config.get("healthchecks_deferred") is True
-        and config.get("github_monitoring_ready") is True
-    )
+def publishing_enabled():
+    if os.getenv('GITHUB_ACTIONS') == 'true':
+        return os.getenv('DAILY_POSTING_ENABLED') == 'true'
+    return gh('variable', 'get', 'DAILY_POSTING_ENABLED', '--repo', REPO, '--json', 'value', '--jq', '.value').strip() == 'true'
+
+
+def require_publishing():
+    """Every live entry point checks the real repository kill switch."""
+    if not publishing_enabled():
+        raise ValueError('DAILY_POSTING_ENABLED is false or missing; live publishing is disabled')

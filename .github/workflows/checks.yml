@@ -2,7 +2,6 @@ name: Validate EasyBosnian code and renderer
 on:
   push:
     branches: [main]
-    paths-ignore: ['queue/**']
   pull_request:
 permissions:
   contents: read
@@ -25,6 +24,7 @@ jobs:
       - name: Verify deployed infrastructure and Instagram credentials without publishing
         if: github.event_name == 'push'
         env:
+          DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
           GH_TOKEN: ${{ github.token }}
           EASYBOSNIAN_WORKER_URL: ${{ secrets.EASYBOSNIAN_WORKER_URL }}
           EASYBOSNIAN_ADMIN_TOKEN: ${{ secrets.EASYBOSNIAN_ADMIN_TOKEN }}
@@ -33,7 +33,6 @@ jobs:
           INSTAGRAM_TOKEN_ISSUED_AT: ${{ secrets.INSTAGRAM_TOKEN_ISSUED_AT }}
           META_GRAPH_VERSION: ${{ secrets.META_GRAPH_VERSION }}
           INSTAGRAM_STORIES_ENABLED: ${{ vars.INSTAGRAM_STORIES_ENABLED }}
-          INSTAGRAM_STORY_MODE: ${{ vars.INSTAGRAM_STORY_MODE || 'native_reshare_manual' }}
           FACEBOOK_POSTING_ENABLED: ${{ vars.FACEBOOK_POSTING_ENABLED }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}

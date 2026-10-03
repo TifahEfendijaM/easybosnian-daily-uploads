@@ -2,7 +2,7 @@
 import os
 from datetime import datetime, timezone
 
-from .core import REPO, PROJECT, verify_repository
+from .core import REPO, PROJECT, verify_repository, publishing_enabled
 from .http import request
 from .meta import Instagram, Facebook
 from .buffer import Buffer
@@ -16,13 +16,13 @@ def check_infrastructure():
     if missing:
         raise ValueError("Missing protected setup credentials: " + ", ".join(missing))
     verify_repository(remote=True)
+    enabled=publishing_enabled()
     store=Store()
     if store.call("GET", "/health").get("project")!=PROJECT or store.history().get("project")!=PROJECT:
         raise ValueError("Cloudflare health/history does not belong to this project")
-    config=store.call("GET", "/v1/config")
     info=Instagram().verify_account()
     stories = "native post reshare requires manual action in Instagram; standalone image Stories disabled"
-    if os.getenv("INSTAGRAM_STORY_MODE", "native_reshare_manual") == "image" and os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
+    if os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
         if not isinstance(Instagram().stories().get("data"), list):
             raise ValueError("Instagram did not confirm read access to the authorized account's Stories")
         stories = "account Stories read access verified; no Story was created or published"
@@ -44,15 +44,14 @@ def check_infrastructure():
     headers={"Authorization":"Bearer "+os.environ["GH_SECRETS_TOKEN"],
              "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}
     base="https://api.github.com/repos/"+REPO
-    for path in ("/actions/secrets/public-key", "/contents/queue"):
+    for path in ("/actions/secrets/public-key",):
         identity=request("GET",base,headers=headers)
         if identity.get("full_name")!=REPO or identity.get("private") is not True:
             raise ValueError("Renewal credential does not authorize the exact private repository")
         request("GET",base+path,headers=headers)
-    return {"repository":REPO, "cloudflare":"health and private history verified",
+    return {"repository":REPO, "daily_posting_enabled":enabled, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
             "instagram_account_type":info["account_type"], "instagram_stories":stories,
             "facebook":facebook, "tiktok": tiktok,
-            "renewal_access":"repository secrets and queue read access verified",
-            "healthchecks":"deferred by user" if config.get("healthchecks_deferred") is True else "not deferred",
+            "renewal_access":"repository secrets write-back access verified",
             "publication":"nothing published by this read-only check"}

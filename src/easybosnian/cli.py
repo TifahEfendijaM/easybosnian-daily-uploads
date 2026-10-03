@@ -1,5 +1,4 @@
 import argparse
-import base64
 import getpass
 import importlib.util
 import json
@@ -11,19 +10,16 @@ from pathlib import Path
 
 from PIL import Image
 
-from .core import ROOT, REPO, PROJECT, digest, gh, read_json, today, verify_repository, write_json, publication_monitoring_ready
+from .core import ROOT, REPO, PROJECT, gh, read_json, today, verify_repository, write_json
 from .http import redact
 from .meta import Instagram, Facebook, facebook_page_token
-from .facebook import pipeline_facebook, export_tiktok
 from .daily import daily
-from .buffer import Buffer, pipeline_tiktok
-from .stories import pipeline_stories
-from .notify import heartbeat, failure
-from .pipeline import pipeline
+from .buffer import Buffer
+from .notify import failure
 from .render import render
 from .readiness import check_infrastructure
 from .store import Store
-from .validate import reservations, validate
+from .validate import validate
 
 
 def load_env():
@@ -52,6 +48,7 @@ def create_repository():
     verify_repository(remote=True)
     # Initialization only inside this fresh project folder.
     subprocess.run(["git","init","-b","main",str(ROOT)],check=True,capture_output=True)
+    verify_repository(remote=True)
     subprocess.run(["git","-C",str(ROOT),"remote","add","origin",f"https://github.com/{REPO}.git"],check=True)
     print("Created private " + REPO)
 
@@ -65,47 +62,13 @@ def fit_check(package):
 
 
 def prepare(path):
-    stage="preparation/queue save"
-    date=today()
-    try:
-        verify_repository(remote=True)
-        heartbeat("preparation","start","Preparing reviewed content for "+date)
-        package=read_json(path); date=package["date"]
-        if date!=today(): raise ValueError("Daily preparation must use today's Sarajevo date")
-        store=Store(); history=store.history()
-        stage="validation"
-        validate(package,history); fit_check(package)
-        stage="preparation/queue save"
-        h=digest(package)
-        store.call("POST","/v1/queue",{"package":package,"hash":h,"reservation_keys":reservations(package)})
-        # Cloudflare reservation comes first. If GitHub saving fails it stays reserved;
-        # rerunning the same package/date resumes this save without choosing new words.
-        content=json.dumps(package,ensure_ascii=False,indent=2)+"\n"
-        repo_path=f"queue/{date}.json"
-        payload={"message":f"Prepare reviewed EasyBosnian batch {date}","content":base64.b64encode(content.encode()).decode(),"branch":"main"}
-        verify_repository(remote=True)
-        existing=subprocess.run(["gh","api",f"repos/{REPO}/contents/{repo_path}"],capture_output=True,text=True)
-        if existing.returncode==0:
-            current=json.loads(existing.stdout)
-            original=json.loads(base64.b64decode(current["content"]))
-            if digest(original)!=h: raise ValueError("GitHub already has different reviewed content for this date")
-        else:
-            if "404" not in existing.stderr: raise ValueError("Cannot check the exact queue path")
-            gh("api",f"repos/{REPO}/contents/{repo_path}","--method","PUT","--input","-",input_text=json.dumps(payload))
-        saved=json.loads(gh("api",f"repos/{REPO}/contents/{repo_path}"))
-        if digest(json.loads(base64.b64decode(saved["content"])))!=h:
-            raise ValueError("GitHub queue read-back does not match the reviewed package")
-        write_json(ROOT / repo_path,package)
-        config=store.call("GET","/v1/config")
-        config["preparation_verified"]=True
-        store.call("PUT","/v1/config",config)
-        heartbeat("preparation",message=f"Batch {date}; reviewed JSON saved and read back in {REPO}; nothing published")
-        print(f"Saved reviewed JSON for {date}; package hash {h}; nothing published")
-    except Exception as error:
-        report=failure(date,stage,error,"nothing published",os.getenv("GITHUB_RUN_URL"))
-        try: heartbeat("preparation","fail",report)
-        except Exception: print("Preparation notification could not be delivered; inspect Scheduled and GitHub issue/logs")
-        raise RuntimeError(redact(error)) from None
+    verify_repository(remote=True)
+    package=read_json(path)
+    if package['date']!=today(): raise ValueError("Content must use today's Sarajevo date")
+    store=Store();validate(package,store.history(),include_today=True);fit_check(package)
+    store.save_content(package)
+    print('Reviewed content saved in private history for '+package['date'])
+    return package
 
 
 def set_secret(name,local=False):
@@ -183,36 +146,10 @@ def authorize_buffer(key=None):
     print("Verified connected, unpaused @easy.bosnian channel with automatic publishing; credentials stored in the exact repository; nothing published")
 
 
-def activate(action,date=None):
-    verify_repository(remote=True)
-    store=Store(); config=store.call("GET","/v1/config")
-    if action=="test-monitoring":
-        # Check both external pings and the independent Worker's notification access.
-        report=failure(today(),"scheduling","Notification self-test: no pipeline failure and no post","nothing published")
-        heartbeat("pipeline","fail",report,force=True)
-        heartbeat("preparation","fail",report,force=True)
-        store.call("POST","/v1/monitoring/check")
-        config.update(monitoring_ready=True,github_monitoring_ready=True,healthchecks_deferred=False)
-    elif action=="defer-healthchecks":
-        # This explicit user choice retains verified GitHub alerts without claiming email readiness.
-        result=store.call("POST","/v1/monitoring/check",{"healthchecks":False})
-        if result.get("repository")!=REPO or result.get("github_notification_check")!="accepted":
-            raise ValueError("GitHub monitoring access has not been verified")
-        config.update(healthchecks_deferred=True,github_monitoring_ready=True)
-    elif action=="enable-daily":
-        # The user explicitly authorized daily posting and waived preview/live-test gates.
-        config.update(daily_authorized=True,daily_enabled=True,active_since=today())
-        if not config.get("preparation_verified") or not publication_monitoring_ready(config): raise ValueError("First verify preparation save/read-back and the selected failure reporting setup")
-        if os.getenv("GITHUB_ACTIONS") == "true":
-            if os.getenv("DAILY_POSTING_ENABLED") != "true":
-                raise ValueError("Arm the authorized scheduled pipeline variable before cloud activation")
-        else:
-            gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","true")
-    elif action=="disable-daily":
-        config["daily_enabled"]=False
-        gh("variable","set","DAILY_POSTING_ENABLED","--repo",REPO,"--body","false")
-    store.call("PUT","/v1/config",config)
-    print("Saved activation setting: "+action)
+def activate(action):
+    if action not in ('enable-daily','disable-daily'): raise ValueError('Unknown activation action')
+    gh('variable','set','DAILY_POSTING_ENABLED','--repo',REPO,'--body','true' if action=='enable-daily' else 'false')
+    print('Saved daily publishing kill switch: '+action)
 
 
 def main():
@@ -224,38 +161,28 @@ def main():
     subs.add_parser("check-infrastructure")
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
-    p=subs.add_parser("pipeline"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
-    p=subs.add_parser("daily"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["preview","live","reconcile"],default="preview")
-    p=subs.add_parser("facebook"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
-    p=subs.add_parser("tiktok"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
-    p=subs.add_parser("export-tiktok"); p.add_argument("--date",default=None)
-    p=subs.add_parser("stories"); p.add_argument("--date",default=None); p.add_argument("--mode",choices=["live","reconcile"],default="reconcile")
+    p=subs.add_parser('run');p.add_argument('--date',default=None);p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
     p=subs.add_parser("set-secret"); p.add_argument("name"); p.add_argument("--local",action="store_true")
-    p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["NOTIFY_GITHUB_TOKEN","HC_WATCHDOG_URL"])
+    p=subs.add_parser("set-worker-secret"); p.add_argument("name",choices=["GITHUB_DISPATCH_TOKEN"])
     subs.add_parser("authorize-instagram")
     subs.add_parser("authorize-facebook")
     subs.add_parser("authorize-buffer")
     subs.add_parser("verify-facebook")
-    p=subs.add_parser("activation"); p.add_argument("action",choices=["test-monitoring","defer-healthchecks","enable-daily","disable-daily"]); p.add_argument("--date")
+    p=subs.add_parser("activation"); p.add_argument("action",choices=["enable-daily","disable-daily"])
     args=parser.parse_args()
     if args.command=="create-repository": create_repository()
     elif args.command=="history": print(json.dumps(Store().history(),ensure_ascii=False,indent=2))
     elif args.command=="check-infrastructure": print(json.dumps(check_infrastructure(),indent=2))
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
-    elif args.command=="pipeline": pipeline(args.date,args.mode)
-    elif args.command=="daily": daily(args.date,args.mode)
-    elif args.command=="facebook": pipeline_facebook(args.date,args.mode)
-    elif args.command=="tiktok": pipeline_tiktok(args.date,args.mode)
-    elif args.command=="export-tiktok": export_tiktok(args.date)
-    elif args.command=="stories": pipeline_stories(args.date,args.mode)
+    elif args.command=='run': daily(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
     elif args.command=="authorize-instagram": authorize_instagram()
     elif args.command=="authorize-facebook": authorize_facebook()
     elif args.command=="authorize-buffer": authorize_buffer()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
-    elif args.command=="activation": activate(args.action,args.date)
+    elif args.command=="activation": activate(args.action)
 
 
 if __name__=="__main__": main()
