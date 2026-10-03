@@ -55,16 +55,77 @@ async function alert(env,date,stage,error,publication,run) {
   const inserted=await env.DB.prepare('INSERT OR IGNORE INTO alerts(date,stage) VALUES(?,?)').bind(date,stage).run();
   if(!inserted.meta.changes) return;
   try {
-    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No GitHub run exists. Inspect the 05:07 cloud preparation schedule and account authorization.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
+    await github(env,'/issues','POST',{title:`EasyBosnian ${date}: ${stage} failed`,body:`Batch: ${date}\nStage: ${stage}\nError: ${error}\nPublication: ${publication}\nRun/logs: ${run || 'No matching daily GitHub run was found. Inspect the 05:00 Cloudflare dispatch record, token and preparation workflow.'}\nNext: Inspect schedules, account authorizations and free quotas. Reconcile saved publishing state before a deliberate rerun. No scheduled retry exists.`});
   } catch(e) {
     await env.DB.prepare('DELETE FROM alerts WHERE date=? AND stage=?').bind(date,stage).run();
     throw e;
   }
 }
+function sarajevoTime(when) {
+  return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Sarajevo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(when).map(x=>[x.type,x.value]));
+}
+function dispatchError(message,httpStatus=null,uncertain=false) {
+  return Object.assign(new Error(message),{httpStatus,uncertain});
+}
+export async function dispatchPreparation(env,mode) {
+  if(env.PROJECT_ID!==PROJECT || env.GITHUB_REPOSITORY!==REPO) throw dispatchError('Dispatch repository/project mismatch');
+  if(!['verify','recover_today'].includes(mode)) throw dispatchError('Unsupported preparation dispatch mode');
+  if(!env.GITHUB_DISPATCH_TOKEN) throw dispatchError('GITHUB_DISPATCH_TOKEN Worker secret is missing');
+  const base=`https://api.github.com/repos/${REPO}`;
+  const headers={Authorization:`Bearer ${env.GITHUB_DISPATCH_TOKEN}`,Accept:'application/vnd.github+json','User-Agent':PROJECT,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'};
+  let identity;
+  try {identity=await fetch(base,{headers,redirect:'error',signal:AbortSignal.timeout(15000)});}
+  catch {throw dispatchError('GitHub repository check failed; no dispatch was sent');}
+  console.log(JSON.stringify({event:'preparation_repository_check',mode,http_status:identity.status}));
+  if(identity.status!==200) throw dispatchError(`GitHub repository check HTTP ${identity.status}; check token access`,identity.status);
+  const repository=await identity.json();
+  if(repository.full_name!==REPO || repository.private!==true || repository.default_branch!=='main') throw dispatchError('Dispatch target must be the exact private repository with default branch main');
+  let result;
+  try {
+    result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{
+      method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),
+      body:JSON.stringify({ref:'main',inputs:{mode}})
+    });
+  } catch {throw dispatchError('GitHub dispatch network failure; acceptance is uncertain; do not retry automatically',null,true);}
+  // Log only status/mode. Never log credentials, headers or provider response bodies.
+  console.log(JSON.stringify({event:'preparation_dispatch_response',mode,http_status:result.status}));
+  if(result.status!==204) throw dispatchError(`GitHub dispatch HTTP ${result.status}; expected 204; inspect token/workflow; no automatic retry`,result.status,result.status>=500 || (result.status>=200 && result.status<300));
+  return {github_status:204,mode,status:'accepted; inspect the GitHub run for completion'};
+}
+export async function dailyPreparationDispatch(env,when) {
+  const fields=sarajevoTime(when);
+  if(fields.hour!=='05' || fields.minute!=='00') return;
+  if(env.PREPARATION_DISPATCH_ENABLED!=='true') return;
+  if(env.PROJECT_ID!==PROJECT || env.GITHUB_REPOSITORY!==REPO) throw Error('Dispatch repository/project mismatch');
+  const config=await settings(env);
+  if(config.daily_authorized!==true) return;
+  const date=`${fields.year}-${fields.month}-${fields.day}`;
+  // Claim BEFORE contacting GitHub. Duplicate deliveries and uncertain responses
+  // cannot resend today's request; a failed start requires deliberate recovery.
+  const claim=await env.DB.prepare('INSERT OR IGNORE INTO preparation_dispatches(date,scheduled_at,status) VALUES(?,?,?)').bind(date,when.toISOString(),'claimed').run();
+  if(!claim.meta.changes) {
+    console.log(JSON.stringify({event:'preparation_dispatch_skipped',date,reason:'date already claimed; no retry'}));
+    return;
+  }
+  let accepted=false;
+  try {
+    const result=await dispatchPreparation(env,'recover_today');
+    accepted=true;
+    await env.DB.prepare('UPDATE preparation_dispatches SET status=?,http_status=? WHERE date=?').bind('accepted',204,date).run();
+    return result;
+  } catch(error) {
+    const status=accepted || error.uncertain ? 'uncertain' : 'failed';
+    const httpStatus=accepted ? 204 : error.httpStatus ?? null;
+    try {await env.DB.prepare('UPDATE preparation_dispatches SET status=?,http_status=? WHERE date=?').bind(status,httpStatus,date).run();}
+    catch {console.error(JSON.stringify({event:'preparation_dispatch_record_failed',date,status}));}
+    console.error(JSON.stringify({event:'preparation_dispatch_failed',date,status,http_status:httpStatus}));
+    throw Error('Daily GitHub dispatch failed; inspect status logs and private dispatch record; no automatic retry');
+  }
+}
 export async function watchdog(env, now=new Date()) {
   // UTC triggers in both seasons; only one executes the Sarajevo 06:59 health check.
   // This function has no generation, workflow-dispatch, or publication capability.
-  const fields=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Sarajevo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
+  const fields=sarajevoTime(now);
   if(fields.hour!=='06' || fields.minute!=='59') return;
   const config=await settings(env);
   // Monitor an armed cloud schedule even before its first package can enable publication.
@@ -75,10 +136,16 @@ export async function watchdog(env, now=new Date()) {
   const publication=state.publish_intent && !state.verified ? 'uncertain' : state.verified ? 'confirmed published' : state.media_id ? 'published; verification pending' : 'nothing published';
   const repository=await github(env,'');
   if(repository.full_name!==REPO || !repository.private) throw Error('Target repository is not exact/private');
-  const preparationRuns=await github(env,'/actions/workflows/preparation.yml/runs?event=schedule&per_page=20');
-  const preparationDay=preparationRuns.workflow_runs.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date);
+  const dispatch=await env.DB.prepare('SELECT * FROM preparation_dispatches WHERE date=?').bind(date).first();
+  const preparationRuns=await github(env,'/actions/workflows/preparation.yml/runs?event=workflow_dispatch&per_page=20');
+  const preparationDay=preparationRuns.workflow_runs.filter(x=>
+    x.event==='workflow_dispatch' && x.head_branch==='main' && x.display_title==='EasyBosnian preparation (recover_today)' &&
+    new Date(x.created_at).toLocaleDateString('en-CA',{timeZone:'Europe/Sarajevo'})===date &&
+    dispatch && new Date(x.created_at)>=new Date(dispatch.scheduled_at));
   const dailyRun=preparationDay[0];
-  if(!preparationDay.length) await alert(env,date,'cloud preparation scheduling','No scheduled cloud preparation run started by 06:59 Europe/Sarajevo. It may still start late.',publication,null);
+  if(!dispatch || dispatch.status!=='accepted') await alert(env,date,'cloud preparation scheduling',
+    dispatch ? `Cloudflare start state ${dispatch.status}; GitHub HTTP ${dispatch.http_status ?? 'unknown'}. Inspect the token, logs and existing runs before deliberate recovery; no automatic retry.` : 'No 05:00 Cloudflare dispatch was recorded by 06:59 Europe/Sarajevo. Inspect the cron, enabled switch and Worker deployment.',publication,dailyRun?.html_url);
+  else if(!dailyRun) await alert(env,date,'cloud preparation scheduling','GitHub accepted the dispatch, but no matching recover_today run appeared by 06:59. Verify the workflow and Actions access; do not blindly resend.',publication,null);
   if(!r) await alert(env,date,'ChatGPT preparation/queue save','No reviewed package is reserved in private Cloudflare history.',publication,dailyRun?.html_url);
   // The reusable publisher is a job within preparation's run, not a second cron run.
   if(r && dailyRun && !state.verified) {
@@ -101,6 +168,17 @@ export default {
     }
     if(!env.ADMIN_TOKEN || !await equalToken(req.headers.get('Authorization'),`Bearer ${env.ADMIN_TOKEN}`)) return response({error:'Unauthorized'},401);
     try {
+      if(path==='/v1/scheduler/verify' && req.method==='POST') {
+        try {return response(await dispatchPreparation(env,'verify'));}
+        catch(error) {
+          console.error(JSON.stringify({event:'preparation_dispatch_verify_failed',http_status:error.httpStatus ?? null}));
+          return response({error:'GitHub verify dispatch failed; inspect status logs and token/workflow access'},502);
+        }
+      }
+      if(path==='/v1/scheduler/status' && req.method==='GET') {
+        const records=await env.DB.prepare('SELECT date,scheduled_at,status,http_status FROM preparation_dispatches ORDER BY date DESC LIMIT 14').all();
+        return response({project:PROJECT,dispatches:records.results});
+      }
       if(path==='/v1/history' && req.method==='GET') {
         const result=await env.DB.prepare('SELECT date,package_json,reservation_keys,state FROM batches ORDER BY date').all();
         return response({project:PROJECT,batches:result.results.map(x=>({date:x.date,theme:JSON.parse(x.package_json).theme,words:JSON.parse(x.package_json).words,reservation_keys:JSON.parse(x.reservation_keys),state:JSON.parse(x.state)}))});
@@ -242,8 +320,11 @@ export default {
     }
   },
   async scheduled(controller,env,ctx) {
-    // Use the trigger's intended time: delivery after 06:59 must not silently
-    // suppress the day's check because the wall clock has advanced a minute.
-    ctx.waitUntil(watchdog(env,new Date(controller.scheduledTime)));
+    // Intended time preserves DST selection and late-delivered monitoring.
+    const when=new Date(controller.scheduledTime);
+    ctx.waitUntil((async()=>{
+      await dailyPreparationDispatch(env,when);
+      await watchdog(env,when);
+    })());
   }
 };

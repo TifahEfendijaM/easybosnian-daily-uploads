@@ -114,8 +114,10 @@ def deploy(account,free_confirmed=False,free_evidence=None):
     config=config.replace('REPLACE_WITH_NEW_DATABASE_ID',state['database_id']).replace('REPLACE_WITH_NEW_NAMESPACE_ID',state['kv_id'])
     config='account_id = "'+account+'"\n'+config
     (ROOT/'cloudflare/wrangler.toml').write_text(config)
-    for sql in (ROOT/'cloudflare/migrations/0001.sql').read_text().split(';'):
-        if sql.strip(): cf(token,account,'POST',f'/d1/database/{state["database_id"]}/query',{'sql':sql})
+    # Every migration is idempotent; preserve this project's existing history.
+    for migration in sorted((ROOT/'cloudflare/migrations').glob('*.sql')):
+        for sql in migration.read_text().split(';'):
+            if sql.strip(): cf(token,account,'POST',f'/d1/database/{state["database_id"]}/query',{'sql':sql})
     # Official deploy validates syntax and bindings. No provider generation or publication is run.
     output=wrangler('deploy','--config','wrangler.toml')
     match=re.search(r'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev',output)

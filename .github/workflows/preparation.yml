@@ -1,8 +1,6 @@
 name: EasyBosnian cloud ChatGPT preparation
+run-name: EasyBosnian preparation (${{ inputs.mode || 'verify' }})
 on:
-  schedule:
-    - cron: '7 5 * * *'
-      timezone: Europe/Sarajevo
   workflow_dispatch:
     inputs:
       mode:
@@ -18,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preparation:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'workflow_dispatch' || (vars.CLOUD_PREPARATION_ENABLED == 'true' && github.event_name == 'schedule'))
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.event_name == 'workflow_dispatch' && (vars.CLOUD_PREPARATION_ENABLED == 'true' || inputs.mode == 'verify')
     # Pin the research host rather than inheriting changes to Linux sandbox support.
     runs-on: ubuntu-22.04
     timeout-minutes: 15
@@ -60,7 +58,7 @@ jobs:
           GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
           HC_PREPARATION_URL: ${{ secrets.HC_PREPARATION_URL }}
           DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
-          PREPARATION_MODE: ${{ (github.event_name == 'schedule' || inputs.mode == 'recover_today') && 'prepare' || 'verify' }}
+          PREPARATION_MODE: ${{ inputs.mode == 'recover_today' && 'prepare' || 'verify' }}
         run: python -m easybosnian.cloud_prepare "$PREPARATION_MODE"
       - name: Persist refreshed ChatGPT sign-in for the next run
         if: always() && steps.auth.outcome == 'success'
@@ -89,13 +87,13 @@ jobs:
           if-no-files-found: ignore
       - name: Approve the verified daily batch for automatic handoff
         id: handoff
-        if: success() && (github.event_name == 'schedule' || inputs.mode == 'recover_today')
+        if: success() && github.event_name == 'workflow_dispatch' && inputs.mode == 'recover_today'
         env:
           PREPARATION_RECOVERY_AUTHORIZED: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'recover_today' }}
         run: python -m easybosnian.handoff
   publication:
     needs: preparation
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'schedule' || inputs.mode == 'recover_today') && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.event_name == 'workflow_dispatch' && inputs.mode == 'recover_today' && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
     uses: ./.github/workflows/daily.yml
     with:
       batch_date: ${{ needs.preparation.outputs.batch_date }}

@@ -117,6 +117,18 @@ class CloudPreparationTests(unittest.TestCase):
                 path=prepare.call_args.args[0]
                 self.assertEqual(json.loads(path.read_text()),package)
 
+    def test_verified_same_date_batch_has_no_new_preparation_or_handoff(self):
+        date="2026-10-03"
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("easybosnian.cloud_prepare.ROOT",Path(temp)), patch("easybosnian.cloud_prepare.today",return_value=date), patch("easybosnian.cloud_prepare.check_infrastructure"), patch("easybosnian.cloud_prepare.Store") as store, patch("easybosnian.cloud_prepare.queued_packages",return_value=[]), patch("easybosnian.cloud_prepare.run_codex") as agent, patch("easybosnian.cloud_prepare.prepare") as prepare, patch("easybosnian.cloud_prepare.activate") as activation:
+                store.return_value.history.return_value={"project":PROJECT,"batches":[{"date":date,"state":{"verified":True}}]}
+                store.return_value.call.return_value={"healthchecks_deferred":True,"github_monitoring_ready":True}
+                cloud_run("prepare")
+                result=json.loads((Path(temp)/"build/preparation-result.json").read_text())
+                from easybosnian.handoff import reviewed_result
+                self.assertIsNone(reviewed_result(result,date))
+                agent.assert_not_called(); prepare.assert_not_called(); activation.assert_not_called()
+
     def test_completion_contract_never_exposes_free_form_agent_output(self):
         require_agent_ready('{"status":"ready","reason":"none"}')
         for value in ('READY', '{"status":"ready","reason":"other"}',

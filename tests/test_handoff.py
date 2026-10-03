@@ -34,21 +34,10 @@ class HandoffTests(unittest.TestCase):
         with patch.dict(os.environ,{"GITHUB_ACTIONS":"true","GITHUB_EVENT_NAME":"workflow_dispatch"}),patch("easybosnian.handoff.verify_repository"):
             with self.assertRaises(ValueError): main()
 
-    def test_scheduled_handoff_passes_exact_date_and_hash(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);(root/"build").mkdir()
-            (root/"build/preparation-result.json").write_text(json.dumps(result()))
-            event=root/"event.json";event.write_text(json.dumps({"schedule":"7 5 * * *"}))
-            output=root/"outputs"
-            env={"GITHUB_ACTIONS":"true","GITHUB_EVENT_NAME":"schedule","GITHUB_EVENT_PATH":str(event),"GITHUB_OUTPUT":str(output)}
-            with patch.dict(os.environ,env),patch("easybosnian.handoff.ROOT",root),patch("easybosnian.handoff.today",return_value=DATE),patch("easybosnian.handoff.verify_repository"):
-                main()
-            self.assertEqual(output.read_text(),f"batch_date={DATE}\npackage_hash={'a'*64}\n")
-            output.unlink()
-            event.write_text(json.dumps({"schedule":"0 5 * * *"}))
-            with patch.dict(os.environ,env),patch("easybosnian.handoff.ROOT",root),patch("easybosnian.handoff.today",return_value=DATE),patch("easybosnian.handoff.verify_repository"):
+    def test_scheduler_event_cannot_bypass_explicit_dispatch_selection(self):
+        for event in ("schedule", "push", "workflow_call"):
+            with self.subTest(event=event),patch.dict(os.environ,{"GITHUB_ACTIONS":"true","GITHUB_EVENT_NAME":event,"PREPARATION_RECOVERY_AUTHORIZED":"true"}),patch("easybosnian.handoff.verify_repository"):
                 with self.assertRaises(ValueError): main()
-            self.assertFalse(output.exists())
 
     def test_recovery_requires_both_explicit_selection_and_authorization(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -6,9 +6,9 @@ Every day, a tool-enabled preparation task researches and reviews one new theme 
 
 ## Current authorized schedule
 
-- Preparation: **05:07 daily, Europe/Sarajevo**, next scheduled start 2026-10-04.
+- Preparation: **05:00 daily, Europe/Sarajevo**, started once by the existing Cloudflare Worker through GitHub's dispatch API. GitHub's schedule block is removed; DST is handled automatically.
 - Pipeline: **immediately after successful preparation**; no fixed publication cron.
-- No scheduled retry. A monitoring-only Cloudflare check runs at 06:59; it cannot generate or publish.
+- No scheduled retry. The existing Cloudflare Worker now also starts preparation at 05:00; its separate 06:59 check only reports failures. See [external-trigger setup and manual testing](docs/external-trigger.md).
 - The user waived the original prompt's unpublished-preview and separate live-test gates on 2026-10-02. Daily posting is authorized. The user then deferred Healthchecks until after Instagram works; verified GitHub issue reporting is used during that phase.
 
 Both preparation and publishing run on private GitHub cloud runners, independently of the Mac, after the dedicated cloud ChatGPT sign-in is verified. Preparation uses the existing ChatGPT subscription through the official Codex CLI, with no paid API key. Its serialized workflow restores and persists refreshed credentials in private secrets. A connection check proves ChatGPT access, private history and GitHub write/read-back without preparing a batch or publishing. The first real reviewed package save/read-back enables Cloudflare's publication gate. Preparation cron and runner queues can be delayed. Publication starts immediately after successful preparation, including credential persistence; there is no artificial wait. If today's reviewed package is missing or mismatched, the pipeline fails clearly without publishing stale text. The publisher checks the handed-off date and immutable package hash and checks out main to retrieve the newer reviewed queue commit. The daily run contains preparation and publication jobs. No retry is dispatched.

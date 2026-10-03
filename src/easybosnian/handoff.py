@@ -28,12 +28,10 @@ def main():
     verify_repository(remote=True)
     event_name=os.getenv("GITHUB_EVENT_NAME")
     recovery=event_name=="workflow_dispatch" and os.getenv("PREPARATION_RECOVERY_AUTHORIZED")=="true"
-    if os.getenv("GITHUB_ACTIONS") != "true" or (event_name != "schedule" and not recovery):
-        raise ValueError("Only scheduled preparation or an explicitly authorized recovery can approve a handoff")
+    if os.getenv("GITHUB_ACTIONS") != "true" or not recovery:
+        raise ValueError("Only an explicitly selected recover_today dispatch can approve a handoff")
     event=read_json(os.environ["GITHUB_EVENT_PATH"])
-    if event_name=="schedule" and event.get("schedule") != "7 5 * * *":
-        raise ValueError("Preparation schedule does not match the current daily authorization")
-    if recovery and event.get("inputs",{}).get("mode")!="recover_today":
+    if event.get("inputs",{}).get("mode")!="recover_today":
         raise ValueError("The recovery event was not explicitly selected; publishing is not due")
     approved=reviewed_result(read_json(ROOT/"build/preparation-result.json"),today())
     if approved is None:

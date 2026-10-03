@@ -1,5 +1,9 @@
 # Setup status — 2026-10-02
 
+## External-trigger change
+
+The user requested replacing GitHub cron with the existing Cloudflare Worker at 05:00 Sarajevo and reviewing the full diff before application. This change adds a Worker-only GITHUB_DISPATCH_TOKEN, UTC candidates at 03:00/04:00 with local-time gating, a D1 once-per-date dispatch claim, safe status logging and no automatic retry. It removes GitHub's schedule block and the remaining exact-cron handoff check. The 06:59 monitor now follows workflow_dispatch recover_today runs and their private dispatch records. See docs/external-trigger.md for staged setup and manual verification. Implementation/configuration alone are not proof of successful scheduled dispatch or publication; record the actual verification and deployment results when applied.
+
 ## Automatic-start investigation — 2026-10-03
 
 At 07:13 Sarajevo, GitHub still listed no October 3 scheduled preparation run. The workflow is active on private main, Actions is enabled and both cloud/daily switches are true. The deployed cron is 05:00 Europe/Sarajevo; its schedule commit was made at 01:58:50 Sarajevo, more than three hours before the expected start. The timezone syntax matches current official GitHub documentation. The same actor triggered yesterday’s schedule and today’s manual recovery. No missing switch or mismatched automatic-event guard was found. The API does not reveal why today’s scheduled event has not arrived. GitHub documents delayed/dropped hour-start events, but that is not a confirmed internal diagnosis.
