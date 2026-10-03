@@ -1,4 +1,4 @@
-# Daily preparation — 13:30 Europe/Sarajevo
+# Daily preparation — 05:00 Europe/Sarajevo
 
 Operate only on private TifahEfendijaM/easybosnian-daily-uploads. Read AGENTS.md and the original docs/master-prompt.md; the user's later instructions remove reservations, queue commits, immutable hashes, publication state and monitoring. Only history content is authoritative. The existing Cloudflare Worker starts one job in preparation.yml with mode=daily. No paid API, retry or awake Mac.
 

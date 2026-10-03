@@ -1,6 +1,6 @@
 # External daily trigger
 
-The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **13:30 Europe/Sarajevo**. Its one cron is `30 11,12 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local 13:30, selecting 11:30 UTC in summer or 12:30 UTC in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
+The existing Worker easybosnian-daily-tifah-v1 starts only TifahEfendijaM/easybosnian-daily-uploads at **05:00 Europe/Sarajevo**. Its one cron is `0 3,4 * * *` (UTC). The handler converts controller.scheduledTime to Sarajevo and dispatches only intended local 05:00, selecting 03:00 UTC in summer or 04:00 UTC in winter, including transition days and delayed delivery. There is no watchdog cron or GitHub schedule.
 
 [Cloudflare documents](https://developers.cloudflare.com/workers/configuration/cron-triggers/) that cron changes can take up to 15 minutes to propagate. Finish a same-day clock deployment at least 20 minutes before the requested slot; if that margin is missed, explicitly target the next day. A Git commit does not deploy this Worker. Only an actual Wrangler deployment updates its live bundle and registered cron. No extra retry/catch-up trigger is added.
 

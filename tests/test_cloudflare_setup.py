@@ -54,7 +54,7 @@ class WorkerSecretBoundaries(unittest.TestCase):
 
 class ScheduleConsistency(unittest.TestCase):
     def test_committed_example_matches_actual_worker(self):
-        self.assertEqual(setup.validate_schedule(ROOT/'cloudflare/wrangler.example.toml'),'30 11,12 * * *')
+        self.assertEqual(setup.validate_schedule(ROOT/'cloudflare/wrangler.example.toml'),'0 3,4 * * *')
 
     def fixture(self,directory):
         root=Path(directory);(root/'cloudflare').mkdir()

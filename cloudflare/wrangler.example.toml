@@ -22,8 +22,8 @@ binding = "IMAGES"
 id = "REPLACE_WITH_NEW_NAMESPACE_ID"
 
 [triggers]
-# Start at 13:30 Sarajevo in either season; local-time gating selects one hour.
-crons = ["30 11,12 * * *"]
+# Start at 05:00 Sarajevo in either season; local-time gating selects one hour.
+crons = ["0 3,4 * * *"]
 
 [observability]
 enabled = true
