@@ -18,7 +18,7 @@ from .buffer import Buffer
 from .notify import failure
 from .render import render
 from .story_layouts import tall_story_image
-from .levels import LEVELS, set_level
+from .levels import KEEP_CURRENT, LEVELS, set_level
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
@@ -213,7 +213,7 @@ def main():
     subs.add_parser("create-repository")
     subs.add_parser("history")
     subs.add_parser("check-infrastructure")
-    level=subs.add_parser('set-level');level.add_argument('--level',choices=LEVELS,required=True)
+    level=subs.add_parser('set-level');level.add_argument('--level',choices=(KEEP_CURRENT,*LEVELS),required=True)
     v=subs.add_parser("validate"); v.add_argument("path")
     p=subs.add_parser("prepare"); p.add_argument("path")
     p=subs.add_parser('run');target=p.add_mutually_exclusive_group();target.add_argument('--date',default=None);target.add_argument('--prepared',action='store_true');p.add_argument('--mode',choices=['verify','preview','daily'],default='verify')
@@ -229,7 +229,13 @@ def main():
     if args.command=="create-repository": create_repository()
     elif args.command=="history": print(json.dumps(Store().history(),ensure_ascii=False,indent=2))
     elif args.command=="check-infrastructure": print(json.dumps(check_infrastructure(),indent=2))
-    elif args.command=='set-level': print(json.dumps(set_level(args.level)))
+    elif args.command=='set-level':
+        result=set_level(args.level);print(json.dumps(result))
+        if os.getenv('GITHUB_STEP_SUMMARY'):
+            with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a',encoding='utf-8') as summary:
+                summary.write(f"Current saved difficulty: **{result['bosnian_level']}**\n\n"
+                              +('Saved and read back from main.' if result['updated'] else 'Kept the existing saved setting; no file was changed.')
+                              +'\n\nThis level applies to future preparations. No content was prepared or published.\n')
     elif args.command=="validate": validate(read_json(args.path)); print("Content validation passed")
     elif args.command=="prepare": prepare(args.path)
     elif args.command=='run':

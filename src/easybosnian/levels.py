@@ -5,6 +5,7 @@ import json
 from .core import ROOT, REPO, gh
 
 LEVELS = ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
+KEEP_CURRENT = 'Keep current'
 SETTINGS_PATH = 'data/preparation-settings.json'
 
 
@@ -20,10 +21,11 @@ def load_level():
 
 def set_level(level):
     """A manually invoked configuration workflow updates only this main-branch file."""
-    if level not in LEVELS: raise ValueError('Choose an A1–C2 Bosnian level')
+    if level not in (KEEP_CURRENT,*LEVELS): raise ValueError('Choose Keep current or an A1–C2 Bosnian level')
     endpoint = f'repos/{REPO}/contents/{SETTINGS_PATH}'
     current = json.loads(gh('api', endpoint+'?ref=main'))
     old = settings_level(json.loads(base64.b64decode(current['content'])))
+    if level == KEEP_CURRENT: return {'bosnian_level': old, 'updated': False}
     if old == level: return {'bosnian_level': level, 'updated': False}
     body = json.dumps({'bosnian_level': level}, indent=2)+'\n'
     payload = {'message': 'Set EasyBosnian preparation level to '+level, 'branch': 'main',
