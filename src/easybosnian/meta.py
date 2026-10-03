@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from .core import REPO, gh, verify_repository, require_publishing
-from .http import request
+from .http import request, SafeError
 
 
 class Instagram:
@@ -71,16 +71,24 @@ class Instagram:
     def child(self, url, alt):
         return self.call("POST", self.user_id + "/media", {"image_url": url, "is_carousel_item": "true", "alt_text": alt})["id"]
 
-    def ready(self, container):
+    def ready(self, container, stable=False):
         # Read-only status polling within one run, never another scheduled attempt.
-        for _ in range(12):
+        finished = 0
+        for attempt in range(12):
             result = self.call("GET", container, {"fields": "status_code"})
             status = result.get("status_code")
-            if status in ("FINISHED", "PUBLISHED"):
-                return status
+            if status == "FINISHED":
+                finished += 1
+                if not stable or finished >= 2:
+                    return status
+            elif status == "PUBLISHED":
+                raise ValueError('Instagram container is already published; no second publish request')
+            else:
+                finished = 0
             if status in ("ERROR", "EXPIRED"):
                 raise ValueError(f"Instagram media container is {status}; inspect the current run’s container ID")
-            time.sleep(5)
+            if attempt < 11:
+                time.sleep(5)
         raise ValueError("Instagram container is still processing; inspect the platform before another manual daily run")
 
     def carousel(self, children, caption):
@@ -194,7 +202,10 @@ class Facebook:
                 or photo.get('page_story_id') != expected_post or photo.get('can_delete') is not True):
             raise ValueError('Facebook Story photo ownership or deletion capability differs from the recorded Story')
         require_publishing()
-        self.delete(photo_id)
+        try:
+            self.delete(photo_id)
+        except SafeError as error:
+            raise SafeError(f'Facebook refused the recorded Story photo deletion (Story {post_id}, photo {photo_id}): {error}. Removal is unconfirmed; remove this Story manually before same-date replacement.') from None
         for attempt in range(6):
             if post_id not in self.story_photos(): return
             if attempt < 5: time.sleep(3)
@@ -202,7 +213,11 @@ class Facebook:
 
     def delete(self, object_id):
         if not re.fullmatch(r'\d+(?:_\d+)?', object_id): raise ValueError('Invalid Facebook media identifier')
-        if self.call('DELETE', object_id).get('success') is not True:
+        try:
+            result = self.call('DELETE', object_id)
+        except SafeError as error:
+            raise SafeError(f'Facebook DELETE of recorded object {object_id} failed: {error}') from None
+        if result.get('success') is not True:
             raise ValueError('Facebook did not confirm deletion; replacement stopped')
 
 

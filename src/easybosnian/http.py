@@ -14,6 +14,16 @@ class SafeError(RuntimeError):
         self.stage=stage
 
 
+def provider_codes(payload):
+    error = payload.get('error') if isinstance(payload, dict) else None
+    error = error if isinstance(error, dict) else {}
+    # Do not log provider prose, payloads, trace IDs or token-shaped strings.
+    def number(key):
+        value = error.get(key)
+        return str(value) if type(value) is int else 'unavailable'
+    return f"provider code {number('code')}; provider subcode {number('error_subcode')}"
+
+
 def redact(message):
     message = str(message)
     for name, value in os.environ.items():
@@ -37,11 +47,11 @@ def request(method, url, data=None, headers=None, form=None, raw=False, timeout=
         # Never dump error bodies: providers can echo tokens, payloads or query strings.
         try:
             payload = json.loads(error.read())
-            code = payload.get("error", {}).get("code") if isinstance(payload.get("error"), dict) else None
+            codes = provider_codes(payload)
             stage = payload.get("stage") if payload.get("stage") in ("FLUX generation","storage") else None
         except Exception:
-            code = None; stage = None
-        raise SafeError(f"HTTP {error.code}; provider code {code or 'unavailable'}; inspect provider permissions/status",stage) from None
+            codes = provider_codes(None); stage = None
+        raise SafeError(f"HTTP {error.code}; {codes}; inspect provider permissions/status",stage) from None
     except (URLError, TimeoutError, OSError):
         raise SafeError("Network request failed or timed out; remote outcome may be uncertain") from None
     if raw:
@@ -50,6 +60,8 @@ def request(method, url, data=None, headers=None, form=None, raw=False, timeout=
         result = json.loads(body)
     except (ValueError, UnicodeError):
         raise SafeError("Provider returned an invalid JSON response") from None
-    if isinstance(result, dict) and (result.get("error") or result.get("success") is False):
-        raise SafeError("Provider rejected the request; inspect its permissions and service status")
+    if isinstance(result, dict) and result.get('error'):
+        raise SafeError(f"Provider rejected the request; {provider_codes(result)}; inspect provider permissions/status")
+    if isinstance(result, dict) and result.get('success') is False:
+        raise SafeError('Provider returned success=false; the operation was not confirmed')
     return result
