@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Start here: daily = publish; preview = render without posting; verify = connection check only
+        description: 'Start here: daily = publish; preview = render without posting; verify = connection check only'
         type: choice
         options: [verify, preview, daily]
         default: verify

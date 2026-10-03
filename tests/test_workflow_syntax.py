@@ -1,0 +1,27 @@
+"""Parse real workflow files so menu punctuation cannot disable dispatch."""
+import unittest
+import yaml
+from easybosnian.core import ROOT
+
+
+class WorkflowSyntaxTests(unittest.TestCase):
+    def test_every_workflow_parses_as_yaml_with_jobs_and_triggers(self):
+        for path in (ROOT/'.github/workflows').glob('*.yml'):
+            with self.subTest(workflow=path.name):
+                document=yaml.load(path.read_text(),Loader=yaml.BaseLoader)
+                self.assertIsInstance(document,dict)
+                self.assertIsInstance(document['jobs'],dict)
+                self.assertIn('on',document)
+
+    def test_rerun_form_has_explicit_modes_and_custom_only_word_actions(self):
+        document=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
+        inputs=document['on']['workflow_dispatch']['inputs']
+        self.assertEqual(inputs['mode']['options'],['verify','preview','daily'])
+        self.assertEqual(inputs['content_selection']['options'],['same_words','same_theme','new','custom'])
+        for i in (1,2,3):
+            action=inputs[f'custom_word_{i}_action']
+            self.assertTrue(action['description'].startswith('CUSTOM ONLY'))
+            self.assertEqual(action['options'],['keep_today','chatgpt','entered'])
+            self.assertEqual(inputs[f'custom_word_{i}']['type'],'string')
+        for value in inputs.values():
+            if value['type']=='choice':self.assertIn(value['default'],value['options'])
