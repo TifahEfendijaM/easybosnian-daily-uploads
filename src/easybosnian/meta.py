@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
-from .core import REPO, gh, verify_repository
+from .core import REPO, gh, verify_repository, require_publishing
 from .http import request
 
 
@@ -155,6 +155,50 @@ class Facebook:
         if kind != 'story': values['fields'] = 'id'
         if kind == 'photo': values['type'] = 'uploaded'
         return owned_ids(self, self.page_id+'/'+edge, values, 'post_id' if kind == 'story' else 'id')
+
+    def story_photos(self):
+        """Complete owned edge: Story nodes cannot themselves be deleted."""
+        result = {}; after = None
+        for _ in range(50):
+            page = self.stories(after)
+            if not isinstance(page.get('data'), list):
+                raise ValueError('Facebook Story ownership listing is incomplete')
+            for item in page['data']:
+                post_id = str(item.get('post_id', ''))
+                media_id = str(item.get('media_id', ''))
+                if not re.fullmatch(r'\d+(?:_\d+)?', post_id) or not re.fullmatch(r'\d+', media_id):
+                    raise ValueError('Facebook Story ownership identifiers are incomplete')
+                media_type = str(item.get('media_type', '')).casefold()
+                if media_type not in ('photo', 'video'):
+                    raise ValueError('Facebook Story ownership media type is incomplete')
+                if media_type == 'video':
+                    result[post_id] = None
+                    continue
+                if post_id in result and result[post_id] != media_id:
+                    raise ValueError('Facebook Story photo ownership is inconsistent')
+                result[post_id] = media_id
+            if not page.get('paging', {}).get('next'): return result
+            cursor = page.get('paging', {}).get('cursors', {}).get('after')
+            if not cursor or cursor == after:
+                raise ValueError('Facebook Story ownership pagination is incomplete')
+            after = cursor
+        raise ValueError('Facebook Story ownership exceeded the bounded listing')
+
+    def delete_story_photo(self, post_id, photo_id):
+        """Delete the exact photo backing an owned Story, then read its edge."""
+        if not re.fullmatch(r'\d+(?:_\d+)?', post_id) or not re.fullmatch(r'\d+', photo_id):
+            raise ValueError('Invalid Facebook Story/photo identifier')
+        expected_post = post_id if '_' in post_id else self.page_id + '_' + post_id
+        photo = self.call('GET', photo_id, {'fields':'id,from{id},page_story_id,can_delete'})
+        if (str(photo.get('id')) != photo_id or photo.get('from', {}).get('id') != self.page_id
+                or photo.get('page_story_id') != expected_post or photo.get('can_delete') is not True):
+            raise ValueError('Facebook Story photo ownership or deletion capability differs from the recorded Story')
+        require_publishing()
+        self.delete(photo_id)
+        for attempt in range(6):
+            if post_id not in self.story_photos(): return
+            if attempt < 5: time.sleep(3)
+        raise ValueError('Facebook has not confirmed removal of the Story photo; no second deletion request')
 
     def delete(self, object_id):
         if not re.fullmatch(r'\d+(?:_\d+)?', object_id): raise ValueError('Invalid Facebook media identifier')

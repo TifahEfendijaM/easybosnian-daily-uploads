@@ -1,6 +1,10 @@
 # Deliberate same-day replacement
 
-Open GitHub Actions → EasyBosnian daily preparation and publishing → Run workflow. Select **daily**, then:
+Open [this workflow](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/preparation.yml) → **Run workflow**. Keep branch **main**, select mode **daily**, choose a content_selection below, and confirm TikTok deletion when applicable. Click the green **Run workflow** once and follow the newly created run. Use this form to choose different inputs; the old run's **Re-run jobs** button retains that run's original inputs.
+
+For a same-day replacement, first delete the current post in @easy.bosnian, then tick **I manually deleted today's previous TikTok post before this daily rerun** (tiktok_previous_removed). Instagram and Facebook clean up their known same-date content themselves. A new date with no previous TikTok post needs no acknowledgement.
+
+Selections:
 
 | content_selection | Result |
 |---|---|
@@ -16,7 +20,7 @@ There is a small private publication_ids table with date/platform/kind/object_id
 
 **TikTok:** Buffer cannot delete an already-published TikTok post. Delete today's old post in TikTok yourself, then tick **tiktok_previous_removed** for the rerun. Without acknowledgement, TikTok replacement fails explicitly; Instagram and Facebook can still proceed. A first upload needs no acknowledgement. This acknowledgement does not call Buffer deletePost or claim API deletion.
 
-**Facebook:** Existing Page token permissions pages_manage_posts, pages_read_engagement and pages_show_list are retained. No new Facebook publishing/deletion consent or token is introduced. Meta's Page post/photo deletion endpoints return success; no deletion POST is retried.
+**Facebook:** Existing Page token permissions pages_manage_posts, pages_read_engagement and pages_show_list are retained. No new Facebook publishing/deletion consent or token is introduced. Meta's Page post/photo deletion endpoints return success. A Facebook Story node itself has no supported DELETE operation: cleanup maps the owned Story to its same-date recorded photo, verifies the photo's owner, page_story_id and can_delete, deletes that photo once and requires the Story to disappear from the complete Page Stories edge. It never substitutes a guessed feed-post ID or treats a permission error as absence. No deletion request is retried.
 
 **Instagram:** Deletion uses the distinct Instagram API with Facebook Login, instagram_basic and instagram_manage_contents, through Page 1284422991426579 and verified @easy_bosnian. It requires that Page and professional Instagram profile to be formally linked. Save **INSTAGRAM_DELETE_ACCESS_TOKEN** (long-lived Facebook User token) and **INSTAGRAM_DELETE_USER_ID** (Facebook Login's Instagram ID) privately. The existing Instagram Login publishing/refresh credentials remain untouched. Authorize with `easybosnian authorize-instagram-deletion` using hidden prompts. Meta's Facebook User token has a finite lifetime; reauthorize before the expiry in docs/instagram-deletion-authorization.json when deletion is needed. There is no unattended Facebook User-token refresh added. An expired/missing deletion token affects same-date Instagram replacement, not a first new-date publication. Instagram Login and Facebook Login may use different IDs for the same profile: cleanup accepts only the configured publishing ID or the separately verified linked deletion ID, then checks ownership through that exact profile.
 
@@ -33,3 +37,11 @@ The user's original eight card treatments are retained. They primarily place tex
 5. Complete the separate Instagram deletion authorization and save its exact two repository secrets. Run read-only identity/permissions checks; no live deletion/publication test is necessary or authorized by rollout.
 6. For today's pre-feature successful run, optionally import its known IDs with `python scripts/import_publication_ids.py --run 37119858010 --date 2026-10-03`. The importer checks exact private repo, main workflow/date/success and unique daily artifact, reads only safe diagnostic IDs, then saves/read-verifies them. It does not restore rejected content, touch novelty history or delete any social content. Instagram IDs from this pre-feature import are attributed to the linked Facebook Login Instagram ID verified during authorization. Old runs without available diagnostic IDs are not guessed from account posts.
 7. Confirm the ordinary main checks pass. The user explicitly requested one October 3 daily rerun with content_selection=same_words and confirmed manual TikTok deletion. Dispatch it only after authorization, migration, deployment and today's identifier import succeed. This is a deliberate replacement, not an automatic retry. Subsequent automatic starts stay at 05:00.
+
+# Let another person launch runs
+
+This is a private repository owned by a personal account. In repository **Settings → Collaborators → Add people**, invite the person's exact GitHub username. After accepting, that collaborator has write access and can use the same workflow link and form. Sharing the link alone grants no access. Personal private repositories do not offer an Actions-only collaborator role; collaborator access also permits editing repository code. No social token needs to be shared separately.
+
+Official references: [manual workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow), [inviting collaborators](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository), [personal-repository permission levels](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository).
+
+Facebook API references: [Story node operations](https://developers.facebook.com/docs/graph-api/reference/stories/), [Photo deletion](https://developers.facebook.com/docs/graph-api/reference/photo/#Deleting), [Story media identifiers](https://developers.facebook.com/documentation/video-api/page-stories-api). The live provider uses lowercase published even though the guide shows uppercase; publication checks normalize case without weakening identity checks.

@@ -35,7 +35,7 @@ def equivalents(package):
     return themes,words
 
 
-def validate(package, history=None, include_today=False):
+def validate(package, history=None, include_today=False, require_website_footer=False):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -84,6 +84,11 @@ def validate(package, history=None, include_today=False):
         if re.search(r"(?<!\w)" + re.escape(normalise(answer)) + r"(?!\w)", outside_quiz):
             raise ValueError("Quiz answer or identifying hint leaks into other cards, caption, hashtags or alt text")
     caption = normalise(package["caption"])
+    if require_website_footer:
+        lines = package['caption'].strip().splitlines()
+        if (len(lines) < 2 or lines[-1] != 'easybosnian.com'
+                or not lines[-2].strip() or package['caption'].count('easybosnian.com') != 1):
+            raise ValueError('New captions need a contextual Bosnian invitation followed by easybosnian.com on the final line')
     if re.search(r"\b(?:mala ispravka|ispravka prethodn\w*|prethodn\w* objav\w*|(?:obrisan|izbrisan)\w* objav\w*|nova verzija objave)\b", caption):
         raise ValueError("Captions must stand alone without referring to corrections or deleted posts")
     if re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?[abcd](?!\w)", caption):

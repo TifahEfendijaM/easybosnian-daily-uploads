@@ -19,7 +19,7 @@ def artwork(store, package, expose=False):
             path=output/f'{kind}-card.jpg'
             metrics=render(card,package['design_palette'],background,path)
             stage='storage'; store.put_file(date,path.name,path.read_bytes())
-            item={'path':path,'alt_text':card['alt_text'],'metrics':metrics}
+            item={'path':path,'background_path':background,'alt_text':card['alt_text'],'metrics':metrics}
             if expose:
                 item['url']=store.expose(date,path.name)
                 if request('GET',item['url'],raw=True)!=path.read_bytes():

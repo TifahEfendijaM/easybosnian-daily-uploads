@@ -54,15 +54,22 @@ class ModeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):daily('2026-10-02','daily')
             facebook.assert_called_once();tiktok.assert_called_once();stories.assert_not_called()
 
-    def test_story_padding_preserves_dimensions_text_area_and_full_card(self):
+    def test_story_fit_preserves_full_card_over_separate_background(self):
         with tempfile.TemporaryDirectory() as directory:
             source=Path(directory)/'card.jpg';output=Path(directory)/'story.jpg'
+            background=Path(directory)/'background.jpg'
             Image.new('RGB',(1080,1350),'#345678').save(source)
-            story_image(source,output,{'panel':'#ffffff'})
+            Image.new('RGB',(1080,1350),'#c08040').save(background)
+            story_image(source,output,{'scrim':'#000000'},background)
             with Image.open(output) as story:
                 self.assertEqual(story.size,(1080,1920))
-                self.assertEqual(story.getpixel((10,10)),(255,255,255))
+                self.assertLess(sum(abs(a-b) for a,b in zip(story.getpixel((10,10)),(138,92,46))),10)
                 self.assertLess(sum(abs(a-b) for a,b in zip(story.getpixel((500,600)),(52,86,120))),8)
+                for y in (300,1620):
+                    self.assertLess(sum(abs(a-b) for a,b in zip(story.getpixel((500,y)),(52,86,120))),8)
+                self.assertLess(output.stat().st_size,10_000_000)
+            with self.assertRaisesRegex(ValueError,'1080'):
+                story_image(output,output,{'scrim':'#000000'})
 
     def test_workflow_has_one_job_three_modes_and_no_output_or_reusable_plumbing(self):
         text=(ROOT/'.github/workflows/preparation.yml').read_text()
