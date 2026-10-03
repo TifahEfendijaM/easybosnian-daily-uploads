@@ -146,6 +146,7 @@ class CloudPreparationTests(unittest.TestCase):
                     self.assertEqual(validation.call_args.kwargs['require_website_footer'],choice=='custom')
                     self.assertEqual(validation.call_args.kwargs['require_quiz_format'],choice=='custom')
                     self.assertEqual(validation.call_args.kwargs['target_cefr'],'B2' if choice=='custom' else None)
+                    self.assertEqual(validation.call_args.kwargs['word_level_targets'],['A2']*3 if choice=='custom' else None)
                     context=read_json(root/'build/preparation-context.json')
                     self.assertEqual(context['target_cefr'],'B2')
                     if choice=='custom':self.assertEqual(context['selection']['requested_words'],[w['lemma'] for w in old['words']])

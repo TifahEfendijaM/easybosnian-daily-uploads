@@ -68,7 +68,7 @@ def tall_story_image(card, background, destination, palette):
 
 
 def visual_quiz_image(card, background, destination, palette, height=1920):
-    """The picture is the question; show the entire photo above question/choices."""
+    """Visual naming: question above the complete photo, choices below it."""
     if card['kind'] != 'quiz' or card.get('quiz_format') != 'visual_identification':
         raise ValueError('Separate quiz photo requires reviewed visual-identification metadata')
     if not background or height not in (1350, 1920):
@@ -93,10 +93,12 @@ def visual_quiz_image(card, background, destination, palette, height=1920):
         text_height, _ = measure(rows, body_face)
         blocks.append((option['label'], rows, max(88, text_height + 36)))
     options_height = sum(b[2] for b in blocks) + 14 * (len(blocks) - 1)
-    photo_top = top + 62 + 28
+    question_top = top + 62 + 28
+    draw_rows(draw, (64, question_top), question_rows, question_face, ink)
+    photo_top = question_top + question_height + 24
     text_bottom = 1650 if height == 1920 else 1200
     photo_height = min(680 if height == 1920 else 510,
-                       text_bottom - photo_top - 28 - question_height - 24 - options_height)
+                       text_bottom - photo_top - 28 - options_height)
     if photo_height < (360 if height == 1920 else 240):
         raise ValueError('Visual quiz copy does not fit while preserving its photo; reject without truncation')
     with Image.open(background) as original:
@@ -105,8 +107,7 @@ def visual_quiz_image(card, background, destination, palette, height=1920):
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, photo.width - 1, photo.height - 1), radius=30, fill=255)
     image.paste(photo, ((1080 - photo.width) // 2, int(photo_top)), mask)
     draw = ImageDraw.Draw(image); y = photo_top + photo.height + 28
-    draw_rows(draw, (64, y), question_rows, question_face, ink)
-    y += question_height + 24; bounds = []
+    bounds = []
     for label, rows, block_height in blocks:
         box = (64, y, 1016, y + block_height)
         draw.rounded_rectangle(box, radius=24, fill='#ffffff')
@@ -124,6 +125,8 @@ def visual_quiz_image(card, background, destination, palette, height=1920):
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
     return {'treatment': 'B', 'size': [1080, height], 'body_font_size': body_size,
             'panel_padding': padding, 'panel_bounds': bounds, 'photo_size': list(photo.size),
+            'question_bounds': [64, question_top, 1016, question_top + question_height],
+            'photo_bounds': [(1080-photo.width)//2, photo_top, (1080+photo.width)//2, photo_top+photo.height],
             'photo_cropped': False, 'body_contrast': round(body_contrast, 2),
             'heading_contrast': round(contrast(ink, paper), 2),
             'panel_area_ratio': round(sum(b[2] for b in blocks) * 952 / (1080 * height), 3)}

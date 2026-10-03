@@ -70,13 +70,14 @@ def prepare(path,selection=None):
     verify_repository(remote=True)
     package=read_json(path)
     if package['date']!=today(): raise ValueError("Content must use today's Sarajevo date")
-    from .selection import check_selection, novelty_history
+    from .selection import check_selection, novelty_history, word_levels
     store=Store();history=store.history()
     if selection:
-        check_selection(package,selection);history=novelty_history(history,package['date'],selection)
+        check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
     fresh=not selection or selection['choice']!='same_words'
     from .levels import load_level
-    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=load_level() if fresh else None);fit_check(package)
+    level=load_level()
+    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package

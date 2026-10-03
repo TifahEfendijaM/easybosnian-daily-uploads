@@ -53,6 +53,8 @@ class StoryLayoutTests(unittest.TestCase):
                 metrics=render(card,'blue-ice',self.photo,output) if height==1350 else story_image(self.card,output,self.palette,self.photo,card)
                 self.assertEqual(metrics['treatment'],'B');self.assertEqual(len(metrics['panel_bounds']),count)
                 self.assertFalse(metrics['photo_cropped'])
+                self.assertLessEqual(metrics['question_bounds'][3],metrics['photo_bounds'][1])
+                self.assertLess(metrics['photo_bounds'][3],metrics['panel_bounds'][0][1])
                 with Image.open(output) as image:self.assertEqual(image.size,(1080,height))
 
     def test_regular_word_and_lesson_posts_keep_their_existing_renderer(self):

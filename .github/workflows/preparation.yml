@@ -18,7 +18,7 @@ on:
         type: string
         default: ''
       custom_word_1_action:
-        description: 'Pitanje dana: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        description: 'Pitanje dana: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
@@ -27,7 +27,7 @@ on:
         type: string
         default: ''
       custom_word_2_action:
-        description: 'Znaš li: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        description: 'Znaš li: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
@@ -36,7 +36,7 @@ on:
         type: string
         default: ''
       custom_word_3_action:
-        description: 'Riječ dana: keep_today = retain latest word if field is empty; chatgpt = choose new; entered = use field'
+        description: 'Riječ dana: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today

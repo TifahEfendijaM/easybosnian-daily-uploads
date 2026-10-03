@@ -11,7 +11,7 @@ from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
-from .selection import selection_context, check_selection, novelty_history
+from .selection import selection_context, check_selection, novelty_history, word_levels
 from .levels import load_level
 
 
@@ -189,7 +189,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
                 fresh=chosen['choice']!='same_words'
-                validate(package,novelty_history(history,date,chosen),include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None);fit_check(package)
+                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None,word_level_targets=word_levels(package,chosen,level));fit_check(package)
                 stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}

@@ -28,7 +28,10 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
             if action != 'entered' and words[i]:
                 raise ValueError('Clear the word field for keep_today/chatgpt, or select entered to use it')
         theme = theme or previous['theme']['name']
-        words = [previous['words'][i]['lemma'] if action=='keep_today' else (None if action=='chatgpt' else words[i]) for i, action in enumerate(actions)]
+        theme_changed = bool(previous and normalise(theme) != normalise(previous['theme']['name']))
+        # Keeping an old-theme word is not a request to force it into a new theme.
+        effective_actions = ['chatgpt' if theme_changed and action=='keep_today' else action for action in actions]
+        words = [previous['words'][i]['lemma'] if action=='keep_today' else (None if action=='chatgpt' else words[i]) for i, action in enumerate(effective_actions)]
         fixed = [word for word in words if word is not None]
         if len(set(normalise(w) for w in fixed)) != len(fixed):
             raise ValueError('Custom content requires three distinct words')
@@ -38,20 +41,24 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         old_words = previous['words'] if previous else []
         pinned_words = [next((w for w in old_words if normalise(w['lemma']) == normalise(word)), None) if word is not None else None for word in words]
         result.update(requested_theme=theme, requested_words=words,
-                      pinned_theme=pinned_theme, pinned_words=pinned_words, word_actions=actions)
+                      pinned_theme=pinned_theme, pinned_words=pinned_words, word_actions=effective_actions, theme_changed=theme_changed)
     return result
 
 
 def check_selection(package, selection):
     choice = selection['choice']; previous = selection['previous']
+    if choice not in ('custom','same_words') and package.get('private_review',{}).get('word_replacements'):
+        raise ValueError('Word replacement reviews apply only to custom selections')
     if choice == 'new': return
     if choice == 'custom':
+        replacements = replacement_review(package, selection)
         if normalise(package['theme']['name']) != normalise(selection['requested_theme']):
             raise ValueError('Custom theme differs from the requested theme')
         if selection['pinned_theme'] and package['theme'] != selection['pinned_theme']:
             raise ValueError('Reused custom theme metadata must stay unchanged')
-        for word, requested, pinned in zip(package['words'], selection['requested_words'], selection['pinned_words']):
-            if (requested is not None and normalise(word['lemma']) != normalise(requested)) or (pinned and word != pinned):
+        for index, (word, requested, pinned) in enumerate(zip(package['words'], selection['requested_words'], selection['pinned_words'])):
+            if index in replacements: continue
+            if (requested is not None and normalise(word['lemma']) != normalise(requested)) or (pinned and not retained_metadata(word,pinned,previous)):
                 raise ValueError('Custom word or reused equivalence metadata differs from the requested selection')
         if previous:
             if package['caption'] == previous['caption']:
@@ -75,7 +82,52 @@ def check_selection(package, selection):
             raise ValueError('Image-only reruns must preserve all existing content, palette and layouts')
 
 
-def novelty_history(history, date, selection):
+def retained_metadata(word, pinned, previous):
+    expected=copy.deepcopy(pinned)
+    if 'bosnian_level' not in expected and 'bosnian_level' in word:
+        expected['bosnian_level']=previous.get('bosnian_level')
+    return word==expected
+
+
+def replacement_review(package, selection):
+    """A reviewed incompatibility permits replacing an entered word, never a level mismatch."""
+    changes=package['private_review'].get('word_replacements',[]);result={}
+    if not isinstance(changes,list):
+        raise ValueError('Custom replacement reviews must be a list')
+    for change in changes:
+        if not isinstance(change,dict) or any(not isinstance(change.get(key),str) for key in ('requested_word','chosen_word','reason')):
+            raise ValueError('Custom compatibility replacement review is incomplete')
+        index=change.get('word_index')
+        if (type(index) is not int or index not in (0,1,2) or index in result or selection['word_actions'][index]!='entered'
+                or not isinstance(change.get('reason'),str) or len(change['reason'])<20
+                or normalise(change.get('requested_word',''))!=normalise(selection['requested_words'][index])
+                or normalise(change.get('chosen_word',''))!=normalise(package['words'][index]['lemma'])
+                or normalise(change['chosen_word'])==normalise(change['requested_word'])):
+            raise ValueError('Custom compatibility replacement review does not match an entered word')
+        result[index]=change
+    return result
+
+
+def word_levels(package, selection, global_level):
+    if selection['choice']=='same_words': return None
+    if selection['choice']!='custom': return [global_level]*3
+    changes=replacement_review(package,selection);targets=[]
+    for index,(requested,pinned) in enumerate(zip(selection['requested_words'],selection['pinned_words'])):
+        if requested is None or index in changes:targets.append(global_level)
+        elif pinned:
+            target=pinned['bosnian_level'] if 'bosnian_level' in pinned else selection['previous'].get('bosnian_level')
+            if target is None and ('bosnian_level' not in package['words'][index] or package['words'][index]['bosnian_level'] is not None):
+                raise ValueError('An unrated retained word must explicitly preserve its unknown level')
+            targets.append(target)
+        else:
+            level=package['words'][index].get('bosnian_level')
+            if level not in ('A1','A2','B1','B2','C1','C2'):
+                raise ValueError('A compatible new entered word needs its own reviewed difficulty')
+            targets.append(level)
+    return targets
+
+
+def novelty_history(history, date, selection, package=None):
     # Keep every older row authoritative. Exempt only explicitly reused metadata
     # from today's row; do not ignore today's old words for same_theme.
     result = copy.deepcopy(history)
@@ -86,6 +138,7 @@ def novelty_history(history, date, selection):
             day['content']['theme'] = {'name':'', 'equivalence_keys':[]}
         if selection['choice'] == 'same_words': day['content']['words'] = []
         if selection['choice'] == 'custom':
-            reused = [word for word in selection['pinned_words'] if word]
+            changes=replacement_review(package,selection) if package else {}
+            reused = [word for index,word in enumerate(selection['pinned_words']) if word and index not in changes]
             day['content']['words'] = [w for w in day['content']['words'] if w not in reused]
     return result

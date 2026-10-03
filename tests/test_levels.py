@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from easybosnian.core import ROOT, REPO
 from easybosnian.levels import LEVELS, load_level, set_level, settings_level
-from easybosnian.selection import selection_context, novelty_history, check_selection
+from easybosnian.selection import selection_context, novelty_history, check_selection, word_levels
 from easybosnian.validate import validate
 from test_project import reviewed_fixture
 
@@ -87,3 +87,83 @@ class LevelTests(unittest.TestCase):
         self.assertNotIn('secrets.',text);self.assertNotIn('cloud_prepare',text);self.assertNotIn('easybosnian run',text)
         pipeline=(ROOT/'.github/workflows/preparation.yml').read_text()
         self.assertIn('contents: read',pipeline);self.assertNotIn('contents: write',pipeline)
+
+
+class PerWordLevelTests(unittest.TestCase):
+    def setUp(self):
+        self.old=reviewed_fixture();self.old['bosnian_level']='A2'
+        for word in self.old['words']:word['bosnian_level']='A2'
+        self.history={'days':[{'date':self.old['date'],'content':self.old}]}
+
+    def fresh(self):
+        new=copy.deepcopy(self.old);new['bosnian_level']='B2';new['caption']+=' Danas.'
+        for card in new['cards']:
+            card['background_prompt']+=' Fresh light.'
+            card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
+        return new
+
+    def test_retained_copy_keeps_individual_level_after_global_change(self):
+        chosen=selection_context(self.history,self.old['date'],'custom')
+        new=self.fresh();check_selection(new,chosen)
+        targets=word_levels(new,chosen,'B2');self.assertEqual(targets,['A2']*3)
+        validate(new,novelty_history(self.history,new['date'],chosen,new),include_today=True,target_cefr='B2',word_level_targets=targets)
+        new['words'][0]['bosnian_level']='B2'
+        with self.assertRaises(ValueError):check_selection(new,chosen)
+        with self.assertRaisesRegex(ValueError,'difficulty'):validate(new,word_level_targets=targets)
+
+    def test_changed_theme_delegates_keep_today_and_keeps_history_authoritative(self):
+        chosen=selection_context(self.history,self.old['date'],'custom','Zimska šetnja')
+        self.assertTrue(chosen['theme_changed']);self.assertEqual(chosen['word_actions'],['chatgpt']*3)
+        self.assertEqual(chosen['requested_words'],[None]*3);self.assertEqual(chosen['pinned_words'],[None]*3)
+        self.assertEqual(novelty_history(self.history,self.old['date'],chosen),self.history)
+        self.assertEqual(word_levels(self.fresh(),chosen,'B2'),['B2']*3)
+
+    def test_compatible_entered_word_has_its_own_level_and_needs_no_replacement(self):
+        chosen=selection_context(self.history,self.old['date'],'custom','',['','','vjetar'],['keep_today','chatgpt','entered'])
+        new=self.fresh();new['words'][1]={'lemma':'sunce','equivalence_keys':['sun'],'bosnian_level':'B2'}
+        new['words'][2]={'lemma':'vjetar','equivalence_keys':['wind'],'bosnian_level':'A1'}
+        for card,word in zip(new['cards'],new['words']):card['word']=word['lemma']
+        check_selection(new,chosen);self.assertEqual(word_levels(new,chosen,'B2'),['A2','B2','A1'])
+        new['words'][2].pop('bosnian_level')
+        with self.assertRaisesRegex(ValueError,'reviewed difficulty'):word_levels(new,chosen,'B2')
+
+    def test_incompatible_entered_word_requires_matching_private_review_and_global_level(self):
+        chosen=selection_context(self.history,self.old['date'],'custom','',['','','knjiga'],['keep_today','chatgpt','entered'])
+        new=self.fresh();new['words'][1]={'lemma':'sunce','equivalence_keys':['sun'],'bosnian_level':'B2'}
+        new['words'][2]={'lemma':'vjetar','equivalence_keys':['wind'],'bosnian_level':'B2'}
+        for card,word in zip(new['cards'],new['words']):card['word']=word['lemma']
+        with self.assertRaises(ValueError):check_selection(new,chosen)
+        change={'word_index':2,'requested_word':'knjiga','chosen_word':'vjetar','reason':'Knjiga ne odgovara izabranoj temi kišnog dana; vjetar je vezan za vrijeme.'}
+        new['private_review']['word_replacements']=[change]
+        check_selection(new,chosen);self.assertEqual(word_levels(new,chosen,'B2'),['A2','B2','B2'])
+        for mutation in ({'word_index':0},{'requested_word':'wrong'},{'chosen_word':'wrong'},{'reason':'short'}):
+            new['private_review']['word_replacements']=[{**change,**mutation}]
+            with self.assertRaises(ValueError):check_selection(new,chosen)
+        for malformed in ([None],{},[change,change]):
+            new['private_review']['word_replacements']=malformed
+            with self.assertRaises(ValueError):check_selection(new,chosen)
+
+    def test_replaced_entered_word_is_not_exempted_from_novelty(self):
+        chosen=selection_context(self.history,self.old['date'],'custom','Zimska šetnja',['kišobran','',''],['entered','keep_today','keep_today'])
+        new=self.fresh();new['theme']={'name':'Zimska šetnja','equivalence_keys':['winter walk']}
+        new['words'][0]={'lemma':'kaput','equivalence_keys':['coat'],'bosnian_level':'B2'}
+        new['cards'][0]['word']='kaput'
+        new['private_review']['word_replacements']=[{'word_index':0,'requested_word':'kišobran','chosen_word':'kaput','reason':'U ovoj uskoj temi odjeće za snijeg izabrana riječ ne odgovara opisu.'}]
+        self.assertEqual(novelty_history(self.history,new['date'],chosen,new),self.history)
+        check_selection(new,chosen);self.assertEqual(word_levels(new,chosen,'B2'),['B2']*3)
+
+    def test_legacy_levels_and_image_only_reviews_remain_compatible(self):
+        legacy=reviewed_fixture();history={'days':[{'date':legacy['date'],'content':legacy}]}
+        chosen=selection_context(history,legacy['date'],'custom');new=copy.deepcopy(legacy)
+        for word in new['words']:word['bosnian_level']=None
+        self.assertEqual(word_levels(new,chosen,'B2'),[None]*3)
+        new['bosnian_level']='B2'
+        newer=selection_context({'days':[{'date':new['date'],'content':new}]},new['date'],'custom')
+        self.assertEqual(word_levels(new,newer,'C1'),[None]*3)
+        legacy['bosnian_level']='A2';chosen=selection_context(history,legacy['date'],'custom')
+        for word in new['words']:word['bosnian_level']='A2'
+        self.assertEqual(word_levels(new,chosen,'B2'),['A2']*3)
+        self.old['private_review']['word_replacements']=[{'word_index':0,'requested_word':'kaput','chosen_word':'kišobran','reason':'Ranije provjerena promjena zbog neusaglašene teme.'}]
+        chosen=selection_context(self.history,self.old['date'],'same_words');new=copy.deepcopy(self.old)
+        for card in new['cards']:card['background_prompt']+=' Fresh light.'
+        check_selection(new,chosen);self.assertIsNone(word_levels(new,chosen,'B2'))
