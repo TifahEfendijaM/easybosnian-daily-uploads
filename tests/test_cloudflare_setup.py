@@ -74,6 +74,18 @@ class ScheduleConsistency(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'clock mismatch'):setup.validate_schedule()
                     path.write_text(original)
 
+    def test_single_digit_minutes_accept_padding_but_reject_a_different_slot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=self.fixture(directory)
+            (root/'cloudflare/worker.mjs').write_text("if(f.hour!=='13' || f.minute!=='05') return;")
+            with patch.object(setup,'ROOT',root):
+                for example,real in [('5','05'),('05','5')]:
+                    for name,minute in [('wrangler.example.toml',example),('wrangler.toml',real)]:
+                        (root/'cloudflare'/name).write_text(f'[triggers]\ncrons = ["{minute} 11,12 * * *"]\n')
+                    self.assertEqual(setup.validate_schedule(),'5 11,12 * * *')
+                (root/'cloudflare/wrangler.toml').write_text('[triggers]\ncrons = ["06 11,12 * * *"]\n')
+                with self.assertRaisesRegex(ValueError,'clock mismatch'):setup.validate_schedule()
+
     def test_deploy_refuses_mismatch_before_any_provider_command(self):
         with tempfile.TemporaryDirectory() as directory:
             root=self.fixture(directory)
