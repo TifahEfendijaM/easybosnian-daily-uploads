@@ -23,23 +23,25 @@ class SelectionTests(unittest.TestCase):
         wrong=copy.deepcopy(self.old);wrong['words'][0]['equivalence_keys'].append('changed')
         with self.assertRaises(ValueError):check_selection(wrong,chosen)
 
-    def test_same_words_preserves_copy_palette_layout_and_metadata_with_fresh_prompts(self):
+    def test_same_words_retains_words_but_requires_fresh_copy_and_allows_new_design(self):
         chosen=selection_context(self.history,self.old['date'],'same_words')
         with self.assertRaises(ValueError):check_selection(self.old,chosen)
-        new=copy.deepcopy(self.old)
+        new=copy.deepcopy(self.old);new['caption']+=' Danas.'
+        new['design_palette']='gold-cream'
         for c in new['cards']:
             c['background_prompt']+=' New light.'
+            c['design_template']='minimal'
+            c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
         check_selection(new,chosen)
-        for change in ('caption','body','palette','layout','review'):
+        for change in ('caption','body','prompt','word','theme'):
             wrong=copy.deepcopy(new)
-            if change=='caption':wrong['caption']+=' Danas.'
-            if change=='body':wrong['cards'][1]['body']+=' Danas.'
-            if change=='palette':wrong['design_palette']='gold-cream'
-            if change=='layout':wrong['cards'][0]['design_template']='minimal'
-            if change=='review':wrong['private_review']['notes']+=' changed'
+            if change=='caption':wrong['caption']=self.old['caption']
+            if change=='body':wrong['cards'][1]=copy.deepcopy(self.old['cards'][1]);wrong['cards'][1]['background_prompt']+=' New light.'
+            if change=='prompt':wrong['cards'][0]['background_prompt']=self.old['cards'][0]['background_prompt']
+            if change=='word':wrong['words'][0]['lemma']='kaput'
+            if change=='theme':wrong['theme']['name']='renamed'
             with self.subTest(change=change),self.assertRaises(ValueError):check_selection(wrong,chosen)
         validate(new,novelty_history(self.history,new['date'],chosen),include_today=True)
-        # The exemption does not extend to an older day's reused words/theme.
         history=copy.deepcopy(self.history);history['days'].append({'date':'2026-10-01','content':self.old})
         with self.assertRaises(ValueError):validate(new,novelty_history(history,new['date'],chosen),include_today=True)
 
@@ -49,6 +51,11 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.history['days'][0]['content']['theme'],self.old['theme'])
         with self.assertRaises(ValueError):validate(self.old,filtered,include_today=True)
         with self.assertRaises(ValueError):validate(self.old,self.history,include_today=True)
+
+    def test_non_custom_choices_ignore_every_custom_control(self):
+        for choice in ('new','same_theme','same_words'):
+            chosen=selection_context(self.history,self.old['date'],choice,'Unrelated theme',['x','x','x'],['unknown']*3)
+            self.assertEqual(chosen,{'choice':choice,'previous':self.old})
 
     def test_custom_blank_defaults_preserve_metadata_but_require_fresh_text(self):
         chosen=selection_context(self.history,self.old['date'],'custom')

@@ -123,7 +123,7 @@ class CloudPreparationTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):cloud_run('preview')
                 save.assert_not_called()
 
-    def test_image_only_and_custom_defaults_enforce_different_fresh_content_rules(self):
+    def test_same_words_and_custom_defaults_both_enforce_fresh_content_rules(self):
         import copy
         from test_project import reviewed_fixture
         date='2026-10-03';old=reviewed_fixture();old['date']=date;old['bosnian_level']='A2'
@@ -133,20 +133,20 @@ class CloudPreparationTests(unittest.TestCase):
                 def agent(*args):
                     package=copy.deepcopy(old)
                     for c in package['cards']:c['background_prompt']+=' Fresh natural light.'
-                    if choice=='custom':
-                        package['bosnian_level']='B2'
-                        package['caption']+=' Danas.';package['cards'][0]['quiz_format']='other'
-                        for c in package['cards']:c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
+                    package['bosnian_level']='B2'
+                    for word in package['words']:word['bosnian_level']='A2'
+                    package['caption']+=' Danas.';package['cards'][0]['quiz_format']='other'
+                    for c in package['cards']:c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
                     write_json(root/f'build/preparation/{date}.json',package)
                     return '{"status":"ready","reason":"none"}'
                 with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.load_level',return_value='B2'),patch('easybosnian.cloud_prepare.require_publishing') as gate,patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate') as validation,patch('easybosnian.cloud_prepare.fit_check'),patch('easybosnian.cloud_prepare.prepare') as save:
                     store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':old}]}
                     cloud_run('daily',choice)
                     gate.assert_called_once();save.assert_called_once()
-                    self.assertEqual(validation.call_args.kwargs['require_website_footer'],choice=='custom')
-                    self.assertEqual(validation.call_args.kwargs['require_quiz_format'],choice=='custom')
-                    self.assertEqual(validation.call_args.kwargs['target_cefr'],'B2' if choice=='custom' else None)
-                    self.assertEqual(validation.call_args.kwargs['word_level_targets'],['A2']*3 if choice=='custom' else None)
+                    self.assertEqual(validation.call_args.kwargs['require_website_footer'],True)
+                    self.assertEqual(validation.call_args.kwargs['require_quiz_format'],True)
+                    self.assertEqual(validation.call_args.kwargs['target_cefr'],'B2')
+                    self.assertEqual(validation.call_args.kwargs['word_level_targets'],['A2']*3)
                     context=read_json(root/'build/preparation-context.json')
                     self.assertEqual(context['target_cefr'],'B2')
                     if choice=='custom':self.assertEqual(context['selection']['requested_words'],[w['lemma'] for w in old['words']])

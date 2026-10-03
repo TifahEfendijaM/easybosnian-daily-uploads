@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Verify connections, render a saved preview, or prepare and publish fresh daily content
+        description: Start here: daily = publish; preview = render without posting; verify = connection check only
         type: choice
         options: [verify, preview, daily]
         default: verify
       content_selection:
-        description: 'Daily content: same_words = new images only; same_theme = new words; new = all new; custom = your theme/words with fresh text'
+        description: 'Daily choice: same_words = redo content for same words; same_theme = new words; new = all new; custom = edit fields below'
         type: choice
         options: [same_words, same_theme, new, custom]
         default: new
@@ -18,7 +18,7 @@ on:
         type: string
         default: ''
       custom_word_1_action:
-        description: 'Pitanje dana: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
+        description: 'CUSTOM ONLY - Pitanje dana: keep_today = keep word; chatgpt = choose word; entered = use typed word'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
@@ -27,7 +27,7 @@ on:
         type: string
         default: ''
       custom_word_2_action:
-        description: 'Znaš li: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
+        description: 'CUSTOM ONLY - Znaš li: keep_today = keep word; chatgpt = choose word; entered = use typed word'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
@@ -36,7 +36,7 @@ on:
         type: string
         default: ''
       custom_word_3_action:
-        description: 'Riječ dana: keep_today = retain latest if theme unchanged; chatgpt = new; entered = use field if theme-compatible'
+        description: 'CUSTOM ONLY - Riječ dana: keep_today = keep word; chatgpt = choose word; entered = use typed word'
         type: choice
         options: [keep_today, chatgpt, entered]
         default: keep_today
@@ -45,7 +45,7 @@ on:
         type: string
         default: ''
       tiktok_previous_removed:
-        description: I manually deleted today's previous TikTok post before this daily rerun
+        description: 'Daily rerun: tick ONLY after deleting today’s previous TikTok post yourself (required for TikTok replacement)'
         type: boolean
         default: false
 permissions:

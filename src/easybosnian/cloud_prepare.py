@@ -188,8 +188,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 package=read_json(draft)
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
-                fresh=chosen['choice']!='same_words'
-                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None,word_level_targets=word_levels(package,chosen,level));fit_check(package)
+                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
                 stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}

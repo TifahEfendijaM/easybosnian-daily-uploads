@@ -74,10 +74,9 @@ def prepare(path,selection=None):
     store=Store();history=store.history()
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
-    fresh=not selection or selection['choice']!='same_words'
     from .levels import load_level
     level=load_level()
-    validate(package,history,include_today=True,require_website_footer=fresh,require_quiz_format=fresh,target_cefr=level if fresh else None,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
+    validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
