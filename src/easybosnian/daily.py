@@ -11,6 +11,7 @@ from .pipeline import publish_instagram
 from .stories import publish_stories
 from .store import Store
 from .validate import validate
+from .replacement import cleanup, recorder
 
 
 def daily(date=None,mode='preview'):
@@ -31,21 +32,29 @@ def daily(date=None,mode='preview'):
         result={'batch':date,'status':'unpublished preview','published':False}
         write_json(ROOT/'build'/date/'result.json',result);return result
     results={};failed=[]
-    operations=[('instagram',lambda:publish_instagram(package,assets))]
+    operations=[('instagram',lambda:publish_instagram(package,assets,record=recorder(store,date,'instagram')))]
     for name,flag,publisher in [('facebook','FACEBOOK_POSTING_ENABLED',publish_facebook),('tiktok','TIKTOK_POSTING_ENABLED',publish_tiktok)]:
-        if os.getenv(flag)=='true': operations.append((name,lambda fn=publisher:fn(package,assets)))
+        if os.getenv(flag)=='true': operations.append((name,lambda fn=publisher,platform=name:fn(package,assets,record=recorder(store,date,platform))))
         else: results[name]={'status':'disabled','published':False}
     for name,operation in operations:
-        try: results[name]=operation()
+        try:
+            removed=cleanup(store,date,name)
         except Exception as error:
             failed.append(name);results[name]={'status':'failed; inspect platform result artifact','error':redact(error),'published':False}
+            print(failure(date,name+' replacement cleanup',error,'replacement not submitted; prior content may be partly removed; no automatic retry',os.getenv('GITHUB_RUN_URL')))
+            continue
+        try:
+            results[name]=operation();results[name]['replacement_cleanup']=removed
+        except Exception as error:
+            # Publishers already write their artifact and private failure issue.
+            failed.append(name);results[name]={'status':'failed; inspect platform result artifact','error':redact(error),'published':False}
     if os.getenv('INSTAGRAM_STORIES_ENABLED')=='true' and results['instagram'].get('published'):
-        try: results['instagram_stories']=publish_stories(store,package,assets)
+        try: results['instagram_stories']=publish_stories(store,package,assets,record=recorder(store,date,'instagram'))
         except Exception as error:
             failed.append('instagram_stories');results['instagram_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['instagram_stories']={'status':'disabled or Instagram feed publication not confirmed in this run','published':False}
     if os.getenv('FACEBOOK_STORIES_ENABLED')=='true' and results['facebook'].get('published'):
-        try: results['facebook_stories']=publish_facebook_stories(store,package,assets)
+        try: results['facebook_stories']=publish_facebook_stories(store,package,assets,record=recorder(store,date,'facebook'))
         except Exception as error:
             failed.append('facebook_stories');results['facebook_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['facebook_stories']={'status':'disabled or Facebook feed publication not confirmed in this run','published':False}

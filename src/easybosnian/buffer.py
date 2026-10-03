@@ -118,7 +118,7 @@ def checked_post(buffer, package, post_id, actual, assets):
     return actual['externalLink']
 
 
-def publish_tiktok(package, assets):
+def publish_tiktok(package, assets, record=None):
     date=package['date'];stage='TikTok authorization';result={'batch':date,'published':False}
     publication='nothing submitted to TikTok'
     try:
@@ -128,6 +128,7 @@ def publish_tiktok(package, assets):
         publication='Buffer submission outcome uncertain'
         accepted=buffer.create(caption(package),[assets[c['kind']]['url'] for c in package['cards']])
         post_id=identifier(accepted['id']);result['post_id']=post_id
+        if record: record('feed',post_id,buffer.channel_id)
         # Diagnostic artifacts are not a durable gate or a recovery state machine.
         publication='Buffer accepted; TikTok publication unconfirmed'
         write_json(ROOT/'build'/date/'tiktok-result.json',{**result,'status':publication})

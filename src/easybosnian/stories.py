@@ -29,7 +29,7 @@ def verify_story(ig,media_id):
     return actual['permalink']
 
 
-def publish_stories(store,package,assets):
+def publish_stories(store,package,assets,record=None):
     date=package['date'];stage='Instagram Stories authorization';stories=[]
     publication='nothing published to Instagram Stories'
     try:
@@ -45,6 +45,7 @@ def publish_stories(store,package,assets):
             stage='Instagram Stories publishing';require_publishing();container=ig.story(url);ig.ready(container)
             publication='partial or uncertain Instagram Story publication'
             media_id=ig.publish(container)
+            if record: record('story',media_id,ig.user_id)
             item={'slide':kind,'media_id':media_id,'highlight':HIGHLIGHTS[kind],'highlight_status':'manual addition required'}
             stories.append(item);stage='Instagram Stories verification';item['permalink']=verify_story(ig,media_id)
         result={'batch':date,'published':True,'status':'three image Stories confirmed published; Highlights need manual addition','stories':stories}

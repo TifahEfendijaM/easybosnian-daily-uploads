@@ -22,3 +22,15 @@ class MigrationTests(unittest.TestCase):
         tables={x[0] for x in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         self.assertFalse(tables & {'batches','reservations','generations','settings','alerts','events'})
         db.close()
+
+    def test_identifier_migration_keeps_history_and_claims_without_reintroducing_state(self):
+        db=sqlite3.connect(':memory:')
+        db.executescript('CREATE TABLE history(date TEXT PRIMARY KEY, content_json TEXT); CREATE TABLE preparation_dispatches(date TEXT PRIMARY KEY, status TEXT);')
+        db.execute('INSERT INTO history VALUES(?,?)',('2026-10-03','reviewed content'))
+        db.execute('INSERT INTO preparation_dispatches VALUES(?,?)',('2026-10-03','accepted'))
+        db.executescript((ROOT/'cloudflare/migrations/0004_publication_ids.sql').read_text())
+        self.assertEqual(db.execute('SELECT * FROM history').fetchall(),[('2026-10-03','reviewed content')])
+        self.assertEqual(db.execute('SELECT * FROM preparation_dispatches').fetchall(),[('2026-10-03','accepted')])
+        self.assertEqual([x[1] for x in db.execute('PRAGMA table_info(publication_ids)')],['date','platform','kind','object_id','account_id'])
+        self.assertEqual(db.execute('SELECT * FROM publication_ids').fetchall(),[])
+        db.close()

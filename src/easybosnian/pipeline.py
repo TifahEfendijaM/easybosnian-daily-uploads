@@ -21,7 +21,7 @@ def verify_media(ig, package, media_id):
     return actual['permalink']
 
 
-def publish_instagram(package, assets):
+def publish_instagram(package, assets, record=None):
     date=package['date']; stage='authorization'; result={'batch':date,'published':False}
     publication='nothing published to Instagram'
     try:
@@ -35,6 +35,7 @@ def publish_instagram(package, assets):
         require_publishing()
         publication='Instagram publish request outcome uncertain'
         media_id=ig.publish(carousel);result['media_id']=media_id
+        if record: record('feed',media_id,ig.user_id)
         publication='published to Instagram; content read-back pending';stage='publication verification'
         result.update(permalink=verify_media(ig,package,media_id),published=True,status='confirmed Instagram publication')
         write_json(ROOT/'build'/date/'instagram-result.json',result)

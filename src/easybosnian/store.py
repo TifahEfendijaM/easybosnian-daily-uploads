@@ -15,6 +15,10 @@ class Store:
     def history(self): return self.call('GET','/v1/history')
     def content(self,date): return self.call('GET',f'/v1/history/{date}')
     def save_content(self,package): return self.call('PUT',f'/v1/history/{package["date"]}',package)
+    def publications(self,date): return self.call('GET',f'/v1/publications/{date}')['items']
+    def remember(self,date,platform,kind,object_id,account_id):
+        return self.call('POST',f'/v1/publications/{date}',{'platform':platform,'kind':kind,'object_id':str(object_id),'account_id':str(account_id)})
+    def forget(self,date,platform,object_id): return self.call('DELETE',f'/v1/publications/{date}/{platform}/{object_id}')
     def get_file(self,date,name): return self.call('GET',f'/v1/private/{date}/{name}',raw=True)
     def put_file(self,date,name,body): return self.call('PUT',f'/v1/private/{date}/{name}',body,headers={'Content-Type':'image/jpeg'})
     def expose(self,date,name): return self.call('POST',f'/v1/expose/{date}/{name}')['url']

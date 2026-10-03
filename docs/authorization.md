@@ -10,6 +10,7 @@ Operate only on private TifahEfendijaM/easybosnian-daily-uploads and its existin
 | GitHub secrets | CODEX_AUTH_JSON: dedicated cloud-only managed ChatGPT sign-in |
 | GitHub secrets | GH_SECRETS_TOKEN: refresh/persist cloud and Instagram credentials, restricted to this repository |
 | GitHub secrets | INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_USER_ID, INSTAGRAM_TOKEN_ISSUED_AT, META_GRAPH_VERSION: exact professional @easy_bosnian account and supported Graph version |
+| GitHub secrets | INSTAGRAM_DELETE_ACCESS_TOKEN, INSTAGRAM_DELETE_USER_ID: separate Facebook Login authorization for same-date Instagram deletion only |
 | GitHub secrets | FACEBOOK_PAGE_ID, FACEBOOK_PAGE_TOKEN: independently authorized Easy Bosnian Page 1284422991426579 |
 | GitHub secrets | BUFFER_API_KEY: Free Buffer account:read/posts:read/posts:write key |
 | Worker secrets | ADMIN_TOKEN: authenticates private history/image operations |
@@ -35,3 +36,5 @@ Current API references: [Meta Page Stories](https://developers.facebook.com/docu
 DAILY_POSTING_ENABLED, FACEBOOK_POSTING_ENABLED, TIKTOK_POSTING_ENABLED, INSTAGRAM_STORIES_ENABLED, FACEBOOK_STORIES_ENABLED, BUFFER_TIKTOK_CHANNEL_ID and BUFFER_ORGANIZATION_ID remain. PREPARATION_DISPATCH_ENABLED remains a Worker configuration variable. GitHub issues use the workflow's native GITHUB_TOKEN; the Worker no longer needs an issue token.
 
 Remove obsolete secrets/variables and revoke the old notification PAT only after rollout. See migration-and-rollout.md for the exact sequence and commands. No live credential is removed during branch review.
+
+Instagram deletion uses [Meta Instagram Media deletion](https://developers.facebook.com/documentation/instagram-platform/reference/instagram-media), which currently supports Facebook Login only and requires instagram_basic + instagram_manage_contents. It needs the exact Page/profile link and a separate long-lived Facebook User token; publishing tokens remain unchanged. Renew this finite-lived deletion credential through explicit Facebook Login before its documented expiry. [Facebook Page post deletion](https://developers.facebook.com/documentation/pages-api/posts) uses the existing Page token. See manual-reruns.md for scope and safeguards.

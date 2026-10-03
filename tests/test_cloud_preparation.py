@@ -16,6 +16,10 @@ def auth(token="fresh"):
 
 
 class CloudPreparationTests(unittest.TestCase):
+    def setUp(self):
+        guard=patch('easybosnian.notify.gh',return_value='test-only')
+        guard.start();self.addCleanup(guard.stop)
+
     def test_fresh_runner_creates_private_logs_and_child_has_no_provider_secrets(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp); path=root/"credentials/auth.json"
@@ -105,9 +109,9 @@ class CloudPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
             def agent(*args):
-                order.append('research');write_json(root/f'build/preparation/{date}.json',{'date':date})
+                order.append('research');write_json(root/f'build/preparation/{date}.json',{'date':date,'cards':[{'design_template':x} for x in ('editorial','notebook','poster')]})
                 return '{"status":"ready","reason":"none"}'
-            with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate',side_effect=lambda *a,**k:order.append('validate')),patch('easybosnian.cloud_prepare.fit_check',side_effect=lambda *a:order.append('fit')),patch('easybosnian.cloud_prepare.prepare',side_effect=lambda *a:order.append('save')):
+            with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate',side_effect=lambda *a,**k:order.append('validate')),patch('easybosnian.cloud_prepare.fit_check',side_effect=lambda *a:order.append('fit')),patch('easybosnian.cloud_prepare.prepare',side_effect=lambda *a,**k:order.append('save')):
                 store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':{'old':'content'}}]}
                 cloud_run('daily');self.assertEqual(order,['research','validate','fit','save'])
 
