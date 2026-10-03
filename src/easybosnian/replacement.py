@@ -28,8 +28,10 @@ def cleanup(store, date, platform):
         return {'removed':0, 'manually_removed':len(items)}
     provider = InstagramDeletion() if platform == 'instagram' else Facebook()
     provider.verify_account() if platform == 'instagram' else provider.verify_page()
-    expected = os.environ['INSTAGRAM_USER_ID'] if platform == 'instagram' else provider.page_id
-    if any(x['account_id'] != expected for x in items):
+    # Instagram Login and Facebook Login can identify this verified profile
+    # differently. Accept only its verified publishing ID or linked deletion ID.
+    expected = {os.environ['INSTAGRAM_USER_ID'], provider.user_id} if platform == 'instagram' else {provider.page_id}
+    if any(x['account_id'] not in expected for x in items):
         raise ValueError('Recorded media belong to a different publishing account')
     result = {'removed':0, 'already_absent':0}
     # Read the authenticated account's complete owned-media edge. Missing here

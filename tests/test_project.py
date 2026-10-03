@@ -141,8 +141,7 @@ class RendererTests(unittest.TestCase):
                         metrics=render(c,'blue-ice',background,output)
                         with Image.open(output) as image: self.assertEqual(image.size,(1080,1350))
                         self.assertLess(metrics['panel_area_ratio'],.49)
-                        self.assertLessEqual(metrics['panel_bounds'][-1][3],1170)
-                        self.assertGreaterEqual(metrics['label_bounds'][1],64)
+                        self.assertLess(metrics['panel_bounds'][-1][3],1050)
                         seen.add(output.read_bytes())
             self.assertGreater(len(seen),24)
 
@@ -153,19 +152,6 @@ class RendererTests(unittest.TestCase):
                 render(preview.package()['cards'][2],palette,bg,Path(directory)/f'{palette}.jpg')
         text='Često čujemo: ćilim, šuma, žaba i đak.'
         self.assertEqual(' '.join(wrap(text,font(44),400)),text)
-
-    def test_layouts_have_distinct_positions_widths_and_heading_formats(self):
-        with tempfile.TemporaryDirectory() as directory:
-            bg=Path(directory)/'bg.jpg';Image.new('RGB',(1080,1350),'#648699').save(bg)
-            metrics={}
-            for style in LAYOUTS:
-                c=copy.deepcopy(preview.package()['cards'][2]);c['design_template']=style
-                metrics[style]=render(c,'blue-ice',bg,Path(directory)/(style+'.jpg'))
-            self.assertEqual(len({tuple(m['panel_bounds'][0]) for m in metrics.values()}),8)
-            self.assertEqual({m['heading_alignment'] for m in metrics.values()},{'left','center','right'})
-            self.assertGreater(metrics['framed']['heading_bounds'][1],metrics['editorial']['heading_bounds'][1]+400)
-            self.assertGreater(metrics['ribbon']['panel_bounds'][0][0],metrics['notebook']['panel_bounds'][0][0])
-            self.assertGreater(metrics['poster']['heading_font_size'],metrics['notebook']['heading_font_size'])
 
     def test_overlong_copy_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,7 @@
 # Reviewed migration and deployment order
 
+**Historical record:** the simplification and migration 0003 are already complete. The current clock is 05:00 Sarajevo. For the current additive identifier migration, deletion authorization and rerun rollout, follow [manual-reruns.md](manual-reruns.md). Do not replay the rejected-artwork cleanup or migration 0003.
+
 Work is on simplify-daily-pipeline. Review the full diff and rendered fixtures before applying production changes. The 12:30 clock and existing credentials stay on the same Worker/resources. There is no reason to keep separate preparation/publication jobs: one job still preserves refreshed cloud credentials before rendering and live posting.
 
 ## What migration 0003 does

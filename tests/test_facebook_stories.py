@@ -26,6 +26,8 @@ class FacebookStoryTests(unittest.TestCase):
     def setUp(self):
         guard=patch('easybosnian.notify.gh',return_value='test-only')
         guard.start();self.addCleanup(guard.stop)
+        cleanup=patch('easybosnian.daily.cleanup',return_value={'removed':0,'already_absent':0})
+        cleanup.start();self.addCleanup(cleanup.stop)
 
     def test_meta_upload_and_story_contract_uses_fresh_unpublished_photo(self):
         with patch.dict(os.environ, {'META_GRAPH_VERSION': 'v26.0'}):

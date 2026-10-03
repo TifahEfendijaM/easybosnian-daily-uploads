@@ -52,34 +52,22 @@ def contrast(a,b):
     return (y+.05)/(x+.05)
 
 
-def aligned_x(x, width, row, face, align):
-    extent = face.getlength(row)
-    return x + (width - extent) * ({'left':0, 'center':.5, 'right':1}[align])
-
-
-def protect_heading(image, xy, rows, face, palette, width, align):
-    h, _ = measure(rows, face)
-    x, y = map(int, xy)
-    box = (x, y, x + width, y + h + 4)
-    mask = Image.new('L', (width, h + 4))
-    draw_aligned(ImageDraw.Draw(mask), (0, 0), rows, face, 255, width, align)
-    points = [(px, py) for py in range(0, mask.height, 3) for px in range(0, mask.width, 3) if mask.getpixel((px, py)) > 128]
-    region = image.crop(box)
-    rgb = tuple(int(palette['scrim'][i:i+2], 16) for i in (1, 3, 5))
-    for alpha in (0, 50, 90, 130, 170, 210, 255):
-        candidate = Image.alpha_composite(region, Image.new('RGBA', region.size, (*rgb, alpha))) if alpha else region
-        lowest = min((contrast(palette['panel'], candidate.getpixel(p)) for p in points), default=10)
-        if lowest >= 3:
-            if alpha: image.paste(candidate, box[:2])
+def protect_heading(image, xy, rows, face, palette):
+    # Check the actual pixels under real glyphs, adding a local scrim only if needed.
+    h,_=measure(rows,face)
+    box=(MARGIN,int(xy[1]),WIDTH-MARGIN,int(xy[1]+h+3))
+    mask=Image.new('L',(box[2]-box[0],box[3]-box[1]))
+    draw_rows(ImageDraw.Draw(mask),(0,0),rows,face,255)
+    points=[(x,y) for y in range(0,mask.height,3) for x in range(0,mask.width,3) if mask.getpixel((x,y))>128]
+    region=image.crop(box)
+    for alpha in (0,50,90,130,170,210):
+        rgb=tuple(int(palette['scrim'][i:i+2],16) for i in (1,3,5))
+        candidate=Image.alpha_composite(region,Image.new('RGBA',region.size,(*rgb,alpha))) if alpha else region
+        lowest=min((contrast(palette['panel'],candidate.getpixel(p)) for p in points),default=10)
+        if lowest>=3:
+            if alpha: image.paste(candidate,box[:2])
             return lowest
-    raise ValueError('Heading contrast fails on actual artwork; rewrite rather than hide text')
-
-
-def draw_aligned(draw, xy, rows, face, fill, width, align):
-    height, step = measure(rows, face)
-    for i, row in enumerate(rows):
-        draw_rows(draw, (aligned_x(xy[0], width, row, face, align), xy[1]+i*step), [row], face, fill)
-    return height
+    raise ValueError('Heading contrast fails on the actual artwork; reject rather than hide text')
 
 
 def draw_rows(draw, xy, rows, face, fill):
@@ -130,98 +118,114 @@ def panel(draw, box, style, palette, option=False):
 
 
 def render(card, palette_id, background, output):
-    palette = json.loads((ROOT / 'data/design-palettes.json').read_text())[palette_id]
-    style = card['design_template']
-    if style not in LAYOUTS: raise ValueError('Unapproved layout')
-    layout = json.loads((ROOT / 'data/design-layouts.json').read_text())[style]
-    body_contrast = min(contrast(palette['ink'], palette['panel']), contrast(palette['ink'], palette['accent']))
-    if body_contrast < 4.5: raise ValueError('Approved palette no longer meets text contrast requirements')
-    if len(' '.join(instructional(card))) > 460: raise ValueError('Copy exceeds the instructional maximum; rewrite')
-    x, width = layout['x'], layout['width']
-    body_size, padding = density(card); body_face = font(body_size)
-    face_label = font(24 if style == 'poster' else 27, 'SemiBold')
-    label = LABELS[card['kind']]; label_width = round(face_label.getlength(label)) + 46
-    title = card['question'] if card['kind'] == 'quiz' else card['heading']
-    title_size = layout['quiz_size'] if card['kind'] == 'quiz' else layout['title_size']
-    title_face = font(title_size, 'Bold' if style == 'poster' else 'SemiBold')
-    title_rows = wrap(title, title_face, width)
-    # Narrow columns use their approved smaller heading size; never truncate.
-    if len(title_rows) > (3 if card['kind'] == 'quiz' else 2):
-        raise ValueError('Heading exceeds the selected layout; rewrite or choose a wider layout')
-    title_height, _ = measure(title_rows, title_face)
-    heading_height = 62 + layout['gap'] + title_height
-    blocks = []; y = 0
-    if card['kind'] == 'quiz':
-        for option in card['options']:
-            rows = wrap(option['text'], body_face, width-142)
-            text_height, _ = measure(rows, body_face)
-            block_height = max(92, text_height + 2*padding)
-            blocks.append((y, block_height, rows, option['label'], False)); y += block_height + 16
-    else:
-        for text, example in [(card['body'], False)] + ([(card['example'], True)] if card.get('example') else []):
-            rows = wrap(text, body_face, width-2*padding-24)
-            text_height, _ = measure(rows, body_face)
-            label_height = measure(['PRIMJER'], font(22, 'SemiBold'))[0]+16 if example else 0
-            block_height = text_height + 2*padding + label_height
-            blocks.append((y, block_height, rows, None, example)); y += block_height + (22 if style == 'split-cards' else 14)
-    blocks_height = y - (16 if card['kind'] == 'quiz' else 22 if style == 'split-cards' else 14)
-    total_height = heading_height + 28 + blocks_height
-    anchor = layout['anchor']; bottom = 1170
-    if anchor == 'split':
-        heading_top = 64; panel_top = bottom-blocks_height
-        if panel_top < heading_top+heading_height+80:
-            raise ValueError('Split layout needs a visible middle scene; choose another layout or rewrite')
-    else:
-        heading_top = 64 if anchor == 'top' else bottom-total_height if anchor == 'bottom' else round((bottom+64-total_height)/2)
-        panel_top = heading_top+heading_height+28
-    if heading_top < 64 or panel_top+blocks_height > bottom:
-        raise ValueError('Copy does not fit the chosen layout; rewrite without truncation')
-    panel_area = sum(b[1]*width for b in blocks)
-    if panel_area > WIDTH*HEIGHT*.49:
-        raise ValueError('Copy panels would obscure too much artwork; rewrite')
-    image = ImageOps.fit(Image.open(background).convert('RGB'), (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS).convert('RGBA')
-    ink, accent, paper = palette['ink'], palette['accent'], palette['panel']
-    title_y = heading_top+62+layout['gap']
-    heading_contrast = protect_heading(image, (x,title_y), title_rows, title_face, palette, width, layout['align'])
+    palette = json.loads((ROOT / "data/design-palettes.json").read_text())[palette_id]
+    minimum_body_contrast=min(contrast(palette['ink'],palette['panel']),contrast(palette['ink'],palette['accent']))
+    if minimum_body_contrast<4.5: raise ValueError('Approved palette no longer meets text contrast requirements')
+    style = card["design_template"]
+    if style not in LAYOUTS:
+        raise ValueError("Unapproved layout")
+    height = HEIGHT
+    image = ImageOps.fit(Image.open(background).convert("RGB"), (WIDTH, height), method=Image.Resampling.LANCZOS).convert("RGBA")
+    # Palette-matched gradient protects headings while leaving lower artwork visible.
+    overlay = Image.new("RGBA", image.size)
+    od = ImageDraw.Draw(overlay)
+    scrim = tuple(int(palette["scrim"][i:i + 2], 16) for i in (1, 3, 5))
+    for y in range(height):
+        alpha = round(205 * max(0, 1 - y / 850))
+        od.line((0, y, WIDTH, y), fill=(*scrim, alpha))
+    image = Image.alpha_composite(image, overlay)
     draw = ImageDraw.Draw(image)
-    label_x = x + (width-label_width)*({'left':0, 'center':.5, 'right':1}[layout['label_align']])
-    label_box = (label_x, heading_top, label_x+label_width, heading_top+62)
-    # Opaque category badge keeps all three category labels readable anywhere.
-    if style == 'rounded': draw.rounded_rectangle(label_box, radius=31, fill=accent)
-    elif style in ('framed','minimal'):
-        draw.rounded_rectangle(label_box, radius=12, fill=paper)
-        if style == 'framed': draw.rounded_rectangle(label_box, radius=12, outline=accent, width=3)
-        else: draw.line((label_box[0], label_box[3], label_box[2], label_box[3]), fill=accent, width=3)
+    ink, accent, paper = palette["ink"], palette["accent"], palette["panel"]
+    face_label = font(27, "SemiBold")
+    label = LABELS[card["kind"]]
+    label_width = round(face_label.getlength(label)) + 46
+    label_box = (MARGIN, MARGIN, MARGIN + label_width, MARGIN + 62)
+    if style == "rounded":
+        draw.rounded_rectangle(label_box, radius=31, fill=accent)
+    elif style == "framed":
+        draw.rectangle(label_box, outline=paper, width=2)
+    elif style == "minimal":
+        draw.line((label_box[0], label_box[3], label_box[2], label_box[3]), fill=accent, width=3)
     else:
-        draw.rounded_rectangle(label_box, radius=8, fill=accent)
-        if style == 'ribbon': draw.polygon([(label_x,heading_top+62),(label_x+15,heading_top+78),(label_x+15,heading_top+62)],fill=ink)
-    centered(draw,label_box,label,face_label,ink)
-    draw_aligned(draw,(x,title_y),title_rows,title_face,paper,width,layout['align'])
-    bounds=[]
-    for offset, block_height, rows, marker, example in blocks:
-        top=panel_top+offset; box=(x,top,x+width,top+block_height)
-        panel(draw,box,style,palette,option=marker is not None)
+        draw.rectangle(label_box, fill=accent)
+        if style == "notebook":
+            draw.polygon([(label_box[2], MARGIN), (label_box[2] + 18, MARGIN + 31), (label_box[2], MARGIN + 62)], fill=accent)
+        elif style == "ribbon":
+            draw.polygon([(MARGIN, MARGIN + 62), (MARGIN + 15, MARGIN + 80), (MARGIN + 15, MARGIN + 62)], fill=ink)
+    centered(draw, label_box, label, face_label, paper if style in ("framed", "minimal") else ink)
+    y = MARGIN + 62 + (29 if style != "ribbon" else 36)
+    body_size, padding = density(card)
+    body_face = font(body_size)
+    full_width = WIDTH - 2 * MARGIN
+    blocks = []
+    if card["kind"] == "quiz":
+        title_face = font(52 if style != "poster" else 58, "SemiBold")
+        question_rows = wrap(card["question"], title_face, full_width)
+        if len(question_rows) > 3:
+            raise ValueError("Quiz question exceeds three lines; rewrite")
+        question_height, _ = measure(question_rows, title_face)
+        heading_contrast=protect_heading(image,(MARGIN,y),question_rows,title_face,palette)
+        draw=ImageDraw.Draw(image)
+        draw_rows(draw, (MARGIN, y), question_rows, title_face, paper)
+        y += question_height + 28
+        for option in card["options"]:
+            rows = wrap(option["text"], body_face, full_width - 142)
+            text_height, _ = measure(rows, body_face)
+            box_height = max(92, text_height + 2 * padding)
+            blocks.append((y, box_height, rows, option["label"], False))
+            y += box_height + 16
+    else:
+        title_face = font(74 if style != "poster" else 80, "SemiBold")
+        rows = wrap(card["heading"], title_face, full_width)
+        if len(rows) > 2:
+            raise ValueError("Heading too long; rewrite")
+        title_height, _ = measure(rows, title_face)
+        heading_contrast=protect_heading(image,(MARGIN,y),rows,title_face,palette)
+        draw=ImageDraw.Draw(image)
+        draw_rows(draw, (MARGIN, y), rows, title_face, paper)
+        y += title_height + 28
+        groups = [(card["body"], False)] + ([(card["example"], True)] if card.get("example") else [])
+        for text, is_example in groups:
+            rows = wrap(text, body_face, full_width - 2 * padding - 24)
+            text_height, _ = measure(rows, body_face)
+            # Measure the separate template label too, rather than overlapping the example.
+            example_label_height = measure(["PRIMJER"], font(22, "SemiBold"))[0] + 16 if is_example else 0
+            box_height = text_height + 2 * padding + example_label_height
+            blocks.append((y, box_height, rows, None, is_example))
+            y += box_height + (22 if style == "split-cards" else 14)
+    panel_area = sum(b[1] * full_width for b in blocks)
+    if y > min(height - 180, 1050) or panel_area > WIDTH * height * 0.49:
+        raise ValueError("Copy does not fit while preserving artwork; rewrite reviewed package")
+    bounds = []
+    for index, (top, block_height, rows, marker, is_example) in enumerate(blocks):
+        box = (MARGIN, top, WIDTH - MARGIN, top + block_height)
+        panel(draw, box, style, palette, option=marker is not None)
         if marker:
-            marker_box=(x+22,top+(block_height-52)/2,x+74,top+(block_height+52)/2)
-            if style=='rounded': draw.ellipse(marker_box,fill=accent)
-            else: draw.rectangle(marker_box,fill=ink if style=='poster' else accent)
-            centered(draw,marker_box,marker,font(28,'Bold'),paper if style=='poster' else ink)
-            text_height,_=measure(rows,body_face)
-            draw_rows(draw,(x+110,top+(block_height-text_height)/2),rows,body_face,ink)
+            marker_box = (MARGIN + 22, top + (block_height - 52) / 2, MARGIN + 74, top + (block_height + 52) / 2)
+            if style == "rounded":
+                draw.ellipse(marker_box, fill=accent)
+            else:
+                draw.rectangle(marker_box, fill=accent if style != "poster" else ink)
+            centered(draw, marker_box, marker, font(28, "Bold"), paper if style == "poster" else ink)
+            text_height, _ = measure(rows, body_face)
+            draw_rows(draw, (MARGIN + 110, top + (block_height - text_height) / 2), rows, body_face, ink)
         else:
-            draw.rounded_rectangle((x+18,top+padding,x+23,top+block_height-padding),radius=2,fill=accent)
-            text_x,text_y=x+padding+24,top+padding
-            if example: text_y+=draw_rows(draw,(text_x,text_y),['PRIMJER'],font(22,'SemiBold'),ink)+16
-            draw_rows(draw,(text_x,text_y),rows,body_face,ink)
-        bounds.append([round(v) for v in box])
-    logo=Image.open(ROOT/'assets/watermark.png')
-    if logo.mode!='RGBA' or logo.getextrema()[3][0]!=0 or logo.getextrema()[3][1]==0: raise ValueError('Original logo must retain full alpha transparency')
-    logo=logo.crop(logo.getchannel('A').getbbox());logo.thumbnail((112,92),Image.Resampling.LANCZOS)
-    image.alpha_composite(logo,(WIDTH-MARGIN-logo.width,HEIGHT-MARGIN-logo.height))
-    output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
-    image.convert('RGB').save(output,'JPEG',quality=94,subsampling=0,optimize=True)
-    return {'size':[WIDTH,HEIGHT],'body_font_size':body_size,'panel_padding':padding,'panel_bounds':bounds,
-            'heading_bounds':[x,title_y,x+width,title_y+title_height], 'label_bounds':list(label_box),
-            'heading_alignment':layout['align'],'heading_font_size':title_size,'scene_focus':layout['scene_focus'],
-            'example_label':'PRIMJER' if card.get('example') else None,'inset_accent_line':card['kind']!='quiz',
-            'panel_area_ratio':round(panel_area/(WIDTH*HEIGHT),3),'body_contrast':round(body_contrast,2),'heading_contrast':round(heading_contrast,2)}
+            # A quiet inset accent line ties the definition and example panels together.
+            draw.rounded_rectangle((MARGIN + 18, top + padding, MARGIN + 23, top + block_height - padding), radius=2, fill=accent)
+            text_x, text_y = MARGIN + padding + 24, top + padding
+            if is_example:
+                label_face = font(22, "SemiBold")
+                text_y += draw_rows(draw, (text_x, text_y), ["PRIMJER"], label_face, ink) + 16
+            draw_rows(draw, (text_x, text_y), rows, body_face, ink)
+        bounds.append([round(x) for x in box])
+    logo = Image.open(ROOT / "assets/watermark.png")
+    if logo.mode != "RGBA" or logo.getextrema()[3][0] != 0 or logo.getextrema()[3][1] == 0:
+        raise ValueError("Original logo must retain full alpha transparency")
+    bbox = logo.getchannel("A").getbbox()
+    logo = logo.crop(bbox)
+    logo.thumbnail((112, 92), Image.Resampling.LANCZOS)
+    image.alpha_composite(logo, (WIDTH - MARGIN - logo.width, height - MARGIN - logo.height))
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    image.convert("RGB").save(output, "JPEG", quality=94, subsampling=0, optimize=True)
+    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}

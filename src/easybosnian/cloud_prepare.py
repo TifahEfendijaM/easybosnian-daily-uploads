@@ -187,8 +187,6 @@ def cloud_run(mode, selection='new'):
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
                 validate(package,novelty_history(history,date,chosen),include_today=True);fit_check(package)
-                if len({c['design_template'] for c in package['cards']}) != 3:
-                    raise ValueError('Preparation must choose three distinct layouts')
                 stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}

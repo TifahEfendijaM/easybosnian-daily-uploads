@@ -230,9 +230,12 @@ def instagram_deletion_token(user_token, app_secret):
     required = {'instagram_basic','instagram_manage_contents','pages_read_engagement','pages_show_list'}
     if debug.get('is_valid') is not True or str(debug.get('app_id'))!=app_id or debug.get('type')!='USER' or not required <= set(debug.get('scopes',[])):
         raise ValueError('Meta did not verify the correct app and required deletion scopes')
-    expiry = min(x for x in [debug.get('expires_at'),debug.get('data_access_expires_at')] if x) if debug.get('expires_at') else 0
+    # Meta may report expires_at=0 for an app administrator's User token.
+    # Its positive data-access expiry still limits how long authorization works.
+    expiries = [x for x in (debug.get('expires_at'),debug.get('data_access_expires_at')) if isinstance(x,int) and x>0]
+    expiry = min(expiries) if expiries else 0
     if not expiry or expiry-time.time()<40*86400: raise ValueError('Deletion token is not a long-lived Facebook User token')
-    return token, {'app_id':app_id,'page_id':'1284422991426579','instagram_id':ig['id'],'instagram_username':'easy_bosnian','expires_at':expiry,'scopes':sorted(required),'publication':'No post was created or deleted during authorization'}
+    return token, {'app_id':app_id,'page_id':'1284422991426579','instagram_id':ig['id'],'instagram_username':'easy_bosnian','expires_at':expiry,'token_expires_at':debug.get('expires_at'),'data_access_expires_at':debug.get('data_access_expires_at'),'verified_at':datetime.now(timezone.utc).isoformat(),'scopes':sorted(required),'publication':'No post was created or deleted during authorization'}
 
 
 

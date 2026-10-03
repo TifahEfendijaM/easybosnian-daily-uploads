@@ -62,6 +62,16 @@ class ReplacementTests(unittest.TestCase):
         self.assertEqual(result,{'removed':1,'already_absent':1});ig.delete.assert_called_once_with('123')
         self.assertEqual(store.forget.call_count,2)
 
+    def test_verified_facebook_login_id_can_record_pre_feature_instagram_media(self):
+        store=MagicMock();store.publications.return_value=[self.item(id='123')]
+        ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={'123'}
+        with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'different-scoped-publishing-id'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
+            self.assertEqual(cleanup(store,'2026-10-03','instagram')['removed'],1)
+        ig.verify_account.assert_called_once();ig.delete.assert_called_once_with('123')
+        store.publications.return_value[0]['account_id']='unrelated'
+        with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'different-scoped-publishing-id'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
+            with self.assertRaises(ValueError):cleanup(store,'2026-10-03','instagram')
+
     def test_wrong_account_permission_failure_and_uncertain_delete_keep_ids(self):
         for failure in ('account','listing','delete','kill'):
             store=MagicMock();store.publications.return_value=[self.item()];ig=MagicMock();ig.owned_ids.return_value={'123'}
@@ -130,6 +140,19 @@ class ReplacementTests(unittest.TestCase):
                     else:
                         token,info=instagram_deletion_token('short','secret')
                         self.assertEqual(token,'private');self.assertEqual(info['instagram_id'],'42');self.assertNotIn('private',str(info))
+
+    def test_zero_token_expiry_still_honours_meta_data_access_expiry(self):
+        import time
+        expiry=int(time.time())+90*86400
+        debug={'is_valid':True,'app_id':'1987873818544936','type':'USER','scopes':['instagram_basic','instagram_manage_contents','pages_read_engagement','pages_show_list'],'expires_at':0,'data_access_expires_at':expiry}
+        page={'instagram_business_account':{'id':'42','username':'easy_bosnian'}}
+        with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}),patch.object(InstagramDeletion,'verify_account'):
+            with patch('easybosnian.meta.request',side_effect=[{'access_token':'private'},page,{'data':debug}]):
+                token,info=instagram_deletion_token('short','secret')
+                self.assertEqual(info['expires_at'],expiry);self.assertEqual(info['token_expires_at'],0)
+            for access_expiry in (0,int(time.time())+3600):
+                with patch('easybosnian.meta.request',side_effect=[{'access_token':'private'},page,{'data':{**debug,'data_access_expires_at':access_expiry}}]):
+                    with self.assertRaises(ValueError):instagram_deletion_token('short','secret')
 
     def test_new_assets_render_before_any_cleanup_and_failed_cleanup_blocks_that_platform(self):
         from easybosnian.daily import daily
