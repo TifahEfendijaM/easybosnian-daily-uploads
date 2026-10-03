@@ -10,7 +10,7 @@ There is no watchdog, Healthchecks, deduplicated alert table, monitor endpoint o
 
 Turn DAILY_POSTING_ENABLED false to disable live publishing. verify and preview continue to work. If the issue API fails, the failure file and failed workflow remain available. No email delivery is claimed and no paid fallback is used.
 
-Same-date TikTok replacement fails with an actionable message until the previous post is deleted in TikTok and tiktok_previous_removed is selected. Other enabled platforms continue independently. A missing or expired Instagram deletion credential blocks only a same-date Instagram replacement; a first upload does not require it.
+Same-date TikTok reruns have no deletion acknowledgement gate and cannot check or delete earlier posts; remove earlier versions manually if desired. Other enabled platforms continue independently. A missing or expired Instagram deletion credential blocks only a same-date Instagram replacement; a first upload does not require it.
 
 The October 3 same_words replacement confirmed all three feed posts and all Instagram image Stories. Facebook returned a photo Story with status `published` while the read-back expected `PUBLISHED`. This status-case mismatch is corrected without resubmitting the accepted Story. The regression covers both cases and rejects archived media. A failed overall run may therefore contain verified feed publications and one accepted Story; inspect platform artifacts before deliberate replacement.
 
