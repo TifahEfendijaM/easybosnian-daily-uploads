@@ -42,7 +42,7 @@ def main():
     with Path(os.environ["GITHUB_OUTPUT"]).open("a",encoding="utf-8") as output:
         for key,value in approved.items():
             output.write(f"{key}={value}\n")
-    print(f"Batch {approved['batch_date']} saved and read back; publication follows successful preparation and a three-minute wait")
+    print(f"Batch {approved['batch_date']} saved and read back; publication starts immediately after successful preparation")
 
 
 if __name__=="__main__":

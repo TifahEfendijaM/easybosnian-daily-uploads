@@ -7,7 +7,7 @@ Use a free Healthchecks account with email enabled. Configure three named checks
 | Check | Expected signal | Grace |
 |---|---|---|
 | EasyBosnian preparation — GitHub queue save | 20:00 daily | 10 minutes |
-| EasyBosnian pipeline — confirmed Instagram publication | Successful preparation + three-minute wait | 40 minutes |
+| EasyBosnian pipeline — confirmed Instagram publication | Successful preparation (immediate handoff) | 40 minutes |
 | EasyBosnian monitoring | 21:59 daily | 15 minutes |
 
 Preparation success means reviewed JSON was reserved, saved to the exact private repository and read back. Pipeline success means a verified Instagram permalink, or an explicitly selected unpublished preview. During initial authorization, leave live-post monitors paused until setup is ready. A monitor is not a scheduler and never retries work.
@@ -26,4 +26,4 @@ At 21:59, the monitoring-only Worker queries this exact repository's scheduled p
 
 KV is eventually consistent. A newly uploaded image may not be visible in another region immediately. The publishing pipeline verifies accessible bytes before container creation; a visibility/processing failure stops with its saved state. Deliberate reruns reuse stored work. KV expires images after 14 days; late reconciliation still checks published media, but old unposted asset recovery may require manual decisions. History/reservations never expire.
 
-Free limits, revoked tokens, ChatGPT subscription limits and platform delays are reported honestly. The three-minute wait follows successful preparation; runner queues can add delay. There is no scheduled retry.
+Free limits, revoked tokens, ChatGPT subscription limits and platform delays are reported honestly. Publication follows successful preparation immediately; runner queues can add startup delay. There is no scheduled retry.

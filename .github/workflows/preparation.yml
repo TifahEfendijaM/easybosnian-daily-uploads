@@ -93,17 +93,8 @@ jobs:
         env:
           PREPARATION_RECOVERY_AUTHORIZED: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'recover_today' }}
         run: python -m easybosnian.handoff
-  publication_delay:
-    needs: preparation
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'schedule' || inputs.mode == 'recover_today') && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: Wait three minutes after successful preparation
-        run: sleep 180
   publication:
-    needs: [preparation, publication_delay]
+    needs: preparation
     if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && (github.event_name == 'schedule' || inputs.mode == 'recover_today') && vars.DAILY_POSTING_ENABLED == 'true' && needs.preparation.outputs.batch_date != ''
     uses: ./.github/workflows/daily.yml
     with:

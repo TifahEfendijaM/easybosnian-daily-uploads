@@ -83,7 +83,7 @@ export async function watchdog(env, now=new Date()) {
   // The reusable publisher is a job within preparation's run, not a second cron run.
   if(r && dailyRun && !state.verified) {
     const stage=state.failed_stage || (state.run_url ? 'publication verification' : 'preparation/publication handoff');
-    await alert(env,date,stage,'The daily preparation and completion-based pipeline have not confirmed an actual Instagram publication by 06:59. Inspect the preparation, three-minute delay and publication jobs.',publication,dailyRun.html_url);
+    await alert(env,date,stage,'The daily preparation and completion-based pipeline have not confirmed an actual Instagram publication by 06:59. Inspect the preparation and publication jobs.',publication,dailyRun.html_url);
   }
   if(config.healthchecks_deferred!==true) await monitorPing(env.HC_WATCHDOG_URL);
 }
