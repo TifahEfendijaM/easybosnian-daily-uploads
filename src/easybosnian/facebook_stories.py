@@ -53,7 +53,7 @@ def publish_facebook_stories(store, package, assets, record=None):
         for card in package['cards']:
             kind = card['kind']; stage = 'Facebook Stories rendering'
             path = ROOT/'build'/date/f'{kind}-story.jpg'
-            story_image(assets[kind]['path'], path, palette)
+            story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'))
             body = path.read_bytes()
             if len(body) > 10_000_000:
                 raise ValueError('Facebook Story exceeds the 10 MB photo limit')

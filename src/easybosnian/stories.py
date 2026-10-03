@@ -1,7 +1,7 @@
 """Publish the current run's exact Instagram cards as padded image Stories."""
 import os
 from urllib.parse import urlparse
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 from .core import ROOT, read_json, require_publishing, write_json
 from .http import SafeError, request
 from .meta import Instagram
@@ -10,10 +10,18 @@ from .notify import failure
 HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
 
-def story_image(source,destination,palette):
+def story_image(source,destination,palette,background=None):
     with Image.open(source) as image:
         if image.size!=(1080,1350): raise ValueError('Story source must be the 1080×1350 published card')
-        canvas=Image.new('RGB',(1080,1920),palette['panel']);canvas.paste(image.convert('RGB'),(0,285))
+        card=image.convert('RGB')
+        # Fill only the outside space; the foreground retains every glyph/logo.
+        if background:
+            with Image.open(background) as original: fill=original.convert('RGB')
+        else: fill=card.copy()
+        canvas=ImageOps.fit(fill,(1080,1920),method=Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(48))
+        canvas=Image.blend(canvas,Image.new('RGB',canvas.size,palette['scrim']),0.28)
+        fitted=ImageOps.contain(card,(1080,1420),method=Image.Resampling.LANCZOS)
+        canvas.paste(fitted,((1080-fitted.width)//2,(1920-fitted.height)//2))
         canvas.save(destination,'JPEG',quality=94,subsampling=0,optimize=True)
 
 
@@ -39,7 +47,7 @@ def publish_stories(store,package,assets,record=None):
         palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         for card in package['cards']:
             kind=card['kind'];stage='Instagram Stories rendering'
-            path=ROOT/'build'/date/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette)
+            path=ROOT/'build'/date/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'))
             store.put_file(date,path.name,path.read_bytes());url=store.expose(date,path.name)
             if request('GET',url,raw=True)!=path.read_bytes(): raise ValueError('Story bytes differ from the padded card')
             stage='Instagram Stories publishing';require_publishing();container=ig.story(url);ig.ready(container)

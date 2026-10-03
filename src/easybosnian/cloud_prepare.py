@@ -186,7 +186,7 @@ def cloud_run(mode, selection='new'):
                 package=read_json(draft)
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 stage='validation';check_selection(package,chosen)
-                validate(package,novelty_history(history,date,chosen),include_today=True);fit_check(package)
+                validate(package,novelty_history(history,date,chosen),include_today=True,require_website_footer=True);fit_check(package)
                 stage='preparation/history save';prepare(draft,selection=chosen)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}

@@ -36,14 +36,23 @@ def cleanup(store, date, platform):
     result = {'removed':0, 'already_absent':0}
     # Read the authenticated account's complete owned-media edge. Missing here
     # is distinct from a permission/network failure; those errors stop cleanup.
+    removed_photos = set()
     for kind in ('story', 'feed', 'photo'):
-        selected = [x for x in items if x['kind'] == kind]
+        selected = [x for x in items if x['kind'] == kind and x['object_id'] not in removed_photos]
         if not selected: continue
-        owned = provider.owned_ids(kind)
+        story_photos = provider.story_photos() if platform == 'facebook' and kind == 'story' else None
+        owned = set(story_photos) if story_photos is not None else provider.owned_ids(kind)
         for item in selected:
             object_id = item['object_id']; require_publishing()
             if object_id in owned:
-                provider.delete(object_id)
+                if story_photos is not None:
+                    photo_id = story_photos[object_id]
+                    if photo_id not in {x['object_id'] for x in items if x['kind'] == 'photo'}:
+                        raise ValueError('The Facebook Story photo is not recorded for this date; refusing cleanup')
+                    provider.delete_story_photo(object_id, photo_id)
+                    store.forget(date, platform, photo_id)
+                    removed_photos.add(photo_id); result['removed'] += 1
+                else: provider.delete(object_id)
                 result['removed'] += 1
             else: result['already_absent'] += 1
             # Keep identifiers on any ambiguous deletion/storage failure. A later

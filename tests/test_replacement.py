@@ -115,10 +115,45 @@ class ReplacementTests(unittest.TestCase):
     def test_facebook_cleanup_includes_stories_posts_and_partial_photos(self):
         store=MagicMock();store.publications.return_value=[self.item(kind=kind,id=id,platform='facebook') for kind,id in [('feed','42_123'),('photo','456'),('story','42_789')]]
         fb=MagicMock();fb.page_id='42';fb.owned_ids.side_effect=lambda kind:{'42_123','456','42_789'}
+        fb.story_photos.return_value={'42_789':'456'}
         with patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.Facebook',return_value=fb):
             self.assertEqual(cleanup(store,'2026-10-03','facebook')['removed'],3)
-        self.assertEqual([c.args[0] for c in fb.delete.call_args_list],['42_789','42_123','456'])
+        fb.delete_story_photo.assert_called_once_with('42_789','456')
+        self.assertEqual([c.args[0] for c in fb.delete.call_args_list],['42_123'])
         self.assertEqual(store.forget.call_count,3)
+
+    def test_facebook_story_photo_must_be_recorded_for_the_same_date(self):
+        store=MagicMock();store.publications.return_value=[self.item(kind='story',id='789',platform='facebook')]
+        fb=MagicMock();fb.page_id='42';fb.story_photos.return_value={'789':'456'}
+        with patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.Facebook',return_value=fb):
+            with self.assertRaisesRegex(ValueError,'not recorded'):cleanup(store,'2026-10-03','facebook')
+        fb.delete_story_photo.assert_not_called();store.forget.assert_not_called()
+
+    def test_facebook_story_mapping_completes_cursor_reads_and_keeps_video_identity(self):
+        with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}):fb=Facebook(token='test',page_id='42')
+        first={'post_id':'789','media_id':'456','media_type':'photo'}
+        fb.stories=MagicMock(side_effect=[{'data':[first],'paging':{'next':'untrusted','cursors':{'after':'opaque'}}},{'data':[{'post_id':'790','media_id':'457','media_type':'video'}]}])
+        self.assertEqual(fb.story_photos(),{'789':'456','790':None})
+        self.assertEqual(fb.stories.call_args.args,('opaque',))
+        for response in ({}, {'data':[{}]}, {'data':[first],'paging':{'next':'untrusted'}}, {'data':[first,{**first,'media_id':'999'}]}):
+            fb.stories=MagicMock(return_value=response)
+            with self.assertRaises(ValueError):fb.story_photos()
+
+    def test_facebook_story_deletes_its_owned_photo_once_and_requires_removal(self):
+        with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}):fb=Facebook(token='test',page_id='42')
+        photo={'id':'456','from':{'id':'42'},'page_story_id':'42_789','can_delete':True}
+        fb.call=MagicMock(return_value=photo);fb.delete=MagicMock();fb.story_photos=MagicMock(return_value={})
+        with patch('easybosnian.meta.require_publishing'):
+            fb.delete_story_photo('789','456')
+        fb.delete.assert_called_once_with('456')
+        for change in ({'id':'wrong'},{'from':{'id':'other'}},{'page_story_id':'42_999'},{'can_delete':False}):
+            fb.call.return_value={**photo,**change};fb.delete.reset_mock()
+            with patch('easybosnian.meta.require_publishing'),self.assertRaises(ValueError):fb.delete_story_photo('789','456')
+            fb.delete.assert_not_called()
+        fb.call.return_value=photo;fb.story_photos.return_value={'789':'456'};fb.delete.reset_mock()
+        with patch('easybosnian.meta.require_publishing'),patch('easybosnian.meta.time.sleep'),self.assertRaisesRegex(ValueError,'no second deletion'):
+            fb.delete_story_photo('789','456')
+        fb.delete.assert_called_once_with('456')
 
     def test_returned_facebook_photo_id_is_recorded_before_later_upload_failure(self):
         from easybosnian.facebook import publish_facebook

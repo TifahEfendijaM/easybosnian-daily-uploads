@@ -69,7 +69,7 @@ def prepare(path,selection=None):
     store=Store();history=store.history()
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection)
-    validate(package,history,include_today=True);fit_check(package)
+    validate(package,history,include_today=True,require_website_footer=True);fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
