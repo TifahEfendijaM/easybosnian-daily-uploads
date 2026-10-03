@@ -39,7 +39,7 @@ export async function dispatchPreparation(env,mode) {
 }
 export async function dailyPreparationDispatch(env,when) {
   const f=sarajevoTime(when);
-  const enabled=env.PREPARATION_DISPATCH_ENABLED==='true',matches=!(f.hour!=='13' || f.minute!=='30');
+  const enabled=env.PREPARATION_DISPATCH_ENABLED==='true',matches=!(f.hour!=='05' || f.minute!=='00');
   console.log(JSON.stringify({event:'preparation_cron_gate',scheduled_at:when.toISOString(),sarajevo_time:`${f.year}-${f.month}-${f.day} ${f.hour}:${f.minute}`,dispatch_enabled:enabled,decision:!matches?'outside_local_start':!enabled?'disabled':'eligible'}));
   if(!matches || !enabled) return;
   if(env.PROJECT_ID!==PROJECT || env.GITHUB_REPOSITORY!==REPO) throw Error('Dispatch repository/project mismatch');
