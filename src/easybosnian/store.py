@@ -3,6 +3,7 @@ import re
 from urllib.parse import urlparse
 from .http import request
 from .batches import BATCH_ID
+from .core import PROJECT
 
 
 def scope_path(key):
@@ -23,6 +24,16 @@ class Store:
     def history(self): return self.call('GET','/v1/history')
     def content(self,key): return self.call('GET',f'/v1/history/{scope_path(key)}')
     def save_content(self,package): return self.call('PUT',f'/v1/history/{scope_path(package.get("batch_id") or package["date"])}',package)
+    def delete_content(self,key,date):
+        if not BATCH_ID.fullmatch(key) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',date):raise ValueError('Explicit batch/date required for history removal')
+        return self.call('DELETE',f'/v1/history/batches/{key}',{'date':date})
+    def publications_for_date(self,date):
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',date):raise ValueError('Invalid publication date')
+        result=self.call('GET',f'/v1/publications/dates/{date}')
+        if (result.get('project')!=PROJECT or result.get('date')!=date
+                or any(item.get('date')!=date or not BATCH_ID.fullmatch(item.get('batch_id','')) for item in result['items'])):
+            raise ValueError('Publication date scope does not match this project')
+        return result['items']
     def publications(self,key): return self.call('GET',f'/v1/publications/{scope_path(key)}')['items']
     def remember(self,key,platform,kind,object_id,account_id):
         return self.call('POST',f'/v1/publications/{scope_path(key)}',{'platform':platform,'kind':kind,'object_id':str(object_id),'account_id':str(account_id)})

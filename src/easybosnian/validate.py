@@ -35,7 +35,16 @@ def equivalents(package):
     return themes,words
 
 
-def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None):
+def caption_levels(package):
+    """Describe rated lesson levels, rather than relabelling retained A1 copy C2."""
+    order=('A1','A2','B1','B2','C1','C2')
+    levels=[word.get('bosnian_level',package.get('bosnian_level')) for word in package['words']]
+    if any(level not in order for level in levels):return [package.get('bosnian_level')]
+    ranked=sorted(set(levels),key=order.index)
+    return ranked if len(ranked)==1 else [ranked[0],ranked[-1]]
+
+
+def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -92,6 +101,12 @@ def validate(package, history=None, include_today=False, require_website_footer=
         if re.search(r"(?<!\w)" + re.escape(normalise(answer)) + r"(?!\w)", outside_quiz):
             raise ValueError("Quiz answer or identifying hint leaks into other cards, caption, hashtags or alt text")
     caption = normalise(package["caption"])
+    if require_caption_level:
+        expected=set(caption_levels(package))
+        mentioned=set(re.findall(r'(?<!\w)[ABC][12](?!\w)',package['caption']))
+        abrupt=any(re.fullmatch(r'\s*(?:(?:nivo|razina)\s*:?\s*)?[ABC][12](?:\s*[-–]\s*[ABC][12])?\s*\.?\s*',line,re.I) for line in package['caption'].splitlines())
+        if (None in expected or mentioned!=expected or abrupt or not re.search(r'\b(?:nivo|nivou|nivoa|nivoima|razina|razini|razine)\b',caption)):
+            raise ValueError('New captions need the actual lesson CEFR level/range naturally in Bosnian prose')
     if require_website_footer:
         lines = package['caption'].strip().splitlines()
         if (len(lines) < 2 or lines[-1] != '👉easybosnian.com'

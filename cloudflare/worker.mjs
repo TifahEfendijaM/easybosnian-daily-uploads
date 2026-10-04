@@ -14,7 +14,10 @@ async function saveHistory(env,p,id) {
   safePackage(p,p.date);if(!BATCH.test(id) || p.batch_id!==id) throw Error('Invalid batch identity');
   const result=await env.DB.prepare('INSERT INTO history(batch_id,date,created_at,theme_json,words_json,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(batch_id) DO UPDATE SET theme_json=excluded.theme_json,words_json=excluded.words_json,content_json=excluded.content_json WHERE history.date=excluded.date').bind(id,p.date,new Date().toISOString(),JSON.stringify(p.theme),JSON.stringify(p.words),JSON.stringify(p)).run();
   if(!result.meta.changes) throw Error('Existing batch date differs');
-  const namespaces=[id,...(id==='legacy-'+p.date?[p.date]:[])];
+  await clearArtwork(env,id,p.date);
+}
+async function clearArtwork(env,id,date) {
+  const namespaces=[id,...(id==='legacy-'+date?[date]:[])];
   for(const key of namespaces) for(const kind of KINDS) {await env.IMAGES.delete(`private-ai:${key}:${kind}`);for(const suffix of ['background','card','story']) await env.IMAGES.delete(`private:${key}:${kind}-${suffix}.jpg`);}
 }
 async function imageValue(env,key,id,date,options) {
@@ -95,6 +98,12 @@ export default {
         const r=await env.DB.prepare('SELECT rowid AS created_order,batch_id,date,created_at,theme_json,words_json,content_json FROM history ORDER BY created_at,rowid').all();
         return response({project:PROJECT,storage_version:2,days:r.results.map(x=>({batch_id:x.batch_id,date:x.date,created_at:x.created_at,created_order:x.created_order,theme:JSON.parse(x.theme_json),words:JSON.parse(x.words_json),content:JSON.parse(x.content_json)}))});
       }
+      const publicationDate=path.match(/^\/v1\/publications\/dates\/(\d{4}-\d{2}-\d{2})$/);
+      if(publicationDate && req.method==='GET') {
+        const date=publicationDate[1];
+        const result=await env.DB.prepare('SELECT rowid AS recorded_order,batch_id,date,platform,kind,object_id,account_id FROM publication_ids WHERE date=? ORDER BY rowid').bind(date).all();
+        return response({project:PROJECT,date,items:result.results});
+      }
       const publications=path.match(/^\/v1\/publications\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})(?:\/(instagram|facebook|tiktok)\/([a-z0-9_]+))?$/);
       if(publications) {
         const [,key,platform,objectId]=publications;
@@ -124,6 +133,19 @@ export default {
       const content=path.match(/^\/v1\/history\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})$/);
       if(content) {
         const key=content[1],legacy=DATE.test(key);
+        if(req.method==='DELETE') {
+          if(legacy || !path.startsWith('/v1/history/batches/')) throw Error('Explicit batch path required for removal');
+          const p=await req.json();
+          if(Object.keys(p).join(',')!=='date' || !DATE.test(p.date)) throw Error('Expected content date required');
+          const r=await row(env,key);
+          if(!r) return response({removed:false});
+          if(r.date!==p.date) throw Error('History removal date differs');
+          await clearArtwork(env,key,r.date);
+          const result=await env.DB.prepare('DELETE FROM history WHERE batch_id=? AND date=?').bind(key,p.date).run();
+          // Unsupported/uncertain publication IDs remain available by date,
+          // even after their content row is gone. Public URLs retain their TTL.
+          return response({removed:result.meta.changes===1});
+        }
         if(req.method==='GET') {const r=await scope(env,key);return r?response(JSON.parse(r.content_json)):response({error:'No reviewed content for this batch'},404);}
         if(req.method==='PUT') {
           const p=await req.json();let id=key;

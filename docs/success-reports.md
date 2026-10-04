@@ -19,3 +19,5 @@ Verify and preview do not create publication-success reports. A failed or partia
 Report errors are ancillary warnings and do not undo, block or retry completed publication. No new schedule, retry, email service, credentials or paid dependency is introduced. A completely missing run still produces no report or notification, as previously agreed.
 
 The first morning report, from the October 4 run before this feature existed, is available as [a private backfilled report](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/issues/38). Future reports use the run Summary directly; this is not a new per-run issue or alert mechanism.
+
+Successful all_today runs also show whether earlier same-date history removal failed; a warning means some earlier themes/words may still be in history. Cleanup counts appear in the platform summary. Unsupported Facebook Stories/photos and TikTok cleanup stays manual. Reports never expose erased content, quiz answers or credentials.

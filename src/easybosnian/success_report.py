@@ -47,7 +47,8 @@ def saved_report_data(source,outcome,date,batch_id,run_url):
         raise ValueError('Report content/result differs from the prepared batch/run')
     # The rendering input was captured locally before generation. Never reread
     # a mutable history row that a later replacement might already have changed.
-    return {**source,'platforms':publication_data(outcome['platforms'])}
+    return {**source,'platforms':publication_data(outcome['platforms']),
+            'history_cleanup_warning':outcome.get('history_cleanup',{}).get('status','').startswith('failed')}
 
 
 def markdown_text(value):
@@ -71,6 +72,7 @@ def render_report(data):
         text+='\n'
         if platform['cleanup_warning']:text+='> Replacement cleanup warning: earlier content may remain.\n\n'
     text+='\nResults describe this run at completion. Later replacements or expired Stories may change link availability.\n'
+    if data.get('history_cleanup_warning'):text+='\n> Earlier current-date history could not be fully removed; some entries may remain.\n'
     # Everything is escaped; no remote images, scripts or answer-key/review fields.
     markup='<!doctype html><html><head><meta charset="utf-8"><title>EasyBosnian report</title></head><body><main style="font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:24px;color:#203142"><h1>EasyBosnian — successful-run report</h1><ul>'
     for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Palette','palette')]:
@@ -84,6 +86,7 @@ def render_report(data):
         for link in platform['links']:markup+='<li><a href="'+html.escape(link,quote=True)+'">Open published content</a></li>'
         markup+='</ul>'
         if platform['cleanup_warning']:markup+='<p>Replacement cleanup warning: earlier content may remain.</p>'
+    if data.get('history_cleanup_warning'):markup+='<p>Earlier current-date history could not be fully removed; some entries may remain.</p>'
     markup+='<p>Results describe this run at completion. Later replacements or expired Stories may change link availability.</p></main></body></html>'
     return text,markup
 

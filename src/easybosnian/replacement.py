@@ -28,11 +28,13 @@ def latest_batch(items):
     return ([feed] if feed else []) + stories
 
 
-def cleanup(store, date, platform):
+def cleanup(store, date, platform,all_known=False,expected_date=None):
     require_publishing()
     items = [x for x in store.publications(date) if x['platform'] == platform]
     if BATCH_ID.fullmatch(date) and any(x.get('batch_id')!=date for x in items):
         raise ValueError('Publication identifiers belong to a different batch; refusing cleanup')
+    if expected_date is not None and any(x.get('date')!=expected_date for x in items):
+        raise ValueError('Publication identifiers belong to a different content date; refusing cleanup')
     if not items: return {'removed':0, 'already_absent':0}
     if platform == 'tiktok':
         from .buffer import Buffer
@@ -44,7 +46,7 @@ def cleanup(store, date, platform):
         return {'removed':0, 'previous_posts_recorded':len(items),
                 'deletion':'manual; not checked or performed'}
     all_items = items
-    items = latest_batch(items)
+    items = items if all_known else latest_batch(items)
     if not items: return {'removed':0, 'already_absent':0}
     provider = InstagramDeletion() if platform == 'instagram' else Facebook()
     provider.verify_account() if platform == 'instagram' else provider.verify_page()
@@ -76,3 +78,18 @@ def cleanup(store, date, platform):
             # Retain identifiers after ambiguous deletion/storage failure.
             store.forget(date, platform, object_id)
     return result
+
+
+def cleanup_day(store,batch_ids,date,platform):
+    """Attempt every frozen, current-date batch once; retain uncertain IDs."""
+    result={'scope':'all_today','batches_targeted':len(batch_ids),'removed':0,'already_absent':0};errors=[]
+    if platform=='tiktok':
+        return {**result,'status':'manual; TikTok deletion not checked or performed'},errors
+    for batch_id in batch_ids:
+        try:
+            one=cleanup(store,batch_id,platform,all_known=True,expected_date=date)
+            for key in ('removed','already_absent'):result[key]+=one.get(key,0)
+        except Exception as error:errors.append(error)
+    result['status']='failed; some earlier content may remain' if errors else 'supported current-date cleanup attempted'
+    if platform=='facebook':result['story_deletion']='manual; not checked or performed'
+    return result,errors

@@ -17,6 +17,11 @@ if platforms:
         text+=f"- **{platform}**: {result['status']}\n"
         if result.get('permalink'): text+=f"  Publication: {result['permalink']}\n"
         if result.get('error'): text+=f"  Error: {result['error']}\n"
+        cleanup=result.get('replacement_cleanup',{})
+        if cleanup.get('scope')=='all_today':text+=f"  All-today cleanup: {cleanup['status']}; {cleanup['removed']} removed, {cleanup['already_absent']} already absent\n"
+    if all_results.get('history_cleanup'):
+        history=all_results['history_cleanup']
+        text+=f"\nAll-today history: {history['status']}; {history['removed']} batches removed\n"
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
 print(text)

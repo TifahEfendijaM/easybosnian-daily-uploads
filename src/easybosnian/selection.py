@@ -10,10 +10,10 @@ WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
 
 def batch_date(history, run_date, target='latest'):
     """Manual replacements keep the latest complete row's date; routine starts use today."""
-    if target not in ('latest', 'none', 'today'): raise ValueError('Batch target must be latest or none')
+    if target not in ('latest', 'none', 'today', 'all_today'): raise ValueError('Batch target must be latest, none or all_today')
     if calendar_date.fromisoformat(run_date).isoformat() != run_date:
         raise ValueError('Invalid Sarajevo run date')
-    if target in ('none','today'): return run_date
+    if target in ('none','today','all_today'): return run_date
     record=latest_record(history,run_date)
     return record['date'] if record else run_date
 

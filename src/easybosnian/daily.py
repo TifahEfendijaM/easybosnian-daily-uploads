@@ -11,11 +11,11 @@ from .pipeline import publish_instagram
 from .stories import publish_stories
 from .store import Store
 from .validate import validate
-from .replacement import cleanup, recorder
-from .batches import output_key
+from .replacement import cleanup, cleanup_day, recorder
+from .batches import BATCH_ID, output_key
 
 
-def daily(date=None,mode='preview',batch_id=None,replace=True):
+def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,cleanup_batch_ids=None,prune_history_ids=None):
     if mode not in ('verify','preview','daily'): raise ValueError('Mode must be verify, preview or daily')
     if mode=='verify':
         from .readiness import check_infrastructure
@@ -27,6 +27,14 @@ def daily(date=None,mode='preview',batch_id=None,replace=True):
         if batch_id and package.get('batch_id')!=batch_id:raise ValueError('Stored content has a different batch identity')
         if batch_id and package['date']!=date:raise ValueError('Stored content has a different content date')
         date=package['date'];key=output_key(package);stage='validation'
+        if cleanup_all:
+            targets=cleanup_batch_ids;prune=prune_history_ids
+            if (not isinstance(targets,list) or not isinstance(prune,list)
+                    or any(not isinstance(value,str) or not BATCH_ID.fullmatch(value) for value in targets+prune)
+                    or len(set(targets))!=len(targets) or len(set(prune))!=len(prune)
+                    or key in targets or not set(prune).issubset(targets)):
+                raise ValueError('Invalid all-today cleanup scope')
+        elif cleanup_batch_ids or prune_history_ids:raise ValueError('Multiple-batch cleanup requires all_today')
         # Novelty was checked against all history at the trusted save. Independent
         # batches may deliberately reuse terms; keep full schema/editorial/secrecy checks.
         validate(package)
@@ -44,14 +52,26 @@ def daily(date=None,mode='preview',batch_id=None,replace=True):
     if mode=='preview':
         result={'batch':date,'batch_id':package.get('batch_id'),'status':'unpublished preview','published':False}
         write_json(ROOT/'build'/key/'result.json',result);return result
-    results={};failed=[];cleanup_warnings=[]
+    results={};failed=[];cleanup_warnings=[];history_warnings=[];history_cleanup=None
+    if cleanup_all:
+        history_cleanup={'removed':0,'already_absent':0,'targeted':len(prune_history_ids)}
+        for old_id in prune_history_ids:
+            try:
+                require_publishing()
+                removed=store.delete_content(old_id,date)
+                history_cleanup['removed' if removed['removed'] else 'already_absent']+=1
+            except Exception as error:history_warnings.append(error)
+        history_cleanup['status']='failed; earlier history may remain' if history_warnings else 'earlier current-date history removed'
     operations=[('instagram',lambda:publish_instagram(package,assets,record=recorder(store,key,'instagram')))]
     for name,flag,publisher in [('facebook','FACEBOOK_POSTING_ENABLED',publish_facebook),('tiktok','TIKTOK_POSTING_ENABLED',publish_tiktok)]:
         if os.getenv(flag)=='true': operations.append((name,lambda fn=publisher,platform=name:fn(package,assets,record=recorder(store,key,platform))))
         else: results[name]={'status':'disabled','published':False}
     for name,operation in operations:
         try:
-            removed=cleanup(store,key,name) if replace else {'status':'skipped; additional independent batch','removed':0}
+            if cleanup_all:
+                removed,errors=cleanup_day(store,cleanup_batch_ids,date,name)
+                cleanup_warnings.extend((name,error) for error in errors)
+            else:removed=cleanup(store,key,name) if replace else {'status':'skipped; additional independent batch','removed':0}
         except Exception as error:
             removed={'status':'failed; new publication will still be attempted',
                      'error':redact(error), 'prior_content':'may remain or be partly removed'}
@@ -79,12 +99,17 @@ def daily(date=None,mode='preview',batch_id=None,replace=True):
         publication = ('new feed publication confirmed' if published else 'new feed outcome unconfirmed; inspect its artifact')
         publication += '; '+('new Stories confirmed' if story_result.get('published') else 'new Stories not confirmed')
         print(failure(date,name+' replacement cleanup',error,publication+'; old content may remain; no automatic retry',os.getenv('GITHUB_RUN_URL')))
+    for error in history_warnings:
+        publication='; '.join(name+': '+('confirmed' if outcome.get('published') else 'not confirmed') for name,outcome in results.items())
+        print(failure(date,'all_today history cleanup',error,publication+'; earlier history may remain',os.getenv('GITHUB_RUN_URL')))
     if cleanup_warnings and os.getenv('GITHUB_STEP_SUMMARY'):
         from pathlib import Path
         with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a',encoding='utf-8') as summary:
             summary.write('\nReplacement cleanup warning: old content may remain. Cleanup failures did not block new publication.\n')
             for name,_ in cleanup_warnings:
                 summary.write('- '+name+': '+('new feed confirmed' if results[name].get('published') else 'new feed unconfirmed; inspect its artifact')+'\n')
-    write_json(ROOT/'build'/key/'platforms-result.json',{'batch':date,'batch_id':package.get('batch_id'),'platforms':results})
+    outcome={'batch':date,'batch_id':package.get('batch_id'),'platforms':results}
+    if history_cleanup:outcome['history_cleanup']=history_cleanup
+    write_json(ROOT/'build'/key/'platforms-result.json',outcome)
     if failed: raise RuntimeError('Daily run failed for: '+', '.join(failed))
     return results

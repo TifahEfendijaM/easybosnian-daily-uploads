@@ -159,7 +159,8 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
-        plan=plan_batch(history,run_date,batch_target) if mode!='verify' else None
+        publication_ids=store.publications_for_date(run_date) if mode!='verify' and batch_target=='all_today' else []
+        plan=plan_batch(history,run_date,batch_target,publication_batch_ids=[item['batch_id'] for item in publication_ids]) if mode!='verify' else None
         if plan:date=plan['date']
         chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
         level=load_level()
@@ -194,12 +195,14 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 if package.get('batch_id',plan['batch_id'])!=plan['batch_id']:raise ValueError('Draft has the wrong batch identity')
                 package['batch_id']=plan['batch_id'];write_json(draft,package)
                 stage='validation';check_selection(package,chosen)
-                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
+                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
                 stage='preparation/history save';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
             result={'date':date,'status':'reviewed content available in private history','mode':mode,
                     'publication':'nothing published by preparation'}
         result.update(project=PROJECT,mode=mode,run_date=run_date,batch_target=batch_target)
         if plan:result.update(batch_id=plan['batch_id'],cleanup_batch_id=plan['cleanup_batch_id'])
+        if plan and batch_target=='all_today':
+            result.update(cleanup_batch_ids=plan['cleanup_batch_ids'],prune_history_ids=plan['prune_history_ids'])
         write_json(ROOT/'build/preparation-result.json',result);print(json.dumps(result,indent=2));return result
     except Exception as error:
         print(failure(date,stage,error,'nothing published by this preparation step',os.getenv('GITHUB_RUN_URL')))
