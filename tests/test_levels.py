@@ -94,11 +94,13 @@ class LevelTests(unittest.TestCase):
 
     def test_custom_actions_reject_conflicts_and_support_no_history_when_delegated(self):
         old=reviewed_fixture();history={'days':[{'date':old['date'],'content':old}]}
-        for words,actions in ((['x','',''],['keep_today']*3),(['','',''],['entered','keep_today','keep_today']),(['x','',''],['chatgpt']*3),(['','',''],['unknown']*3)):
+        for words,actions in ((['x','',''],['keep_today']*3),(['x','',''],['chatgpt']*3),(['','',''],['unknown']*3)):
             with self.assertRaises(ValueError):selection_context(history,old['date'],'custom','',words,actions)
         chosen=selection_context({'days':[]},old['date'],'custom','Kišni dan',['','',''],['chatgpt']*3)
         self.assertEqual(chosen['requested_words'],[None]*3)
-        with self.assertRaises(ValueError):selection_context({'days':[]},old['date'],'custom','Kišni dan',['','',''],['keep_today']*3)
+        chosen=selection_context({'days':[]},old['date'],'custom','Kišni dan',['','',''],['keep_today']*3)
+        self.assertEqual(chosen['requested_words'],[None]*3)
+        self.assertEqual(chosen['word_actions'],['chatgpt']*3)
 
     def test_configuration_workflow_has_no_publishing_or_provider_secrets(self):
         text=(ROOT/'.github/workflows/configure-level.yml').read_text()

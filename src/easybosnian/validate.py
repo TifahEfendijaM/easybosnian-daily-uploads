@@ -105,7 +105,7 @@ def validate(package, history=None, include_today=False, require_website_footer=
         expected=set(caption_levels(package))
         mentioned=set(re.findall(r'(?<!\w)[ABC][12](?!\w)',package['caption']))
         abrupt=any(re.fullmatch(r'\s*(?:(?:nivo|razina)\s*:?\s*)?[ABC][12](?:\s*[-–]\s*[ABC][12])?\s*\.?\s*',line,re.I) for line in package['caption'].splitlines())
-        if (None in expected or mentioned!=expected or abrupt or not re.search(r'\b(?:nivo|nivou|nivoa|nivoima|razina|razini|razine)\b',caption)):
+        if (None in expected or mentioned!=expected or abrupt or not re.search(r'\b(?:nivo|nivou|nivoa|nivoe|nivoima|razina|razini|razine)\b',caption)):
             raise ValueError('New captions need the actual lesson CEFR level/range naturally in Bosnian prose')
     if require_website_footer:
         lines = package['caption'].strip().splitlines()

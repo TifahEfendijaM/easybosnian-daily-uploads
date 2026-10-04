@@ -81,10 +81,13 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(novelty_history(self.history,self.old['date'],chosen)['days'][0]['content']['theme'],self.old['theme'])
         with self.assertRaises(ValueError):check_selection(self.old,chosen)
 
-    def test_custom_first_run_requires_all_fields_and_distinct_words(self):
+    def test_custom_first_run_requires_theme_and_delegates_invalid_words(self):
         history={'days':[]}
-        for theme,words in (('',None),('Kišni dan',['kap','','oblak']),('Kišni dan',['kap','kap','oblak'])):
-            with self.assertRaises(ValueError):selection_context(history,self.old['date'],'custom',theme,words)
+        with self.assertRaises(ValueError):selection_context(history,self.old['date'],'custom','',None)
+        for words in (['kap','','oblak'],['kap','kap','oblak']):
+            chosen=selection_context(history,self.old['date'],'custom','Kišni dan',words)
+            self.assertEqual(chosen['requested_words'],['kap',None,'oblak'])
+            self.assertEqual(chosen['word_actions'],['entered','chatgpt','entered'])
         chosen=selection_context(history,self.old['date'],'custom','Kišni dan',['kišobran','oblak','kap'])
         check_selection(self.old,chosen)
         self.assertEqual(chosen['pinned_words'],[None]*3)

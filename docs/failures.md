@@ -21,3 +21,5 @@ Replacement cleanup selects only the latest recorded batch within the selected b
 ## All-today cleanup
 
 The explicit all_today option targets only the current Sarajevo date frozen at preparation. It renders before erasing earlier content history/private artwork and attempting all supported known IDs. History-removal or batch-cleanup errors retain uncertain IDs, warn in the summary/report and private issue, and do not block new posting. Facebook Stories/photos and TikTok remain manual. An empty current day never targets yesterday. Disabled publishing prevents destructive operations; disabled platforms are not cleaned. No automatic retry is added.
+
+Invalid custom entered/kept words no longer force an exact misspelling into the draft: preparation first researches a correction, then chooses a suitable alternative if the intended word cannot pass its checks. Only invalid slots change, inside the same child execution; all normal final checks still apply. No scheduled, model-execution or publishing retry is added.
