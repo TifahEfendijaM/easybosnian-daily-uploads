@@ -55,15 +55,18 @@ class HybridCompositionTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',side_effect=AgentIntegrityError('modified')):
             with self.assertRaises(AgentIntegrityError):review_compositions(reviewed_fixture(),self.candidates())
 
-    def test_reference_sheet_complete_photo_crop_and_hybrid_have_distinct_columns(self):
+    def test_model_sheet_contains_only_real_photo_and_exact_crop(self):
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);photo=root/'photo.jpg';baseline=root/'baseline.jpg';output=root/'sheet.jpg'
-            Image.new('RGB',(1080,1350),'red').save(photo);Image.new('RGB',(1080,1350),'blue').save(baseline)
-            composition_sheet(photo,baseline,output)
+            root=Path(temp);photo=root/'photo.jpg';output=root/'sheet.jpg'
+            # Asymmetric real-photo stand-in: original keeps both edges while feed crop loses them.
+            pixels=Image.new('RGB',(1600,900),'red')
+            from PIL import ImageDraw
+            ImageDraw.Draw(pixels).rectangle((400,0,1200,900),fill='green')
+            pixels.save(photo)
+            composition_sheet(photo,output)
             with Image.open(output) as image:
-                self.assertEqual(image.size,(2160,900))
-                self.assertEqual(image.getpixel((360,450)),image.getpixel((1080,450)))
-                self.assertNotEqual(image.getpixel((360,450)),image.getpixel((1800,450)))
+                self.assertEqual(image.size,(1440,900))
+                self.assertNotEqual(image.getpixel((30,450)),image.getpixel((750,450)))
 
     def test_independent_options_example_and_body_positions_and_exact_copy(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -161,14 +164,19 @@ class HybridCompositionTests(unittest.TestCase):
     def test_routine_sheet_avoids_editorial_priming_but_keeps_approved_exception(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            for name,colour in [('photo','red'),('hybrid','blue')]:Image.new('RGB',(1080,1350),colour).save(root/(name+'.jpg'))
-            composition_sheet(root/'photo.jpg',root/'hybrid.jpg',root/'sheet.jpg')
+            Image.new('RGB',(1080,1350),'red').save(root/'photo.jpg')
+            composition_sheet(root/'photo.jpg',root/'sheet.jpg')
             with Image.open(root/'sheet.jpg') as sheet:
-                self.assertEqual(sheet.size,(2160,900))
-                self.assertNotEqual(sheet.getpixel((1080,450)),sheet.getpixel((1800,450)))
+                self.assertEqual(sheet.size,(1440,900))
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(self.decision())) as child:
             review_compositions(reviewed_fixture(),self.candidates())
         prompt=child.call_args.args[0]
+        context=json.loads(prompt.split(' Context: ',1)[1])
+        for card,item in zip(reviewed_fixture()['cards'],context):
+            expected=([option['text'] for option in card['options']] if card['kind']=='quiz'
+                      else [card['body']]+([card['example']] if card.get('example') else []))
+            self.assertEqual([block['text'] for block in item['blocks']],expected)
+        self.assertNotIn('private_review',str(context))
         for expected in ('editorial','outlined','italic_photo','italic_footer','measurements_by_style','x880'):
             self.assertIn(expected,prompt)
 
@@ -275,7 +283,7 @@ class PreparedArtworkTests(unittest.TestCase):
             prepared=artwork(store,package,review_images=True)
             before={kind:item['path'].read_bytes() for kind,item in prepared.items()}
             for candidate in review.call_args.args[1].values():
-                with Image.open(candidate['sheet']) as sheet:self.assertEqual(sheet.size,(2160,900))
+                with Image.open(candidate['sheet']) as sheet:self.assertEqual(sheet.size,(1440,900))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
             result=artwork(store,package,expose=True,require_prepared=True)
             self.assertEqual(provider.generate.call_count,3);review.assert_called_once()
