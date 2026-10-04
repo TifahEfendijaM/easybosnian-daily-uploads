@@ -1,4 +1,4 @@
-"""Publish this run's mixed Story treatments as Facebook Page photo Stories."""
+"""Publish this run's treatment-B images as Facebook Page photo Stories."""
 from .batches import output_key
 import os
 import time
