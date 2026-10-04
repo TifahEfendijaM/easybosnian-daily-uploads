@@ -32,14 +32,24 @@ def latest_record(history,run_date):
     return max(complete,key=creation_order,default=None)
 
 
-def plan_batch(history,run_date,target='latest'):
-    if target not in ('latest','none','today'):raise ValueError('Batch target must be latest or none')
+def plan_batch(history,run_date,target='latest',publication_batch_ids=()):
+    if target not in ('latest','none','today','all_today'):raise ValueError('Batch target must be latest, none or all_today')
     previous=latest_record(history,run_date)
+    current=[record for record in history['days'] if record['date']==run_date]
+    if target=='all_today':
+        previous=latest_record({'days':current},run_date) or previous
     replace=target=='latest' and previous is not None
-    return {'batch_id':identity(previous) if replace else 'b-'+uuid4().hex,
+    result={'batch_id':identity(previous) if replace else 'b-'+uuid4().hex,
             'date':previous['date'] if replace else run_date,
             'source_batch_id':identity(previous) if previous else None,
             'cleanup_batch_id':identity(previous) if replace else None}
+    if target=='all_today':
+        history_ids={identity(record) for record in current}
+        cleanup_ids=history_ids | set(publication_batch_ids)
+        if any(not isinstance(key,str) or not BATCH_ID.fullmatch(key) for key in cleanup_ids):
+            raise ValueError('Invalid current-date cleanup batch identity')
+        result.update(cleanup_batch_ids=sorted(cleanup_ids),prune_history_ids=sorted(history_ids))
+    return result
 
 
 def output_key(package):

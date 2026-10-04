@@ -45,9 +45,9 @@ on:
         type: string
         default: ''
       batch_target:
-        description: 'latest = replace latest batch (also after midnight); none = add another post without deleting it'
+        description: 'latest = replace latest batch; none = add a post; all_today = clean ALL earlier batches from today (Sarajevo)'
         type: choice
-        options: [latest, none]
+        options: [latest, none, all_today]
         default: latest
 permissions:
   contents: read

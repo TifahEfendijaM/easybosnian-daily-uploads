@@ -143,7 +143,7 @@ function batchFixture() {
     throw Error('Unexpected first query');
   },async all(){
     if(sql.includes('FROM history')) {let rows=[...history.values()];if(sql.includes('WHERE date='))rows=rows.filter(x=>x.date===this.args[0]);rows.sort((a,b)=>a.created_at.localeCompare(b.created_at)||a.created_order-b.created_order);if(sql.includes('DESC'))rows.reverse();if(sql.includes('LIMIT 2'))rows=rows.slice(0,2);return {results:rows};}
-    if(sql.includes('FROM publication_ids'))return {results:[...ids.values()].filter(x=>x.batch_id===this.args[0])};
+    if(sql.includes('FROM publication_ids'))return {results:[...ids.values()].filter(x=>sql.includes('WHERE date=')?x.date===this.args[0]:x.batch_id===this.args[0])};
     throw Error('Unexpected list query');
   },async run(){
     if(sql.startsWith('INSERT INTO history')) {
@@ -153,6 +153,8 @@ function batchFixture() {
     } else if(sql.startsWith('INSERT INTO publication_ids')) {
       const [batch_id,date,platform,kind,object_id,account_id]=this.args,key=platform+':'+object_id;
       if(!ids.has(key))ids.set(key,{recorded_order:ids.size+1,batch_id,date,platform,kind,object_id,account_id});
+    } else if(sql.startsWith('DELETE FROM history')) {
+      const [batch_id,date]=this.args;if(history.get(batch_id)?.date!==date)return {meta:{changes:0}};history.delete(batch_id);
     } else if(sql.startsWith('DELETE FROM publication_ids')) {
       const [batch_id,platform,object_id]=this.args,key=platform+':'+object_id;if(ids.get(key)?.batch_id===batch_id)ids.delete(key);
     } else throw Error('Unexpected write query');
@@ -171,6 +173,27 @@ test('same-date batches coexist; replacement preserves creation time and invalid
   const history=await (await f.send('GET','/v1/history')).json();assert.equal(history.days.length,2);assert.equal(history.storage_version,2);
   p.private_review.sources_checked=false;assert.equal((await f.save(p)).status,409);
   assert.equal((await f.save(content(A,'2026-10-03'))).status,409);assert.equal(f.history.get(A).date,'2026-10-04');
+});
+
+test('date-bound history removal protects other dates/batches and retains unsupported or uncertain publication IDs',async()=>{
+  const f=batchFixture();await f.save(content(A));await f.save(content(B));await f.save(content(C,'2026-10-03'));
+  for(const [id,object_id] of [[A,'123'],[B,'456'],[C,'789']]) {
+    await f.send('POST','/v1/publications/batches/'+id,{platform:'facebook',kind:'story',object_id,account_id:'42'});
+    f.kv.set('private-ai:'+id+':quiz','background');
+  }
+  const path='/v1/history/batches/'+A;
+  assert.equal((await worker.fetch(new Request('https://example.test'+path,{method:'DELETE',body:JSON.stringify({date:'2026-10-04'})}),f.env)).status,401);
+  assert.equal((await f.send('DELETE',path,{date:'2026-10-03'})).status,409);assert.equal(f.history.size,3);
+  assert.equal((await f.send('DELETE','/v1/history/2026-10-04',{date:'2026-10-04'})).status,409);
+  assert.equal((await f.send('DELETE',path,{date:'2026-10-04',extra:true})).status,409);
+  assert.equal((await f.send('DELETE',path,{date:'2026-10-04'})).status,200);
+  assert.ok(!f.history.has(A));assert.ok(f.history.has(B));assert.ok(f.history.has(C));
+  assert.ok(!f.kv.has('private-ai:'+A+':quiz'));assert.ok(f.kv.has('private-ai:'+B+':quiz'));assert.ok(f.kv.has('private-ai:'+C+':quiz'));
+  assert.equal(f.ids.size,3);
+  const kept=await (await f.send('GET','/v1/publications/dates/2026-10-04')).json();
+  assert.deepEqual(kept.items.map(x=>x.batch_id),[A,B]);assert.equal(kept.date,'2026-10-04');
+  assert.equal((await worker.fetch(new Request('https://example.test/v1/publications/dates/2026-10-04'),f.env)).status,401);
+  assert.equal((await (await f.send('GET','/v1/publications/dates/2026-10-05')).json()).items.length,0);
 });
 
 test('FLUX prompt binding, cached background and private/public artwork are isolated by batch ID',async()=>{

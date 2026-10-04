@@ -75,7 +75,8 @@ def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
     if package['date']!=batch_date(history,run_date or today(),batch_target):
         raise ValueError('Content must use the selected Sarajevo batch date')
     if plan:
-        expected=plan_batch(history,run_date or today(),batch_target)
+        publications=store.publications_for_date(run_date or today()) if batch_target=='all_today' else []
+        expected=plan_batch(history,run_date or today(),batch_target,publication_batch_ids=[item['batch_id'] for item in publications])
         existing=any(identity(row)==plan['batch_id'] for row in history['days'])
         if (not BATCH_ID.fullmatch(plan['batch_id']) or package.get('batch_id')!=plan['batch_id']
                 or plan['date']!=package['date'] or plan['source_batch_id']!=expected['source_batch_id']
@@ -83,11 +84,13 @@ def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
                 or (expected['cleanup_batch_id'] and plan['batch_id']!=expected['batch_id'])
                 or (not expected['cleanup_batch_id'] and existing)):
             raise ValueError('Draft does not match the trusted independent/replacement batch plan')
+        if batch_target=='all_today' and any(plan.get(field)!=expected[field] for field in ('cleanup_batch_ids','prune_history_ids')):
+            raise ValueError('Draft does not match the trusted current-date cleanup scope')
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
     from .levels import load_level
     level=load_level()
-    validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
+    validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
     store.save_content(package)
     print('Reviewed content saved in private history for '+package['date'])
     return package
@@ -104,14 +107,26 @@ def prepared_date(mode):
     return date
 
 
-def prepared_batch(mode):
+def prepared_batch(mode,details=False):
     date=prepared_date(mode);result=read_json(ROOT/'build/preparation-result.json')
     batch_id=result.get('batch_id');cleanup=result.get('cleanup_batch_id')
     if (not isinstance(batch_id,str) or not BATCH_ID.fullmatch(batch_id)
-            or cleanup not in (None,batch_id) or result.get('batch_target') not in ('latest','none','today')
+            or cleanup not in (None,batch_id) or result.get('batch_target') not in ('latest','none','today','all_today')
             or (result['batch_target']!='latest' and cleanup is not None)):
         raise ValueError('No trusted batch identity and cleanup scope for this preparation')
-    return date,batch_id,cleanup is not None
+    scope={}
+    if result['batch_target']=='all_today':
+        targets=result.get('cleanup_batch_ids');prune=result.get('prune_history_ids')
+        if (date!=result.get('run_date') or not isinstance(targets,list) or not isinstance(prune,list)
+                or any(not isinstance(key,str) or not BATCH_ID.fullmatch(key) for key in targets+prune)
+                or len(set(targets))!=len(targets) or len(set(prune))!=len(prune)
+                or batch_id in targets or not set(prune).issubset(targets)):
+            raise ValueError('No trusted all-today cleanup scope for this preparation')
+        scope={'cleanup_batch_ids':targets,'prune_history_ids':prune,'cleanup_all':True}
+    elif result.get('cleanup_batch_ids') or result.get('prune_history_ids'):
+        raise ValueError('Multiple-batch cleanup requires all_today')
+    values=(date,batch_id,cleanup is not None)
+    return (*values,scope) if details else values
 
 
 def set_secret(name,local=False):
@@ -240,7 +255,7 @@ def main():
     elif args.command=="prepare": prepare(args.path)
     elif args.command=='run':
         if args.prepared:
-            date,batch_id,replace=prepared_batch(args.mode);daily(date,args.mode,batch_id=batch_id,replace=replace)
+            date,batch_id,replace,scope=prepared_batch(args.mode,details=True);daily(date,args.mode,batch_id=batch_id,replace=replace,**scope)
         else:daily(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)
