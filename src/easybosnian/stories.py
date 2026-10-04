@@ -13,10 +13,15 @@ from .store import wait_for_image
 HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
 
-def artwork_palette(package,assets):
-    choices={asset.get('metrics',{}).get('palette',package['design_palette']) for asset in assets.values()}
-    if len(choices)!=1:raise ValueError('Feed artwork must use one shared palette for Stories')
-    return read_json(ROOT/'data/design-palettes.json')[choices.pop()]
+def artwork_palette(package,assets,kind=None):
+    if kind is None:  # Backward-compatible helper for old shared-palette callers.
+        choices={asset.get('metrics',{}).get('palette',package['design_palette']) for asset in assets.values()}
+        if len(choices)!=1:raise ValueError('Select a specific card for its final palette')
+        selected=choices.pop()
+    else:selected=assets[kind].get('metrics',{}).get('palette',package['design_palette'])
+    catalogue=read_json(ROOT/'data/design-palettes.json')
+    if selected not in catalogue:raise ValueError('Unknown prepared artwork palette')
+    return catalogue[selected]
 
 
 def story_image(source,destination,palette,background=None,card=None):
@@ -55,9 +60,8 @@ def publish_stories(store,package,assets,record=None):
         require_publishing()
         if os.getenv('INSTAGRAM_STORIES_ENABLED')!='true': raise ValueError('Story publisher is disabled')
         ig=Instagram();ig.refresh_if_needed();ig.verify_account()
-        palette=artwork_palette(package,assets)
         for card in package['cards']:
-            kind=card['kind'];stage='Instagram Stories rendering'
+            kind=card['kind'];palette=artwork_palette(package,assets,kind);stage='Instagram Stories rendering'
             path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
             body=path.read_bytes();stage='Instagram Stories storage'
             store.put_file(output_key(package),path.name,body);url=store.expose(output_key(package),path.name,body)

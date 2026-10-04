@@ -27,7 +27,7 @@ Instagram image Stories require two consecutive FINISHED container reads five se
 
 # Layout selection
 
-After FLUX photographs exist, ChatGPT chooses a supported Pillow design, shared palette and free block placement. Preparation no longer chooses one of the old eight layouts. Pillow draws the header, explanation/answer panels and exact text; PRIMJER is always unboxed Lora Italic over the photo/neutral contrast fade or on an editorial footer. Stories keep the complete separate photograph, Inter explanations and an italic example footer. Body size remains 44/38/34 px with measured fit, contrast and unchanged Bosnian diacritics. The chosen final design is visible in GitHub's successful-run report.
+After FLUX photographs exist, ChatGPT chooses a approved Pillow design and palette per card, plus declarative block placement and bounded typography. Preparation no longer chooses one of the old eight layouts. Pillow draws the header, explanation/answer panels and exact text; PRIMJER is always unboxed Lora Italic over the photo/neutral contrast fade or on an editorial footer. Stories keep the complete separate photograph, Inter explanations and an italic example footer. Feed typography follows role-specific safe ranges, actual measured fit/contrast and unchanged Bosnian diacritics; fallback and Stories keep trusted presets. See [visual-style-contract.md](visual-style-contract.md). The chosen final design is visible in GitHub's successful-run report.
 
 # Historical migration-0005 rollout (already completed)
 

@@ -68,9 +68,17 @@ def with_rendering(data,placement):
                 for role,style in styles.items()):
             raise ValueError('Invalid safe design metadata')
         palettes.add(result['palette'])
-        rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,'block_styles':styles}
-    if len(palettes)!=1:raise ValueError('Rendering report requires one shared palette')
-    return {**data,'final_palette':palettes.pop(),
+        safe_typography={}
+        from .designs import typography
+        for role,values in result.get('block_typography',{}).items():
+            if role not in styles or not isinstance(values,dict) or set(values)!= {'font_size','line_spacing','max_lines','wrapping'}:
+                raise ValueError('Invalid safe typography metadata')
+            typography(role,values['font_size'],values['line_spacing'],values['max_lines'],values['wrapping'])
+            safe_typography[role]=dict(values)
+        rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,
+                               'block_styles':styles,'block_typography':safe_typography}
+
+    return {**data,'final_palette':next(iter(palettes)) if len(palettes)==1 else 'per card',
             'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}
 
 
@@ -87,7 +95,7 @@ def render_report(data):
     for card in data['cards']:
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
-        if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
+        if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['palette'])} / {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
         text+=f"{fence}text\n{card['prompt']}\n{fence}\n\n"
     text+='### Publication results\n\n'
     for platform in data['platforms']:
@@ -107,7 +115,7 @@ def render_report(data):
     markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
     for card in data['cards']:
         markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p>'
-        if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
+        if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['palette'])+' / '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'
     for platform in data['platforms']:

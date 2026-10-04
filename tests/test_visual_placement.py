@@ -26,7 +26,7 @@ from test_project import reviewed_fixture
 
 class HybridCompositionTests(unittest.TestCase):
     def decision(self):
-        return {'palette':'terracotta-sand','cards':{c['kind']:dict(default_plan(c),confidence='high') for c in reviewed_fixture()['cards']}}
+        return {'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='terracotta-sand') for c in reviewed_fixture()['cards']}}
 
     def candidates(self):
         return {kind:{'sheet':Path('build')/(kind+'.jpg')} for kind in KINDS}
@@ -101,7 +101,7 @@ class HybridCompositionTests(unittest.TestCase):
     def test_photo_window_preserves_complete_photo_and_example_stays_over_it(self):
         card=reviewed_fixture()['cards'][2];card['body']='Ovo je kratko objašnjenje.';card['example']='Čuvamo č, ć, š, ž i đ.'
         plan={'confidence':'high','design':'hybrid','photo_window':{'y':500,'height':600,'fit':'contain'},'blocks':[
-            {'role':'body','style':'rounded','x':64,'y':280,'width':952}, {'role':'example','style':'italic_photo','x':320,'y':920,'width':440}]}
+            {'role':'body','style':'rounded','x':64,'y':280,'width':952,'font_size':44,'line_spacing':1.30}, {'role':'example','style':'italic_photo_fade','x':320,'y':920,'width':440,'font_size':36,'line_spacing':1.30}]}
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1024,1024),'#798e95').save(photo)
             result=render_hybrid(card,'terracotta-sand',photo,root/'card.jpg',plan)
@@ -133,10 +133,10 @@ class HybridCompositionTests(unittest.TestCase):
             root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#728192').save(photo)
             normal=render_hybrid(card,'blue-ice',photo,root/'normal.jpg')
             plan=default_plan(card);plan['confidence']='high'
-            plan['blocks'][0]['style']='outlined';plan['blocks'][1].update(style='italic_photo',y=950)
+            plan['blocks'][0]['style']='outlined';plan['blocks'][1].update(style='italic_photo_fade',y=950)
             altered=render_hybrid(card,'blue-ice',photo,root/'altered.jpg',plan)
             self.assertEqual(card,before);self.assertNotEqual((root/'normal.jpg').read_bytes(),(root/'altered.jpg').read_bytes())
-            self.assertEqual(altered['block_styles'],{'body':'outlined','example':'italic_photo'})
+            self.assertEqual(altered['block_styles'],{'body':'outlined','example':'italic_photo_fade'})
             self.assertEqual(len(altered['panel_bounds']),1);self.assertEqual(normal['body_font_size'],altered['body_font_size'])
             self.assertGreaterEqual(altered['example_contrast'],4.5)
 
@@ -193,7 +193,7 @@ class HybridCompositionTests(unittest.TestCase):
                 self.assertTrue(str(call.args[3].path).endswith('Lora-Italic.ttf'))
                 self.assertNotIn(result['example_bounds'],result['panel_bounds'])
             from easybosnian.designs import EXAMPLE_STYLES
-            self.assertEqual(EXAMPLE_STYLES,('italic_photo','italic_footer'))
+            self.assertEqual(EXAMPLE_STYLES,('italic_photo','italic_photo_fade','italic_footer'))
 
     def test_licensed_serif_has_true_italic_and_complete_bosnian_glyphs(self):
         for italic in (False,True):
@@ -266,7 +266,7 @@ class PreparedArtworkTests(unittest.TestCase):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
         stream=io.BytesIO();Image.new('RGB',(1024,1024),'#728192').save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue();store=MagicMock()
-        decisions={'palette':'terracotta-sand','cards':{c['kind']:dict(default_plan(c),confidence='high') for c in package['cards']}}
+        decisions={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='terracotta-sand') for c in package['cards']}}
         decisions['cards']['lesson']['blocks'][0]['style']='outlined'
         # Bad word geometry must fall back alone without a model/generation retry.
         decisions['cards']['word']['blocks'][0]['y']=200
@@ -281,8 +281,9 @@ class PreparedArtworkTests(unittest.TestCase):
             self.assertEqual(result['lesson']['metrics']['panel_position'],'free')
             self.assertEqual(result['lesson']['metrics']['block_styles']['body'],'outlined')
             self.assertEqual(result['word']['metrics']['panel_position'],'normal')
-            self.assertEqual({item['metrics']['palette'] for item in result.values()},{'terracotta-sand'})
-            self.assertEqual(artwork_palette(package,result),read_json(ROOT/'data/design-palettes.json')['terracotta-sand'])
+            self.assertEqual(result['lesson']['metrics']['palette'],'terracotta-sand')
+            self.assertEqual(result['word']['metrics']['palette'],package['design_palette'])
+            self.assertEqual(artwork_palette(package,result,'lesson'),read_json(ROOT/'data/design-palettes.json')['terracotta-sand'])
             safe=read_json(Path(temp)/'build'/package['batch_id']/'image-placement-result.json')
             self.assertEqual(safe['cards']['lesson']['block_styles']['body'],'outlined')
             self.assertEqual(safe['cards']['word']['block_styles']['body'],'rounded')

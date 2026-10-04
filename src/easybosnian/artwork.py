@@ -12,7 +12,8 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':3, **{key: package.get(key) for key in ('batch_id', 'date', 'design_palette', 'cards')}}
+    return {'rendering_version':4, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+            'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
 def artwork(store, package, expose=False, review_images=False, require_prepared=False):
@@ -52,7 +53,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 with Image.open(background) as original:photo_size=list(original.size)
                 candidates[kind]={'baseline':baseline,'metrics':metrics,'sheet':sheet,'photo_size':photo_size}
             proposal,status=review_compositions(package,candidates)
-            palette=proposal['palette'];decisions={}
+            decisions={}
         for card in package['cards']:
             kind=card['kind']; background=output/f'{kind}-background.jpg'
             path=output/f'{kind}-card.jpg'
@@ -62,6 +63,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 metrics=saved['metrics'][kind]
             elif review_images:
                 plan=proposal['cards'][kind]
+                palette=plan.get('palette',package['design_palette'])
                 if plan['confidence']!='high':plan=default_plan(card)
                 stage='Pillow rendering'
                 try:
@@ -70,11 +72,11 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 except ValueError:
                     # Bad cosmetic geometry/contrast cannot trigger a second model
                     # call, generation, or publication. The premeasured reference is safe.
-                    metrics=render_hybrid(card,palette,background,path,default_plan(card))
+                    metrics=render_hybrid(card,package['design_palette'],background,path,default_plan(card))
                     decision_status='rejected; safe hybrid fallback'
                     print('::warning::Hybrid composition rejected; using measured reference without retry')
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
-                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'composition':metrics.get('composition')}
+                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'block_typography':metrics['block_typography'],'composition':metrics.get('composition')}
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
