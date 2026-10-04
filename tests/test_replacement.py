@@ -43,7 +43,7 @@ class SelectionTests(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):check_selection(wrong,chosen)
         validate(new,novelty_history(self.history,new['date'],chosen),include_today=True)
         history=copy.deepcopy(self.history);history['days'].append({'date':'2026-10-01','content':self.old})
-        with self.assertRaises(ValueError):validate(new,novelty_history(history,new['date'],chosen),include_today=True)
+        validate(new,novelty_history(history,new['date'],chosen),include_today=True)
 
     def test_same_theme_does_not_exempt_previous_words_or_modify_history(self):
         chosen=selection_context(self.history,self.old['date'],'same_theme')
@@ -69,13 +69,16 @@ class SelectionTests(unittest.TestCase):
         check_selection(new,chosen)
         validate(new,novelty_history(self.history,new['date'],chosen),include_today=True)
         older=copy.deepcopy(self.history);older['days'].append({'date':'2026-10-01','content':self.old})
-        with self.assertRaises(ValueError):validate(new,novelty_history(older,new['date'],chosen),include_today=True)
+        validate(new,novelty_history(older,new['date'],chosen),include_today=True)
 
     def test_custom_partial_defaults_and_novelty_exempt_only_explicit_reuse(self):
         chosen=selection_context(self.history,self.old['date'],'custom','',['','vjetar',''])
         self.assertIsNone(chosen['pinned_words'][1]);self.assertEqual(chosen['requested_words'][1],'vjetar')
-        remaining=novelty_history(self.history,self.old['date'],chosen)['days'][0]['content']['words']
-        self.assertEqual(remaining,[self.old['words'][1]])
+        remaining=novelty_history(self.history,self.old['date'],chosen)
+        self.assertEqual(remaining['days'],self.history['days'])
+        self.assertIn('vjetar',remaining['reused_word_keys'])
+        self.assertIn('kisobran',remaining['reused_word_keys'])
+        self.assertNotIn('oblak',remaining['reused_word_keys'])
         chosen=selection_context(self.history,self.old['date'],'custom','Zimska šetnja',['','',''])
         self.assertIsNone(chosen['pinned_theme'])
         self.assertEqual(novelty_history(self.history,self.old['date'],chosen)['days'][0]['content']['theme'],self.old['theme'])

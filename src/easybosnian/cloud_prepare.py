@@ -20,7 +20,7 @@ AGENT_FAILURES = {
     "repository_guard": "The research agent could not accept the wrapper's verified repository boundary; inspect the cloud task instructions.",
     "history_access": "The research agent could not read the complete private history context; check the runner's context file.",
     "research_sources": "Reliable source opening or Bosnian research was incomplete; review source access before deliberately running daily mode.",
-    "semantic_novelty": "The theme or words could not be verified as semantically new against all history content.",
+    "semantic_novelty": "A ChatGPT-selected theme or word could not be verified as semantically new against history. Explicit custom and retained choices may repeat.",
     "text_fit": "The reviewed text did not pass measured fit; revise the unreserved draft without truncation.",
     "quiz_secrecy": "The answer-secrecy review did not pass; revise the unreserved draft before saving it.",
     "design_review": "The shared palette, card layouts or FLUX prompt review was incomplete.",

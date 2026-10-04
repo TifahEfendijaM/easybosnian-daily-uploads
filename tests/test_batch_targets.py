@@ -11,6 +11,7 @@ from easybosnian.cli import prepare, prepared_date
 from easybosnian.cloud_prepare import cloud_run
 from easybosnian.core import PROJECT, read_json, write_json
 from easybosnian.daily import daily
+from easybosnian.validate import normalise
 from easybosnian.selection import batch_date, novelty_history, selection_context
 from test_project import reviewed_fixture
 
@@ -88,10 +89,11 @@ class BatchTargetTests(unittest.TestCase):
             self.assertEqual(cloud_run('preview')['date'],'2026-10-03')
             agent.assert_not_called();live.assert_not_called();save.assert_not_called()
 
-    def test_novelty_exempts_selected_metadata_only_not_other_dates(self):
+    def test_novelty_exempts_selected_concepts_without_removing_other_dates(self):
         chosen=selection_context(self.history,'2026-10-03','same_words')
         filtered=novelty_history(self.history,'2026-10-03',chosen)
-        self.assertEqual(filtered['days'][0]['content']['words'],[])
+        self.assertEqual(filtered['days'],self.history['days'])
+        self.assertEqual(set(filtered['reused_word_keys']),{normalise(k) for w in self.old['words'] for k in [w['lemma'],*w['equivalence_keys']]})
         other=copy.deepcopy(self.old);other['date']='2026-10-02'
         history=copy.deepcopy(self.history);history['days'].append({'date':other['date'],'content':other})
         self.assertEqual(novelty_history(history,'2026-10-03',chosen)['days'][1]['content'],other)
