@@ -48,12 +48,15 @@ def tall_story_image(card, background, destination, palette):
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, photo.width - 1, photo.height - 1), radius=30, fill=255)
     image.paste(photo, ((1080 - photo.width) // 2, int(photo_top)), mask)
     draw = ImageDraw.Draw(image); y = photo_top + photo.height + 34
-    bounds = [];example_bounds=None
+    bounds = [];example_bounds=None;example_rule_bounds=None
     for rows, example, height,face in blocks:
         box = (64, y, 1016, y + height)
         if example:
-            # Pure italic on the existing paper footer; no panel, border or accent rule.
+            # Unboxed italic footer with its trusted thin accent separator.
             text_x,text_y=64,y+padding
+            rule_y=round(text_y-16)
+            draw.line((64,rule_y,1016,rule_y),fill=accent,width=2)
+            example_rule_bounds=[64,rule_y,1016,rule_y+1]
             text_y += draw_rows(draw,(text_x,text_y),['PRIMJER'],font(22,'SemiBold'),ink)+16
             example_bounds=[round(value) for value in box]
         else:
@@ -70,7 +73,7 @@ def tall_story_image(card, background, destination, palette):
     image.alpha_composite(logo, (1016 - logo.width, 1690))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
     return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,
-            'panel_bounds': bounds, 'example_bounds':example_bounds,
+            'panel_bounds': bounds, 'example_bounds':example_bounds,'example_rule_bounds':example_rule_bounds,
             'example_style':'Lora Italic on paper footer' if card.get('example') else None,
             'example_contrast':round(contrast(ink,paper),2) if card.get('example') else None, 'photo_size': list(photo.size), 'photo_cropped': False}
 
