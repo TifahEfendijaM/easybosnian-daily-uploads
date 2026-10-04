@@ -13,6 +13,12 @@ from .store import wait_for_image
 HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
 
+def artwork_palette(package,assets):
+    choices={asset.get('metrics',{}).get('palette',package['design_palette']) for asset in assets.values()}
+    if len(choices)!=1:raise ValueError('Feed artwork must use one shared palette for Stories')
+    return read_json(ROOT/'data/design-palettes.json')[choices.pop()]
+
+
 def story_image(source,destination,palette,background=None,card=None):
     if card:
         return tall_story_image(card,background,destination,palette)
@@ -49,7 +55,7 @@ def publish_stories(store,package,assets,record=None):
         require_publishing()
         if os.getenv('INSTAGRAM_STORIES_ENABLED')!='true': raise ValueError('Story publisher is disabled')
         ig=Instagram();ig.refresh_if_needed();ig.verify_account()
-        palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
+        palette=artwork_palette(package,assets)
         for card in package['cards']:
             kind=card['kind'];stage='Instagram Stories rendering'
             path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)

@@ -8,7 +8,7 @@ from .core import ROOT, read_json, require_publishing, write_json
 from .http import SafeError, request
 from .meta import Facebook
 from .notify import failure
-from .stories import story_image
+from .stories import artwork_palette, story_image
 from .store import wait_for_image
 
 
@@ -51,7 +51,7 @@ def publish_facebook_stories(store, package, assets, record=None):
         if os.getenv('FACEBOOK_POSTING_ENABLED') != 'true' or os.getenv('FACEBOOK_STORIES_ENABLED') != 'true':
             raise ValueError('Facebook Stories publisher is disabled')
         facebook = Facebook(); facebook.verify_page()
-        palette = read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
+        palette = artwork_palette(package,assets)
         for card in package['cards']:
             kind = card['kind']; stage = 'Facebook Stories rendering'
             path = ROOT/'build'/output_key(package)/f'{kind}-story.jpg'

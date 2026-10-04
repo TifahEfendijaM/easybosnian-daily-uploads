@@ -51,6 +51,22 @@ def saved_report_data(source,outcome,date,batch_id,run_url):
             'history_cleanup_warning':outcome.get('history_cleanup',{}).get('status','').startswith('failed')}
 
 
+def with_rendering(data,placement):
+    if placement['batch']!=data['date'] or placement.get('batch_id')!=data['batch_id'] or set(placement['cards'])!=set(LABELS):
+        raise ValueError('Rendering report differs from the prepared batch')
+    palettes=set()
+    catalogue=read_json(ROOT/'data/design-palettes.json')
+    rendered={}
+    for kind,result in placement['cards'].items():
+        if result['palette'] not in catalogue or result['position'] not in ('free','normal','separate_photo'):
+            raise ValueError('Invalid safe rendering metadata')
+        palettes.add(result['palette'])
+        rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position']}
+    if len(palettes)!=1:raise ValueError('Rendering report requires one shared palette')
+    return {**data,'final_palette':palettes.pop(),
+            'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}
+
+
 def markdown_text(value):
     return re.sub(r'([\\`*_{}\[\]()#+.!|>\-])',r'\\\1',html.escape(str(value),quote=False))
 
@@ -59,10 +75,13 @@ def render_report(data):
     text='## EasyBosnian — successful-run report\n\n'
     for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Palette','palette')]:
         text+=f"- **{label}:** {markdown_text(data[key])}\n"
+    if data.get('final_palette'):text+=f"- **Photo-reviewed final palette:** {markdown_text(data['final_palette'])}\n"
     text+=f"\n[Open this run]({data['run_url']})\n\n### Exact FLUX prompts\n\n"
     for card in data['cards']:
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
-        text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n**Layout:** {markdown_text(card['layout'])}\n\n{fence}text\n{card['prompt']}\n{fence}\n\n"
+        text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n**Planning layout:** {markdown_text(card['layout'])}\n\n"
+        if card.get('rendering'):text+=f"**Final rendering:** hybrid / {markdown_text(card['rendering']['position'])}; Lora headings, Inter body, italic photographic examples.\n\n"
+        text+=f"{fence}text\n{card['prompt']}\n{fence}\n\n"
     text+='### Publication results\n\n'
     for platform in data['platforms']:
         text+=f"**{markdown_text(platform['name'])}:** {markdown_text(platform['status'])}\n\n"
@@ -77,9 +96,12 @@ def render_report(data):
     markup='<!doctype html><html><head><meta charset="utf-8"><title>EasyBosnian report</title></head><body><main style="font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:24px;color:#203142"><h1>EasyBosnian — successful-run report</h1><ul>'
     for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Palette','palette')]:
         markup+='<li><strong>'+label+':</strong> '+html.escape(str(data[key]))+'</li>'
+    if data.get('final_palette'):markup+='<li><strong>Photo-reviewed final palette:</strong> '+html.escape(data['final_palette'])+'</li>'
     markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
     for card in data['cards']:
-        markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p><p>Layout: '+html.escape(card['layout'])+'</p><pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
+        markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p><p>Planning layout: '+html.escape(card['layout'])+'</p>'
+        if card.get('rendering'):markup+='<p>Final rendering: hybrid / '+html.escape(card['rendering']['position'])+'; Lora headings, Inter body, italic photographic examples.</p>'
+        markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'
     for platform in data['platforms']:
         markup+='<p><strong>'+html.escape(platform['name'])+':</strong> '+html.escape(platform['status'])+'</p><ul>'
@@ -109,7 +131,10 @@ def main():
         date,batch_id,_=prepared_batch('daily')
         source=read_json(ROOT/'build'/batch_id/'report-source.json')
         outcome=read_json(ROOT/'build'/batch_id/'platforms-result.json')
-        data=saved_report_data(source,outcome,date,batch_id,os.environ['GITHUB_RUN_URL']);write_report(data)
+        data=saved_report_data(source,outcome,date,batch_id,os.environ['GITHUB_RUN_URL'])
+        placement=ROOT/'build'/batch_id/'image-placement-result.json'
+        if placement.is_file():data=with_rendering(data,read_json(placement))
+        write_report(data)
         print('Private success report prepared in the run summary and artifact')
     except Exception as error:
         status=str(error) if isinstance(error,ValueError) else 'Report step failed; inspect private artifact/access'

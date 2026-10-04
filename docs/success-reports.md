@@ -21,3 +21,5 @@ Report errors are ancillary warnings and do not undo, block or retry completed p
 The first morning report, from the October 4 run before this feature existed, is available as [a private backfilled report](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/issues/38). Future reports use the run Summary directly; this is not a new per-run issue or alert mechanism.
 
 Successful all_today runs also show whether earlier same-date history removal failed; a warning means some earlier themes/words may still be in history. Cleanup counts appear in the platform summary. Unsupported Facebook Stories/photos and TikTok cleanup stays manual. Reports never expose erased content, quiz answers or credentials.
+
+Hybrid runs distinguish the initial planning palette/layout metadata from the photo-reviewed final palette and actual free/default/separate-photo rendering. Safe composition coordinates are in image-placement-result.json; no raw visual-agent prose or private quiz review appears in the report.
