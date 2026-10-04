@@ -17,6 +17,7 @@ from .daily import daily
 from .buffer import Buffer
 from .notify import failure
 from .render import render
+from .hybrid import render_hybrid
 from .story_layouts import tall_story_image
 from .levels import KEEP_CURRENT, LEVELS, set_level
 from .readiness import check_infrastructure
@@ -62,6 +63,7 @@ def fit_check(package):
     Image.new("RGB",(1080,1350),"#7492a5").save(path)
     for card in package["cards"]:
         render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
+        render_hybrid(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-hybrid-fit.jpg"))
         palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 

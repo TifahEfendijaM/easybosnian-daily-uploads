@@ -2,12 +2,11 @@
 from .batches import output_key
 import io
 import os
-import shutil
 from PIL import Image
 from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
-from .render import render
+from .hybrid import default_plan, render_hybrid
 from .store import wait_for_image
 
 
@@ -34,26 +33,20 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 raise ValueError('Prepared artwork is incomplete; no generation or publication retry')
         candidates={}
         if review_images:
-            from .visual_placement import contact_sheet, review_positions
+            from .visual_placement import composition_sheet, review_compositions
             for card in package['cards']:
                 kind=card['kind']; background=output/f'{kind}-background.jpg'
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
-                positions=['normal','bottom']
-                example_movable=kind!='quiz' and bool(card.get('example'))
-                if example_movable: positions.append('example_bottom')
-                paths={position:output/f'{kind}-{position}-candidate.jpg' for position in positions}
-                metrics={position:render(card,package['design_palette'],background,path,panel_position=position) for position,path in paths.items()}
+                baseline=output/f'{kind}-hybrid-reference.jpg'
+                metrics=render_hybrid(card,package['design_palette'],background,baseline)
                 sheet=output/f'{kind}-placement-sheet.jpg'
-                contact_sheet(background,paths['normal'],paths['bottom'],sheet,
-                              example_bottom=paths.get('example_bottom'))
-                candidates[kind]={'paths':paths,'metrics':metrics,'sheet':sheet,
-                    'movable':not (kind=='quiz' and card.get('quiz_format')=='visual_identification'),
-                    'example_movable':example_movable}
-            decisions,status=review_positions(package,candidates)
-            write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
-                        'status':status,'cards':decisions})
+                composition_sheet(background,baseline,sheet)
+                with Image.open(background) as original:photo_size=list(original.size)
+                candidates[kind]={'baseline':baseline,'metrics':metrics,'sheet':sheet,'photo_size':photo_size}
+            proposal,status=review_compositions(package,candidates)
+            palette=proposal['palette'];decisions={}
         for card in package['cards']:
             kind=card['kind']; background=output/f'{kind}-background.jpg'
             path=output/f'{kind}-card.jpg'
@@ -62,14 +55,25 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     raise ValueError('Prepared artwork is incomplete; no generation or publication retry')
                 metrics=saved['metrics'][kind]
             elif review_images:
-                position=decisions[kind]['position']
-                shutil.copyfile(candidates[kind]['paths'][position],path)
-                metrics=candidates[kind]['metrics'][position]
+                plan=proposal['cards'][kind]
+                if plan['confidence']!='high':plan=default_plan(card)
+                stage='Pillow rendering'
+                try:
+                    metrics=render_hybrid(card,palette,background,path,plan)
+                    decision_status='accepted' if plan['confidence']=='high' else 'default'
+                except ValueError:
+                    # Bad cosmetic geometry/contrast cannot trigger a second model
+                    # call, generation, or publication. The premeasured reference is safe.
+                    metrics=render_hybrid(card,palette,background,path,default_plan(card))
+                    decision_status='rejected; safe hybrid fallback'
+                    print('::warning::Hybrid composition rejected; using measured reference without retry')
+                decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
+                                 'palette':metrics['palette'],'composition':metrics.get('composition')}
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
-                metrics=render(card,package['design_palette'],background,path)
+                metrics=render_hybrid(card,package['design_palette'],background,path)
             body=path.read_bytes()
             stage='storage'
             if not require_prepared: store.put_file(output_key(package),path.name,body)
@@ -79,6 +83,8 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 wait_for_image(item['url'],body,fetch=request)
             assets[kind]=item
         if review_images:
+            write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
+                        'status':status,'cards':decisions})
             write_json(manifest,{'input':render_input(package),'run_url':os.getenv('GITHUB_RUN_URL'),
                                'metrics':{kind:item['metrics'] for kind,item in assets.items()}})
             manifest.chmod(0o600)

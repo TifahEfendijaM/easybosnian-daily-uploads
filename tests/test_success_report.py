@@ -10,7 +10,7 @@ from unittest.mock import patch
 import yaml
 
 from easybosnian.core import REPO,ROOT
-from easybosnian.success_report import content_data, main, render_report, report_data, saved_report_data, write_report
+from easybosnian.success_report import content_data, main, render_report, report_data, saved_report_data, with_rendering, write_report
 from test_project import reviewed_fixture
 
 RUN='https://github.com/'+REPO+'/actions/runs/123'
@@ -24,6 +24,24 @@ def results():
 
 
 class SuccessReportTests(unittest.TestCase):
+    def test_final_photo_palette_and_composition_are_reported_without_model_prose(self):
+        package=reviewed_fixture();data=report_data(package,results(),RUN)
+        placement={'batch':package['date'],'batch_id':package['date'],'cards':{
+            kind:{'position':'free','palette':'terracotta-sand','unexpected':'private-model-prose'} for kind in ('quiz','lesson','word')}}
+        final=with_rendering(data,placement);text,markup=render_report(final)
+        self.assertEqual(final['palette'],package['design_palette'])
+        self.assertEqual(final['final_palette'],'terracotta-sand')
+        self.assertIn('Photo-reviewed final palette',text);self.assertIn('Final rendering',markup)
+        self.assertNotIn('private-model-prose',str(final))
+        for mutation in ('date','batch','palette','mixed','position'):
+            bad=copy.deepcopy(placement)
+            if mutation=='date':bad['batch']='2026-10-05'
+            elif mutation=='batch':bad['batch_id']='b-'+'a'*32
+            elif mutation=='palette':bad['cards']['word']['palette']='arbitrary'
+            elif mutation=='mixed':bad['cards']['word']['palette']='blue-ice'
+            else:bad['cards']['word']['position']='private-model-prose'
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):with_rendering(data,bad)
+
     def test_captured_rendering_input_survives_history_replacement_and_refuses_other_run_batch(self):
         package=reviewed_fixture();source=content_data(package,RUN)
         outcome={'batch':package['date'],'batch_id':package['date'],'platforms':results()}

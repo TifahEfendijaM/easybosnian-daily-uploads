@@ -67,14 +67,14 @@ def tall_story_image(card, background, destination, palette):
             'panel_bounds': bounds, 'photo_size': list(photo.size), 'photo_cropped': False}
 
 
-def visual_quiz_image(card, background, destination, palette, height=1920):
+def visual_quiz_image(card, background, destination, palette, height=1920, serif_heading=False):
     """Visual naming: question above the complete photo, choices below it."""
     if card['kind'] != 'quiz' or card.get('quiz_format') != 'visual_identification':
         raise ValueError('Separate quiz photo requires reviewed visual-identification metadata')
-    return _quiz_image(card, background, destination, palette, height)
+    return _quiz_image(card, background, destination, palette, height, serif_heading)
 
 
-def _quiz_image(card, background, destination, palette, height):
+def _quiz_image(card, background, destination, palette, height, serif_heading=False):
     """All quiz Stories use B; visual naming may also use it in the feed."""
     if card['kind'] != 'quiz':
         raise ValueError('Separate quiz photo requires a quiz card')
@@ -89,7 +89,10 @@ def _quiz_image(card, background, destination, palette, height):
     label_box = (64, top, 64 + round(label_face.getlength(label)) + 48, top + 62)
     draw.rounded_rectangle(label_box, radius=16, fill=accent)
     centered(draw, label_box, label, label_face, ink)
-    question_face = font(52, 'SemiBold')
+    if serif_heading:
+        from .hybrid import serif
+        question_face=serif(50)
+    else:question_face = font(52, 'SemiBold')
     question_rows = wrap(card['question'], question_face, 952)
     if len(question_rows) > 3: raise ValueError('Visual quiz question exceeds three measured lines')
     question_height, _ = measure(question_rows, question_face)
