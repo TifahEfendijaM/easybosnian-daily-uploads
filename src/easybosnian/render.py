@@ -145,7 +145,9 @@ def panel(draw, box, style, palette, option=False):
         draw.rectangle((x, y, x + 10, b), fill=ink)
 
 
-def render(card, palette_id, background, output):
+def render(card, palette_id, background, output, panel_position='normal'):
+    if panel_position not in ('normal', 'bottom'):
+        raise ValueError('Panel position must be normal or bottom')
     palette = json.loads((ROOT / "data/design-palettes.json").read_text())[palette_id]
     if card['kind'] == 'quiz' and card.get('quiz_format') == 'visual_identification':
         from .story_layouts import visual_quiz_image
@@ -228,6 +230,11 @@ def render(card, palette_id, background, output):
     panel_area = sum(b[1] * full_width for b in blocks)
     if y > min(height - 180, 1050) or panel_area > WIDTH * height * 0.49:
         raise ValueError("Copy does not fit while preserving artwork; rewrite reviewed package")
+    # Move the complete measured panel group, never the category/title or text.
+    # Leave a clear strip above the fixed original logo at the bottom right.
+    if panel_position == 'bottom':
+        offset = height - 180 - (blocks[-1][0] + blocks[-1][1])
+        blocks = [(top + offset, h, lines, marker, example) for top, h, lines, marker, example in blocks]
     bounds = []
     for index, (top, block_height, rows, marker, is_example) in enumerate(blocks):
         box = (MARGIN, top, WIDTH - MARGIN, top + block_height)
@@ -260,4 +267,4 @@ def render(card, palette_id, background, output):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(output, "JPEG", quality=94, subsampling=0, optimize=True)
-    return {"size": [WIDTH, height], "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "paragraph_alignment":"left", "balanced_wrapping":True, "body_line_step":measure(["ČćŠšŽžĐđ"],body_face)[1], "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}
+    return {"size": [WIDTH, height], "panel_position":panel_position, "body_font_size": body_size, "panel_padding": padding, "panel_bounds": bounds, "example_label": "PRIMJER" if card.get("example") else None, "inset_accent_line": card["kind"] != "quiz", "paragraph_alignment":"left", "balanced_wrapping":True, "body_line_step":measure(["ČćŠšŽžĐđ"],body_face)[1], "panel_area_ratio": round(panel_area / (WIDTH * height), 3), "body_contrast":round(minimum_body_contrast,2),"heading_contrast":round(heading_contrast,2)}

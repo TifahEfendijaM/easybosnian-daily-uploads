@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 REPO='TifahEfendijaM/easybosnian-daily-uploads'
 path=Path('build/failure.txt')
 if not path.exists():
-    stage=next((name for name in ['checkout','python','node','install','auth','preparation','persist','publication'] if os.getenv(name.upper()+'_OUTCOME')=='failure'),'workflow execution')
+    stage=next((name for name in ['checkout','python','node','install','auth','preparation','artwork','persist','publication'] if os.getenv(name.upper()+'_OUTCOME')=='failure'),'workflow execution')
     path.parent.mkdir(exist_ok=True)
     date=datetime.now(ZoneInfo('Europe/Sarajevo')).date().isoformat()
     path.write_text(f'Batch: {date}\nFailed stage: {stage}\nError: GitHub step failed; inspect its private logs.\nPublication: inspect this run’s platform result artifacts; no publication is claimed by this fallback.\nRun/logs: {os.getenv("GITHUB_RUN_URL","No GitHub run URL was supplied.")}\nNext step: inspect the failed step before deliberately starting daily again. No automatic retry exists.\n')

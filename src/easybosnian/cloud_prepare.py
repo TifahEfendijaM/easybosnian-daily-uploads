@@ -39,6 +39,10 @@ AGENT_RESULT_SCHEMA = {
 }
 
 
+class AgentIntegrityError(ValueError):
+    """Tracked-file changes cannot be downgraded into a cosmetic-review fallback."""
+
+
 def require_agent_ready(text):
     # Never put free-form model output, quiz answers or raw events in an issue/log.
     try:
@@ -113,7 +117,7 @@ def persist():
     print("Managed ChatGPT credentials saved privately for the next serialized cloud run")
 
 
-def run_codex(prompt, timeout=420):
+def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only=False):
     path = auth_file()
     managed_auth(path.read_text(encoding="utf-8"))
     # Provider/admin/GitHub/Instagram credentials are only available to the trusted wrapper.
@@ -126,12 +130,19 @@ def run_codex(prompt, timeout=420):
     events.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
     output.unlink(missing_ok=True)
     result_schema = ROOT / "build/cloud-agent-result-schema.json"
-    write_json(result_schema, AGENT_RESULT_SCHEMA)
+    write_json(result_schema, result_contract or AGENT_RESULT_SCHEMA)
     args = ["codex", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
-            "--sandbox", "workspace-write", "--cd", str(ROOT), "--color", "never",
+            "--sandbox", "read-only" if read_only else "workspace-write", "--cd", str(ROOT), "--color", "never",
             "-c", 'approval_policy="never"', "-c", 'cli_auth_credentials_store="file"',
-            "-c", "sandbox_workspace_write.network_access=true", "-c", 'web_search="live"',
-            "--output-schema", str(result_schema), "--output-last-message", str(output), "-"]
+            "-c", "sandbox_workspace_write.network_access="+('false' if read_only else 'true'),
+            "-c", 'web_search="disabled"' if read_only else 'web_search="live"',
+            "--output-schema", str(result_schema), "--output-last-message", str(output)]
+    for picture in images:
+        picture = Path(picture).resolve()
+        if not picture.is_relative_to((ROOT/'build').resolve()) or not picture.is_file():
+            raise ValueError('Visual review images must be local generated build files')
+        args.extend(['--image', str(picture)])
+    args.append('-')
     with events.open("w", encoding="utf-8") as private_log:
         events.chmod(0o600)
         try:
@@ -139,14 +150,19 @@ def run_codex(prompt, timeout=420):
                                     stdout=private_log, stderr=subprocess.STDOUT, timeout=timeout)
         except subprocess.TimeoutExpired:
             raise ValueError("ChatGPT review exceeded its time allowance; inspect the run and reviewed content; no retry was dispatched") from None
+        finally:
+            # Check even after an unsuccessful visual review, before any fallback.
+            try:
+                verify_repository(remote=True)
+                changed = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True)
+            except Exception:
+                raise AgentIntegrityError("Could not confirm the repository/file boundary after ChatGPT execution") from None
+            if changed.stdout.strip():
+                raise AgentIntegrityError("Preparation changed tracked project files; refusing to save content")
     if output.exists():
         output.chmod(0o600)
     if result.returncode:
         raise ValueError("Cloud ChatGPT execution failed: verify the dedicated sign-in and ChatGPT usage limits; no paid fallback")
-    verify_repository(remote=True)
-    changed = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True)
-    if changed.stdout.strip():
-        raise ValueError("Preparation changed tracked project files; refusing to save content")
     if not output.is_file():
         raise ValueError("Cloud ChatGPT ended without its required completion result; no batch was approved")
     return output.read_text(encoding="utf-8").strip()
