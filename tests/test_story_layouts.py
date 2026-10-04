@@ -7,7 +7,8 @@ from unittest.mock import patch
 from PIL import Image
 
 from easybosnian.core import ROOT, read_json
-from easybosnian.render import draw_rows, render
+from easybosnian.render import draw_rows
+from easybosnian.hybrid import render_hybrid as render
 from easybosnian.story_layouts import tall_story_image, visual_quiz_image
 from easybosnian.stories import story_image
 from easybosnian.validate import validate
@@ -34,6 +35,26 @@ class StoryLayoutTests(unittest.TestCase):
             self.assertAlmostEqual(metrics['photo_size'][0]/metrics['photo_size'][1],1.5,places=2)
             self.assertLessEqual(metrics['panel_bounds'][-1][3],1650)
             with Image.open(self.root/'story.jpg') as image:self.assertEqual(image.size,(1080,1920))
+
+    def test_story_examples_are_exact_true_italic_unboxed_footers_for_all_palettes(self):
+        from easybosnian.core import read_json
+        from easybosnian.render import font
+        from easybosnian.hybrid import serif
+        for palette in read_json(ROOT/'data/design-palettes.json').values():
+            card=copy.deepcopy(self.package['cards'][2]);before=copy.deepcopy(card)
+            with patch('easybosnian.story_layouts.draw_rows',wraps=draw_rows) as drawing:
+                metrics=tall_story_image(card,self.photo,self.root/'story.jpg',palette)
+            example_call=next(call for call in drawing.call_args_list if ' '.join(call.args[2])==card['example'])
+            self.assertTrue(str(example_call.args[3].path).endswith('Lora-Italic.ttf'))
+            self.assertEqual(card,before);self.assertEqual(len(metrics['panel_bounds']),1)
+            self.assertIn('Italic',metrics['example_style']);self.assertGreaterEqual(metrics['example_contrast'],4.5)
+            self.assertGreater(metrics['example_bounds'][1],metrics['panel_bounds'][0][3])
+            self.assertLessEqual(metrics['example_bounds'][3],1650)
+            # The example's right padding is bare page colour, never a white panel.
+            with Image.open(self.root/'story.jpg') as image:
+                sample=image.getpixel((1000,metrics['example_bounds'][1]+5))
+                paper=tuple(int(palette['panel'][i:i+2],16) for i in (1,3,5))
+                self.assertTrue(all(abs(a-b)<=3 for a,b in zip(sample,paper)))
 
     def test_only_explicit_visual_naming_quizzes_use_b_in_feed(self):
         card=copy.deepcopy(self.package['cards'][0]);card['question']='Kako se zove predmet na slici?'

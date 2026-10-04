@@ -9,8 +9,9 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from easybosnian.core import ROOT, LAYOUTS, verify_repository
-from easybosnian.render import density, font, render, wrap
+from easybosnian.core import ROOT, verify_repository
+from easybosnian.render import density, font, wrap
+from easybosnian.hybrid import render_hybrid as render, default_plan
 from easybosnian.validate import validate, normalise
 from easybosnian.pipeline import verify_media
 from easybosnian.http import redact
@@ -141,6 +142,17 @@ class ContentTests(unittest.TestCase):
             else: invalid['cards'][0][field]=value
             with self.subTest(field=field), self.assertRaises(ValueError): validate(invalid)
 
+    def test_new_batches_need_no_planning_layout_and_legacy_layouts_are_readable(self):
+        package=reviewed_fixture();self.assertTrue(all('design_template' not in c for c in package['cards']))
+        validate(package)
+        for style in ('editorial','framed','notebook','ribbon','split-cards','minimal','rounded','poster'):
+            legacy=copy.deepcopy(package)
+            for card in legacy['cards']:card['design_template']=style
+            validate(legacy)
+        schema=json.loads((ROOT/'data/content.schema.json').read_text())
+        self.assertNotIn('design_template',schema['$defs']['card']['required'])
+        self.assertFalse((ROOT/'data/design-layouts.json').exists())
+
     def test_schema_failure_does_not_echo_private_answer_or_model_prose(self):
         p=reviewed_fixture()
         p['private_review']['correct_text']='private-answer-'+('x'*200)
@@ -181,22 +193,23 @@ class RendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             background=Path(directory)/'bg.jpg'; Image.new('RGB',(1080,1350),'#648699').save(background)
             seen=set()
-            for style in LAYOUTS:
+            for style in ('rounded','outlined'):
                 for original in preview.package()['cards']:
                     for variant in ('short','long'):
-                        c=copy.deepcopy(original); c['design_template']=style
+                        c=copy.deepcopy(original)
                         if c['kind']=='quiz' and variant=='long':
                             c['question']='Koji predmet koristimo tokom kišnog dana da se zaštitimo od kiše?'
                             c['options'][0]['text']='torba koju nosimo preko ramena'
                         if c['kind']=='lesson' and variant=='long':
                             c['body']='Od riječi „oblak“ nastaje pridjev „oblačan“. Kada opisujemo vrijeme, često kažemo: „Danas je oblačno.“ To znači da na nebu ima oblaka. Obrati pažnju na oblik pridjeva: oblačan dan, oblačno jutro i oblačna noć. Tako pridjev usklađujemo s imenicom.'
                         output=Path(directory)/f'{style}-{c["kind"]}-{variant}.jpg'
-                        metrics=render(c,'blue-ice',background,output)
+                        plan=default_plan(c);plan['blocks'][0]['style']=style
+                        metrics=render(c,'blue-ice',background,output,plan)
                         with Image.open(output) as image: self.assertEqual(image.size,(1080,1350))
-                        self.assertLess(metrics['panel_area_ratio'],.49)
-                        self.assertLess(metrics['panel_bounds'][-1][3],1050)
+                        self.assertLess(sum((b[2]-b[0])*(b[3]-b[1]) for b in metrics['panel_bounds'])/(1080*1350),.49)
+                        self.assertLess(metrics['panel_bounds'][-1][3],1170)
                         seen.add(output.read_bytes())
-            self.assertGreater(len(seen),24)
+            self.assertGreater(len(seen),6)
 
     def test_accents_and_descenders_keep_uniform_paragraph_baselines(self):
         from easybosnian.render import draw_rows,measure
@@ -221,12 +234,14 @@ class RendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             bg=Path(directory)/'bg.jpg';Image.new('RGB',(1080,1350),'#728192').save(bg)
             for n in (2,4):
-                for style in LAYOUTS:
-                    c=copy.deepcopy(preview.package()['cards'][0]);c['design_template']=style
+                for style in ('rounded','outlined'):
+                    c=copy.deepcopy(preview.package()['cards'][0])
                     c['options']=[{'label':label,'text':text} for label,text in zip('ABCD',['Da','Ne','Možda','Nikada'])][:n]
-                    result=render(c,'blue-ice',bg,Path(directory)/f'{n}-{style}.jpg')
+                    plan=default_plan(c)
+                    for block in plan['blocks']:block['style']=style
+                    result=render(c,'blue-ice',bg,Path(directory)/f'{n}-{style}.jpg',plan)
                     self.assertEqual(len(result['panel_bounds']),n)
-                    self.assertLess(result['panel_bounds'][-1][3],1050)
+                    self.assertLess(result['panel_bounds'][-1][3],1170)
 
     def test_palettes_and_exact_wrapping(self):
         with tempfile.TemporaryDirectory() as directory:

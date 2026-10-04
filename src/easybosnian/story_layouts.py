@@ -30,13 +30,15 @@ def tall_story_image(card, background, destination, palette):
     body_size, padding = density(card); body_face = font(body_size)
     groups = [(card['body'], False)]
     if card.get('example'): groups.append((card['example'], True))
+    from .hybrid import serif
     blocks = []
     for text, example in groups:
-        rows = wrap(text, body_face, 952 - 2 * padding - 24)
-        text_height, _ = measure(rows, body_face)
+        face=serif(min(body_size,36),italic=True) if example else body_face
+        rows = wrap(text, face, 952 if example else 952 - 2 * padding - 24)
+        text_height, _ = measure(rows, face)
         label_height = measure(['PRIMJER'], font(22, 'SemiBold'))[0] + 16 if example else 0
-        blocks.append((rows, example, text_height + 2 * padding + label_height))
-    text_height = sum(height for _, _, height in blocks) + 20 * (len(blocks) - 1)
+        blocks.append((rows, example, text_height + 2 * padding + label_height,face))
+    text_height = sum(height for _, _, height, _ in blocks) + 20 * (len(blocks) - 1)
     photo_height = min(730, 1650 - photo_top - 34 - text_height)
     if photo_height < 360:
         raise ValueError('Tall Story copy does not fit while preserving its photo; reject without truncation')
@@ -46,16 +48,20 @@ def tall_story_image(card, background, destination, palette):
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, photo.width - 1, photo.height - 1), radius=30, fill=255)
     image.paste(photo, ((1080 - photo.width) // 2, int(photo_top)), mask)
     draw = ImageDraw.Draw(image); y = photo_top + photo.height + 34
-    bounds = []
-    for rows, example, height in blocks:
+    bounds = [];example_bounds=None
+    for rows, example, height,face in blocks:
         box = (64, y, 1016, y + height)
-        draw.rounded_rectangle(box, radius=24, fill='#ffffff')
-        draw.rounded_rectangle((84, y + padding, 89, y + height - padding), radius=2, fill=accent)
-        text_x, text_y = 64 + padding + 24, y + padding
         if example:
-            text_y += draw_rows(draw, (text_x, text_y), ['PRIMJER'], font(22, 'SemiBold'), ink) + 16
-        draw_rows(draw, (text_x, text_y), rows, body_face, ink)
-        bounds.append([round(value) for value in box]); y += height + 20
+            # Pure italic on the existing paper footer; no panel, border or accent rule.
+            text_x,text_y=64,y+padding
+            text_y += draw_rows(draw,(text_x,text_y),['PRIMJER'],font(22,'SemiBold'),ink)+16
+            example_bounds=[round(value) for value in box]
+        else:
+            draw.rounded_rectangle(box, radius=24, fill='#ffffff')
+            draw.rounded_rectangle((84,y+padding,89,y+height-padding),radius=2,fill=accent)
+            text_x,text_y=64+padding+24,y+padding
+            bounds.append([round(value) for value in box])
+        draw_rows(draw,(text_x,text_y),rows,face,ink);y+=height+20
     with Image.open(ROOT / 'assets/watermark.png') as original_logo:
         if original_logo.mode != 'RGBA' or original_logo.getextrema()[3][0] != 0 or original_logo.getextrema()[3][1] == 0:
             raise ValueError('Original Story logo must retain transparency')
@@ -64,7 +70,9 @@ def tall_story_image(card, background, destination, palette):
     image.alpha_composite(logo, (1016 - logo.width, 1690))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
     return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,
-            'panel_bounds': bounds, 'photo_size': list(photo.size), 'photo_cropped': False}
+            'panel_bounds': bounds, 'example_bounds':example_bounds,
+            'example_style':'Lora Italic on paper footer' if card.get('example') else None,
+            'example_contrast':round(contrast(ink,paper),2) if card.get('example') else None, 'photo_size': list(photo.size), 'photo_cropped': False}
 
 
 def visual_quiz_image(card, background, destination, palette, height=1920, serif_heading=False):

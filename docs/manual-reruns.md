@@ -27,7 +27,7 @@ Instagram image Stories require two consecutive FINISHED container reads five se
 
 # Layout selection
 
-The user's original eight card treatments are retained. They primarily place text in the upper portion and vary panels, category styling and spacing. Preparation selects a layout independently per card and matches a short, natural photorealistic composition to its actual text extent. No layout IDs, coordinates, blank regions or text-placement instructions are sent to FLUX. Dynamic body fonts remain 44/38/34 px at 160/240 character boundaries, with measured fit, contrast and unchanged Bosnian diacritics. Separate PRIMJER label and inset accent remain. The proposed wider positional redesign was rejected and is not deployed.
+After FLUX photographs exist, ChatGPT chooses a supported Pillow design, shared palette and free block placement. Preparation no longer chooses one of the old eight layouts. Pillow draws the header, explanation/answer panels and exact text; PRIMJER is always unboxed Lora Italic over the photo/neutral contrast fade or on an editorial footer. Stories keep the complete separate photograph, Inter explanations and an italic example footer. Body size remains 44/38/34 px with measured fit, contrast and unchanged Bosnian diacritics. The chosen final design is visible in GitHub's successful-run report.
 
 # Historical migration-0005 rollout (already completed)
 
