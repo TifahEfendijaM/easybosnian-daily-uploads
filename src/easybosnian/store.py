@@ -1,7 +1,8 @@
 import os
 import re
+import time
 from urllib.parse import urlparse
-from .http import request
+from .http import SafeError, request
 from .batches import BATCH_ID
 from .core import PROJECT
 
@@ -10,6 +11,30 @@ def scope_path(key):
     if BATCH_ID.fullmatch(key):return 'batches/'+key
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',key):return key
     raise ValueError('Invalid batch storage identity')
+
+
+def wait_for_image(url,expected,fetch=None):
+    """Read only: wait at most three minutes for this one freshly written URL.
+
+    A KV negative cache can outlive the write. Never resubmit a write, exposure,
+    generation or social publish; only an explicit 404 is eligible for polling.
+    """
+    fetch=fetch or request
+    deadline=time.monotonic()+180
+    while True:
+        remaining=deadline-time.monotonic()
+        if remaining<=0:
+            raise SafeError('Public image remained unavailable after 180 seconds; no write or publication was repeated','storage')
+        try:
+            body=fetch('GET',url,raw=True,timeout=min(10,remaining))
+        except SafeError as error:
+            if error.http_status!=404: raise
+        else:
+            if body!=expected:
+                raise SafeError('Public image bytes differ from the reviewed renderer output','storage')
+            return
+        remaining=deadline-time.monotonic()
+        if remaining>0: time.sleep(min(5,remaining))
 
 
 class Store:
@@ -40,4 +65,12 @@ class Store:
     def forget(self,key,platform,object_id): return self.call('DELETE',f'/v1/publications/{scope_path(key)}/{platform}/{object_id}')
     def get_file(self,key,name): return self.call('GET',f'/v1/private/{scope_path(key)}/{name}',raw=True)
     def put_file(self,key,name,body): return self.call('PUT',f'/v1/private/{scope_path(key)}/{name}',body,headers={'Content-Type':'image/jpeg'})
-    def expose(self,key,name): return self.call('POST',f'/v1/expose/{scope_path(key)}/{name}')['url']
+    def expose(self,key,name,body=None):
+        # Send the exact rendered bytes; do not depend on an immediate KV read
+        # of the preceding private upload. Empty legacy requests remain valid.
+        result=self.call('POST',f'/v1/expose/{scope_path(key)}/{name}',body,
+                         headers={'Content-Type':'image/jpeg'} if body is not None else None)
+        url=result['url']
+        if body is not None and not re.fullmatch(re.escape(self.url)+r'/images/[a-f0-9]{64}\.jpg',url):
+            raise SafeError('Worker returned an unexpected public image URL','storage')
+        return url

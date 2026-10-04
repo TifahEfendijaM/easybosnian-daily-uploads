@@ -9,6 +9,7 @@ from .http import SafeError, request
 from .meta import Facebook
 from .notify import failure
 from .stories import story_image
+from .store import wait_for_image
 
 
 def verify_story(facebook, post_id, photo_id):
@@ -58,9 +59,9 @@ def publish_facebook_stories(store, package, assets, record=None):
             body = path.read_bytes()
             if len(body) > 10_000_000:
                 raise ValueError('Facebook Story exceeds the 10 MB photo limit')
-            store.put_file(output_key(package), path.name, body); url = store.expose(output_key(package), path.name)
-            if request('GET', url, raw=True) != body:
-                raise ValueError('Facebook Story bytes differ from the rendered Story')
+            stage = 'Facebook Stories storage'
+            store.put_file(output_key(package), path.name, body); url = store.expose(output_key(package), path.name, body)
+            wait_for_image(url,body,fetch=request)
             stage = 'Facebook Stories photo upload'; require_publishing()
             # Meta forbids reusing a photo already used in a published feed post.
             photo_id = str(facebook.photo(url, card['alt_text']))

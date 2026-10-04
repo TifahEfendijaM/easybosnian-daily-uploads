@@ -6,6 +6,7 @@ from .core import ROOT
 from .http import SafeError, request
 from .providers import provider
 from .render import render
+from .store import wait_for_image
 
 
 def artwork(store, package, expose=False):
@@ -19,12 +20,12 @@ def artwork(store, package, expose=False):
             stage='Pillow rendering'
             path=output/f'{kind}-card.jpg'
             metrics=render(card,package['design_palette'],background,path)
-            stage='storage'; store.put_file(output_key(package),path.name,path.read_bytes())
+            body=path.read_bytes()
+            stage='storage'; store.put_file(output_key(package),path.name,body)
             item={'path':path,'background_path':background,'alt_text':card['alt_text'],'metrics':metrics}
             if expose:
-                item['url']=store.expose(output_key(package),path.name)
-                if request('GET',item['url'],raw=True)!=path.read_bytes():
-                    raise ValueError('Public image bytes differ from the reviewed renderer output')
+                item['url']=store.expose(output_key(package),path.name,body)
+                wait_for_image(item['url'],body,fetch=request)
             assets[kind]=item
         return assets
     except Exception as error:

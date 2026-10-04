@@ -72,13 +72,20 @@ class MetaReadinessTests(unittest.TestCase):
             ig = MagicMock(); ig.user_id = '42'; ig.story.side_effect = ['101','102']
             ig.publish.side_effect = ['201',SafeError('HTTP 400; provider code 9007')]
             ig.ready.return_value = 'FINISHED'; ig.call.return_value = {'status_code':'FINISHED'}
-            store = MagicMock(); store.expose.side_effect = lambda date,name: 'https://images.example/'+name
-            with patch.dict(os.environ, {'INSTAGRAM_STORIES_ENABLED':'true'}), patch('easybosnian.stories.ROOT',root), patch('easybosnian.stories.Instagram',return_value=ig), patch('easybosnian.stories.require_publishing'), patch('easybosnian.stories.verify_story',return_value='https://www.instagram.com/stories/easy_bosnian/201'), patch('easybosnian.stories.request',side_effect=lambda method,url,**kw:(build/url.rsplit('/',1)[-1]).read_bytes()), patch('easybosnian.stories.failure',return_value='safe failure'), self.assertRaises(SafeError):
+            store = MagicMock(); store.expose.side_effect = lambda date,name,body: 'https://images.example/'+name
+            image_reads={}
+            def read_image(method,url,**kwargs):
+                self.assertEqual(method,'GET');image_reads[url]=image_reads.get(url,0)+1
+                if image_reads[url]==1:raise SafeError('not visible',http_status=404)
+                return (build/url.rsplit('/',1)[-1]).read_bytes()
+            with patch.dict(os.environ, {'INSTAGRAM_STORIES_ENABLED':'true'}), patch('easybosnian.stories.ROOT',root), patch('easybosnian.stories.Instagram',return_value=ig), patch('easybosnian.stories.require_publishing'), patch('easybosnian.stories.verify_story',return_value='https://www.instagram.com/stories/easy_bosnian/201'), patch('easybosnian.stories.request',side_effect=read_image), patch('easybosnian.store.time.sleep'), patch('easybosnian.stories.failure',return_value='safe failure'), self.assertRaises(SafeError):
                 publish_stories(store,package,assets)
             result = json.loads((build/'instagram-stories-result.json').read_text())
             self.assertEqual(result['stories'][0]['media_id'],'201')
             self.assertEqual(result['containers'][-1],{'slide':'lesson','container_id':'102','ready_status':'FINISHED','status_after_failure':'FINISHED'})
             self.assertEqual(ig.publish.call_count,2)
+            self.assertEqual(list(image_reads.values()),[2,2]);self.assertEqual(store.expose.call_count,2)
+            for call in store.expose.call_args_list:self.assertEqual(call.args[2],(build/call.args[1]).read_bytes())
             self.assertEqual([c.kwargs for c in ig.ready.call_args_list],[{'stable':True}]*2)
 
 

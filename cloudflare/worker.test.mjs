@@ -213,6 +213,64 @@ test('FLUX prompt binding, cached background and private/public artwork are isol
   assert.ok(f.kv.has('private:'+B+':quiz-card.jpg'));assert.ok(f.kv.has('public:'+new URL(two.url).pathname.split('/').pop().slice(0,-4)));
 });
 
+test('direct JPEG exposure never reads stale private KV and preserves exact bytes and TTL',async t=>{
+  const f=batchFixture();await f.save(content(A));
+  const read=t.mock.method(f.env.IMAGES,'get',async()=>null);
+  const put=t.mock.method(f.env.IMAGES,'put',async(key,value,options)=>{
+    assert.equal(options.expirationTtl,14*86400);f.kv.set(key,value);
+  });
+  for(const name of ['quiz-card.jpg','lesson-card.jpg','word-card.jpg','quiz-story.jpg','lesson-story.jpg','word-story.jpg']) {
+    const bytes=new Uint8Array(100);bytes[0]=255;bytes[1]=216;bytes[2]=name.length;
+    const result=await worker.fetch(new Request('https://example.test/v1/expose/batches/'+A+'/'+name,{method:'POST',headers:{Authorization:'Bearer private','Content-Type':'image/jpeg'},body:bytes}),f.env);
+    assert.equal(result.status,200);const {url}=await result.json();assert.match(url,/^https:\/\/example.test\/images\/[a-f0-9]{64}\.jpg$/);
+    const id=new URL(url).pathname.slice('/images/'.length,-4);
+    assert.deepEqual(new Uint8Array(f.kv.get('public:'+id)),bytes);
+  }
+  assert.equal(read.mock.callCount(),0);assert.equal(put.mock.callCount(),6);assert.equal(f.generated,0);
+});
+
+test('exposure still checks authorization, batch scope, JPEG size/type and final-image names',async t=>{
+  const f=batchFixture();await f.save(content(A));await f.save(content(B));
+  const put=t.mock.method(f.env.IMAGES,'put',async()=>{throw Error('Must not store');});
+  const jpeg=new Uint8Array(100);jpeg[0]=255;jpeg[1]=216;
+  const send=(name,body=jpeg,headers={Authorization:'Bearer private','Content-Type':'image/jpeg'},id=A)=>worker.fetch(new Request('https://example.test/v1/expose/batches/'+id+'/'+name,{method:'POST',headers,body}),f.env);
+  assert.equal((await send('quiz-card.jpg',jpeg,{})).status,401);
+  assert.equal((await send('quiz-card.jpg',jpeg,undefined,C)).status,404);
+  assert.equal((await send('quiz-background.jpg')).status,404);
+  for(const bytes of [new Uint8Array(99),new Uint8Array(100),new Uint8Array(3_000_001)])assert.equal((await send('quiz-card.jpg',bytes)).status,400);
+  assert.equal((await send('quiz-card.jpg',jpeg,{Authorization:'Bearer private','Content-Type':'application/json'})).status,400);
+  assert.equal(put.mock.callCount(),0);
+  // Empty-body compatibility reads legacy KV, but ambiguous dates still fail.
+  const result=await f.send('POST','/v1/expose/batches/'+A+'/quiz-card.jpg');
+  assert.equal(result.status,409);assert.equal((await result.json()).reason,'asset_not_visible');
+  assert.equal((await f.send('POST','/v1/expose/2026-10-04/quiz-card.jpg')).status,409);
+});
+
+test('storage diagnostics never include provider exception prose or credentials and never repeat a write',async t=>{
+  const f=batchFixture();await f.save(content(A));const logs=[];
+  t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+  const put=t.mock.method(f.env.IMAGES,'put',async()=>{throw Error('secret-provider-details');});
+  const jpeg=new Uint8Array(100);jpeg[0]=255;jpeg[1]=216;
+  for(const [route,method,reason] of [['private','PUT','asset_write_failed'],['expose','POST','asset_exposure_failed']]) {
+    const result=await worker.fetch(new Request('https://example.test/v1/'+route+'/batches/'+A+'/quiz-card.jpg',{method,headers:{Authorization:'Bearer private','Content-Type':'image/jpeg'},body:jpeg}),f.env);
+    assert.equal(result.status,503);const body=await result.json();assert.equal(body.stage,'storage');assert.equal(body.reason,reason);
+    assert.ok(!JSON.stringify(body).includes('secret-provider-details'));
+  }
+  assert.equal(put.mock.callCount(),2);assert.ok(!JSON.stringify(logs).includes('secret-provider-details'));
+  assert.deepEqual(logs.map(x=>x.reason),['asset_write_failed','asset_exposure_failed']);
+});
+
+test('public availability checks keep negative responses uncached and bound KV cache lifetime',async t=>{
+  const f=batchFixture(),key='a'.repeat(64),url='https://example.test/images/'+key+'.jpg';
+  const read=t.mock.method(f.env.IMAGES,'get',async()=>null);
+  const missing=await worker.fetch(new Request(url),f.env);assert.equal(missing.status,404);assert.equal(missing.headers.get('Cache-Control'),'no-store');
+  assert.deepEqual(read.mock.calls[0].arguments,['public:'+key,{type:'arrayBuffer',cacheTtl:30}]);
+  read.mock.restore();f.kv.set('public:'+key,new Uint8Array([255,216,1]).buffer);
+  const ready=await worker.fetch(new Request(url),f.env);assert.equal(ready.status,200);
+  assert.deepEqual(new Uint8Array(await ready.arrayBuffer()),new Uint8Array([255,216,1]));
+  assert.equal(ready.headers.get('Content-Type'),'image/jpeg');
+});
+
 test('legacy date reads remain compatible; ambiguous date writes and generation refuse to guess',async()=>{
   const f=batchFixture(),legacy=content('legacy-2026-10-03','2026-10-03');
   await f.save(legacy);f.kv.set('private-ai:2026-10-03:quiz','legacy image');

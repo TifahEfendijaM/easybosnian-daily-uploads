@@ -3,6 +3,12 @@ export const REPO='TifahEfendijaM/easybosnian-daily-uploads';
 export const PROJECT='tifahefendijam-easybosnian-daily-uploads-v1';
 const DATE=/^\d{4}-\d{2}-\d{2}$/,BATCH=/^(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})$/,KINDS=['quiz','lesson','word'],NAME=/^(quiz|lesson|word)-(background|card|story)\.jpg$/;
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
+const validJpeg=data=>data.byteLength>=100 && data.byteLength<=3_000_000 && new Uint8Array(data)[0]===255 && new Uint8Array(data)[1]===216;
+function storageFailure(reason,status,name) {
+  // Only fixed diagnostics: never exception prose, bodies, tokens or URLs.
+  console.error(JSON.stringify({event:'image_storage_failed',reason,http_status:status,asset:name}));
+  return response({error:'Image storage operation failed',stage:'storage',reason},status);
+}
 async function row(env,id) {return env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE batch_id=?').bind(id).first();}
 async function legacyScope(env,date,write=false) {
   const r=await env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE date=? ORDER BY created_at DESC,rowid DESC LIMIT 2').bind(date).all();
@@ -84,7 +90,7 @@ export default {
     if(path==='/privacy' && ['GET','HEAD'].includes(req.method)) return new Response(req.method==='HEAD'?null:privacy,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"}});
     const publicAsset=path.match(/^\/images\/([a-f0-9]{64})\.jpg$/);
     if(publicAsset && ['GET','HEAD'].includes(req.method)) {
-      const data=await env.IMAGES.get('public:'+publicAsset[1],{type:'arrayBuffer'});
+      const data=await env.IMAGES.get('public:'+publicAsset[1],{type:'arrayBuffer',cacheTtl:30});
       return data?new Response(req.method==='HEAD'?null:data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}}):new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
     }
     if(!env.ADMIN_TOKEN || !await equalToken(req.headers.get('Authorization'),`Bearer ${env.ADMIN_TOKEN}`)) return response({error:'Unauthorized'},401);
@@ -165,11 +171,30 @@ export default {
       const asset=path.match(/^\/v1\/(private|expose)\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(.+)$/);
       if(asset && NAME.test(asset[3])) {
         const [,kind,id,name]=asset,r=await scope(env,id,true);if(!r) return response({error:'No reviewed content'},404);const key=`private:${r.batch_id}:${name}`;
-        if(kind==='private' && req.method==='GET') {const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer'});return data?new Response(data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store'}}):response({error:'Asset not found'},404);}
-        if(kind==='private' && req.method==='PUT') {const data=await req.arrayBuffer();if(data.byteLength>3_000_000 || data.byteLength<100 || new Uint8Array(data)[0]!==255 || new Uint8Array(data)[1]!==216) throw Error('Asset must be a JPEG below 3MB');await env.IMAGES.put(key,data,{expirationTtl:14*86400});return response({stored:true});}
+        if(kind==='private' && req.method==='GET') {
+          try {const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer',cacheTtl:30});return data?new Response(data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store'}}):response({error:'Asset not found'},404);}
+          catch {return storageFailure('asset_read_failed',503,name);}
+        }
+        if(kind==='private' && req.method==='PUT') {
+          try {const data=await req.arrayBuffer();if(!validJpeg(data)) return storageFailure('asset_invalid',400,name);await env.IMAGES.put(key,data,{expirationTtl:14*86400});return response({stored:true});}
+          catch {return storageFailure('asset_write_failed',503,name);}
+        }
         if(kind==='expose' && req.method==='POST' && (name.endsWith('-card.jpg') || name.endsWith('-story.jpg'))) {
-          const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer'});if(!data) return response({error:'Rendered asset not visible in KV yet'},409);
-          const publicId=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');await env.IMAGES.put('public:'+publicId,data,{expirationTtl:14*86400});return response({url:url.origin+'/images/'+publicId+'.jpg'});
+          try {
+            // New callers supply the exact renderer output, avoiding KV's
+            // eventual consistency between private PUT and exposure. Retain
+            // empty-body compatibility for previously deployed callers.
+            let data=await req.arrayBuffer();
+            if(data.byteLength) {
+              if(req.headers.get('Content-Type')!=='image/jpeg' || !validJpeg(data)) return storageFailure('asset_invalid',400,name);
+            } else {
+              data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer',cacheTtl:30});
+              if(!data) return storageFailure('asset_not_visible',409,name);
+            }
+            const publicId=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
+            await env.IMAGES.put('public:'+publicId,data,{expirationTtl:14*86400});
+            return response({url:url.origin+'/images/'+publicId+'.jpg'});
+          } catch {return storageFailure('asset_exposure_failed',503,name);}
         }
       }
       return response({error:'Not found'},404);
