@@ -179,7 +179,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],7)
+        self.assertEqual(expected['rendering_version'],8)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw
