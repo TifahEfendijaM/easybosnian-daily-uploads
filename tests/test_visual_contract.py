@@ -7,11 +7,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from easybosnian.designs import BODY_STYLES, EXAMPLE_STYLES
 from easybosnian.hybrid import block_spec, default_plan, declared_block, editorial_plan, measured_plan, render_hybrid
-from easybosnian.render import font, measure, wrap
+from easybosnian.render import font, measure, wrap, draw_tracked_label
 from easybosnian.visual_placement import RESULT_SCHEMA, review_compositions
 from easybosnian.stories import artwork_palette
 from easybosnian.success_report import report_data, with_rendering
@@ -20,6 +20,20 @@ from test_success_report import RUN, results
 
 
 class DeclarativeVisualContractTests(unittest.TestCase):
+    def test_tracked_bosnian_category_accents_share_capital_baseline(self):
+        face=font(50,'SemiBold')
+        image=Image.new('L',(360,120))
+        draw_tracked_label(ImageDraw.Draw(image),(16,40),'SŠCČ',face,255)
+        x=16;bounds=[]
+        for letter in 'SŠCČ':
+            width=face.getlength(letter)
+            bounds.append(image.crop((round(x),0,round(x+width),120)).getbbox())
+            x+=width+4
+        self.assertEqual(bounds[0][3],bounds[1][3])
+        self.assertEqual(bounds[2][3],bounds[3][3])
+        self.assertLess(bounds[1][1],bounds[0][1])
+        self.assertLess(bounds[3][1],bounds[2][1])
+
     def test_model_contract_rejects_every_freeform_rendering_escape_and_role_mix(self):
         package=reviewed_fixture()
         base={'cards':{c['kind']:dict(default_plan(c),palette='blue-ice') for c in package['cards']}}
@@ -165,7 +179,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],5)
+        self.assertEqual(expected['rendering_version'],6)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

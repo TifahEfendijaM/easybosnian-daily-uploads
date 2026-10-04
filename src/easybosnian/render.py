@@ -106,6 +106,16 @@ def draw_rows(draw, xy, rows, face, fill, line_spacing=None):
     return height
 
 
+def draw_tracked_label(draw, xy, text, face, fill):
+    """Trusted category tracking with one baseline, including Bosnian accents."""
+    x,top=xy
+    baseline=top-face.getbbox('H',anchor='ls')[1]
+    for letter in text:
+        draw.text((x,baseline),letter,font=face,fill=fill,anchor='ls')
+        x+=face.getlength(letter)+4
+    return x
+
+
 def centered(draw, box, text, face, fill):
     bounds = draw.textbbox((0, 0), text, font=face)
     x = (box[0] + box[2] - (bounds[2] - bounds[0])) / 2 - bounds[0]
