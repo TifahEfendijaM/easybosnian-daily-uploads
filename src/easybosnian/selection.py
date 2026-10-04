@@ -1,4 +1,4 @@
-"""Explicit reuse choices, with exemptions only for intentionally retained terms."""
+"""Selection-aware novelty: manual/retained terms may repeat; model choices must be new."""
 import copy
 from datetime import date as calendar_date
 from .validate import instructional, normalise
@@ -6,7 +6,7 @@ from .batches import identity, latest_record
 
 CHOICES = ('new', 'same_theme', 'same_words', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
-WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'history_repeat', 'word_overlap', 'unusable_seed')
+WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
 
 
 def batch_date(history, run_date, target='latest'):
@@ -160,25 +160,31 @@ def word_levels(package, selection, global_level):
 
 
 def novelty_history(history, date, selection, package=None):
-    # Exempt explicitly retained terms; newly chosen terms compare every batch.
+    """Keep every history row, exempting only the user's actual selected concepts.
+
+    A spelling correction still represents a manual choice. A different fallback
+    represents a model choice and must compare against all history. Final aliases
+    come from the checked draft, not a blanket exemption for custom mode.
+    """
     result = copy.deepcopy(history)
+    result.pop('reused_theme_keys', None)
+    result.pop('reused_word_keys', None)
     if selection['choice'] == 'new': return result
-    if selection.get('source_batch_id'):
-        # Reuse is intentional even if another independent batch teaches the same
-        # retained terms. Newly selected terms still compare against every row.
-        pinned_theme=selection['previous']['theme'] if selection['choice']!='custom' else selection['pinned_theme']
-        changes=replacement_review(package,selection) if package and selection['choice']=='custom' else {}
-        pinned_words=selection['previous']['words'] if selection['choice']=='same_words' else [w for i,w in enumerate(selection.get('pinned_words',[])) if w and i not in changes]
-        result['reused_theme_keys']=[normalise(k) for k in [pinned_theme['name'],*pinned_theme['equivalence_keys']]] if pinned_theme else []
-        result['reused_word_keys']=[normalise(k) for w in pinned_words for k in [w['lemma'],*w['equivalence_keys']]]
-        return result
-    for day in result['days']:
-        if day['date'] != date: continue
-        if selection['choice'] != 'custom' or selection['pinned_theme']:
-            day['content']['theme'] = {'name':'', 'equivalence_keys':[]}
-        if selection['choice'] == 'same_words': day['content']['words'] = []
-        if selection['choice'] == 'custom':
-            changes=replacement_review(package,selection) if package else {}
-            reused = [word for index,word in enumerate(selection['pinned_words']) if word and index not in changes]
-            day['content']['words'] = [w for w in day['content']['words'] if w not in reused]
+    if package: check_selection(package, selection)
+    if selection['choice'] == 'custom':
+        theme = package['theme'] if package else (selection['pinned_theme'] or
+                    {'name': selection['requested_theme'], 'equivalence_keys': []})
+        changes = replacement_review(package, selection) if package else {}
+        words = []
+        for index, requested in enumerate(selection['requested_words']):
+            if requested is None: continue  # Explicit/structural delegation to ChatGPT.
+            if index in changes and changes[index].get('cause') != 'spelling_correction':
+                continue  # An invalid/incompatible seed became a different model choice.
+            words.append(package['words'][index] if package else (selection['pinned_words'][index] or
+                         {'lemma': requested, 'equivalence_keys': []}))
+    else:
+        theme = selection['previous']['theme']
+        words = selection['previous']['words'] if selection['choice'] == 'same_words' else []
+    result['reused_theme_keys'] = [normalise(k) for k in [theme['name'], *theme['equivalence_keys']]]
+    result['reused_word_keys'] = [normalise(k) for word in words for k in [word['lemma'], *word['equivalence_keys']]]
     return result

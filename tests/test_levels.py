@@ -81,8 +81,11 @@ class LevelTests(unittest.TestCase):
         chosen=selection_context(history,old['date'],'custom','',['','','vjetar'],['keep_today','chatgpt','entered'])
         self.assertEqual(chosen['requested_words'],['kišobran',None,'vjetar'])
         self.assertEqual(chosen['pinned_words'][0],old['words'][0]);self.assertIsNone(chosen['pinned_words'][1])
-        remaining=novelty_history(history,old['date'],chosen)['days'][0]['content']['words']
-        self.assertEqual(remaining,old['words'][1:])
+        remaining=novelty_history(history,old['date'],chosen)
+        self.assertEqual(remaining['days'],history['days'])
+        self.assertIn('kisobran',remaining['reused_word_keys'])
+        self.assertIn('vjetar',remaining['reused_word_keys'])
+        self.assertNotIn('oblak',remaining['reused_word_keys'])
         new=copy.deepcopy(old);new['caption']+=' Danas.'
         new['words'][1]={'lemma':'sunce','equivalence_keys':['sun']};new['words'][2]={'lemma':'vjetar','equivalence_keys':['wind']}
         for i,c in enumerate(new['cards']):
@@ -138,7 +141,10 @@ class PerWordLevelTests(unittest.TestCase):
         chosen=selection_context(self.history,self.old['date'],'custom','Zimska šetnja')
         self.assertTrue(chosen['theme_changed']);self.assertEqual(chosen['word_actions'],['chatgpt']*3)
         self.assertEqual(chosen['requested_words'],[None]*3);self.assertEqual(chosen['pinned_words'],[None]*3)
-        self.assertEqual(novelty_history(self.history,self.old['date'],chosen),self.history)
+        remaining=novelty_history(self.history,self.old['date'],chosen)
+        self.assertEqual(remaining['days'],self.history['days'])
+        self.assertEqual(remaining['reused_theme_keys'],['zimska setnja'])
+        self.assertEqual(remaining['reused_word_keys'],[])
         self.assertEqual(word_levels(self.fresh(),chosen,'B2'),['B2']*3)
 
     def test_compatible_entered_word_has_its_own_level_and_needs_no_replacement(self):
@@ -172,7 +178,10 @@ class PerWordLevelTests(unittest.TestCase):
         new['words'][0]={'lemma':'kaput','equivalence_keys':['coat'],'bosnian_level':'B2'}
         new['cards'][0]['word']='kaput'
         new['private_review']['word_replacements']=[{'word_index':0,'requested_word':'kišobran','chosen_word':'kaput','reason':'U ovoj uskoj temi odjeće za snijeg izabrana riječ ne odgovara opisu.'}]
-        self.assertEqual(novelty_history(self.history,new['date'],chosen,new),self.history)
+        remaining=novelty_history(self.history,new['date'],chosen,new)
+        self.assertEqual(remaining['days'],self.history['days'])
+        self.assertEqual(set(remaining['reused_theme_keys']),{'zimska setnja','winter walk'})
+        self.assertEqual(remaining['reused_word_keys'],[])
         check_selection(new,chosen);self.assertEqual(word_levels(new,chosen,'B2'),['B2']*3)
 
     def test_legacy_retained_levels_stay_unknown_and_old_replacement_reviews_are_not_reused(self):

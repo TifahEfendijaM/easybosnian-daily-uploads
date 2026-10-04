@@ -97,7 +97,11 @@ class CustomWordFallbackTests(unittest.TestCase):
         history={'days':[{'date':source['date'],'batch_id':'b-'+'a'*32,'content':source},
                          {'date':'2026-10-01','batch_id':'b-'+'b'*32,'content':package}]}
         chosen=selection_context(history,source['date'],'custom',source_batch_id='b-'+'a'*32)
-        self.change(package,1,'biblioteka','history_repeat')
+        package['caption']+=' Danas.'
+        for card in package['cards']:
+            card['background_prompt']+=' Fresh natural light.'
+            card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
+        self.change(package,1,'biblioteka','theme_mismatch')
         remaining=novelty_history(history,source['date'],chosen,package)
         self.assertNotIn('cjenkati se',remaining['reused_word_keys'])
         with self.assertRaisesRegex(ValueError,'repeats history'):validate(package,remaining,include_today=True)
@@ -128,7 +132,7 @@ class CustomWordFallbackTests(unittest.TestCase):
     def test_reviews_must_match_actual_custom_slot_and_never_waive_noncustom_checks(self):
         package=self.market();chosen=self.choice(['tezga','Cijenkati se',''],['entered','entered','chatgpt'])
         self.change(package,1,'Cijenkati se','spelling_correction')
-        for mutation in ({'cause':'difficulty'},{'cause':'text_fit'},{'word_index':2},
+        for mutation in ({'cause':'difficulty'},{'cause':'text_fit'},{'cause':'history_repeat'},{'word_index':2},
                          {'requested_word':'other'},{'chosen_word':'other'},{'reason':'short'}):
             bad=copy.deepcopy(package);bad['private_review']['word_replacements'][0].update(mutation)
             with self.subTest(mutation=mutation),self.assertRaises(ValueError):check_selection(bad,chosen)

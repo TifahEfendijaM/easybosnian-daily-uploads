@@ -82,11 +82,15 @@ class AllTodayTests(unittest.TestCase):
                     self.assertEqual(plan['source_batch_id'],C);self.assertEqual(plan['prune_history_ids'],[B,C])
                     self.assertEqual(context['history'],self.history)
                     p=copy.deepcopy(self.package);p['batch_id']=plan['batch_id']
+                    p['caption']+=' Novi izazov.'
+                    for card in p['cards']:
+                        card['background_prompt']+=' Fresh natural light.'
+                        card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
                     write_json(root/'build/preparation/2026-10-04.json',p)
                     return '{"status":"ready","reason":"none"}'
                 stack.enter_context(patch('easybosnian.cloud_prepare.ROOT',root))
                 stack.enter_context(patch('easybosnian.cloud_prepare.today',return_value=self.date))
-                for name in ('require_publishing','check_infrastructure','check_selection','validate','fit_check'):
+                for name in ('require_publishing','check_infrastructure','check_selection','validate','fit_check','failure'):
                     stack.enter_context(patch('easybosnian.cloud_prepare.'+name))
                 stack.enter_context(patch('easybosnian.cloud_prepare.Store',return_value=store))
                 saved=stack.enter_context(patch('easybosnian.cloud_prepare.prepare'))
