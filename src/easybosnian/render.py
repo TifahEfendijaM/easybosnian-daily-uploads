@@ -13,54 +13,73 @@ def font(size, weight="Regular"):
     return ImageFont.truetype(str(ROOT / "assets/fonts" / f"Inter-{weight}.ttf"), size)
 
 
-def wrap(text, face, width):
-    rows, row = [], ""
-    for token in text.split(" "):
-        candidate = (row + " " + token).strip()
-        if face.getlength(candidate) <= width:
-            row = candidate
-        else:
-            if row:
-                rows.append(row)
-            if face.getlength(token) > width:
-                raise ValueError("An unbreakable word exceeds the available width")
-            row = token
-    if row:
-        rows.append(row)
-    # Keep the minimum line count but distribute words across those lines.
-    # This avoids an almost-full paragraph followed by a tiny orphan line.
-    if len(rows) > 1:
-        words = text.split(" ")
+class WrappedRows(list):
+    """Exact source and invisible wrap separators; never replacement model copy."""
+    def __init__(self, rows, source, separators):
+        super().__init__(rows); self.source=source; self.separators=separators
+
+    def reconstructed(self):
+        return ''.join(row + (self.separators[i] if i<len(self.separators) else '')
+                       for i,row in enumerate(self))
+
+
+def wrap(text, face, width, preference='balanced'):
+    import re
+    if preference not in ('balanced','natural') or not text or width <= 0:
+        raise ValueError('Unsupported wrapping input')
+    # Break at ordinary Unicode spaces, but keep NBSP/narrow NBSP/word joiners
+    # with their words. Newlines/control instructions are not approved text.
+    if any(c in text for c in ('\n','\r','\t')):
+        raise ValueError('Manual line breaks/control whitespace are unsupported')
+    parts=re.split(r'([ \u1680\u2000-\u200a\u205f\u3000]+)', text)
+    words=parts[::2]; gaps=parts[1::2]
+    if any(not word for word in words):raise ValueError('Leading/trailing whitespace cannot be removed without truncation')
+    def line(start,end):
+        return ''.join(words[i]+(gaps[i] if i<end-1 else '') for i in range(start,end))
+    def length(value):
+        box=face.getbbox(value)
+        return max(face.getlength(value),box[2]-box[0])
+    rows=[]; breaks=[]; start=0
+    for end in range(1,len(words)+1):
+        if length(line(start,end))>width:
+            if end-1==start:raise ValueError('An unbreakable word exceeds the available width')
+            rows.append(line(start,end-1)); breaks.append(end-1); start=end-1
+            if length(words[start])>width:raise ValueError('An unbreakable word exceeds the available width')
+    rows.append(line(start,len(words)))
+    if len(rows)>1 and preference=='balanced':
         @lru_cache(None)
-        def balanced(start, remaining):
-            if remaining == 0:
-                return (0, ()) if start == len(words) else (float('inf'), ())
-            best = (float('inf'), ())
-            for end in range(start + 1, len(words) - remaining + 2):
-                line = " ".join(words[start:end])
-                length = face.getlength(line)
-                if length > width: break
-                tail_cost, tail = balanced(end, remaining - 1)
-                slack = (width - length) / width
-                cost = slack * slack * (0.65 if remaining == 1 else 1)
-                if remaining == 1 and length < width * 0.35: cost += 1
-                if len(words[end - 1]) <= 2 and remaining > 1: cost += 0.04
-                candidate = (cost + tail_cost, (line, *tail))
-                if candidate[0] < best[0]: best = candidate
+        def balanced(start,remaining):
+            if remaining==0:return (0,()) if start==len(words) else (float('inf'),())
+            best=(float('inf'),())
+            for end in range(start+1,len(words)-remaining+2):
+                line_length=length(line(start,end))
+                if line_length>width:break
+                cost,tail=balanced(end,remaining-1)
+                slack=(width-line_length)/width
+                cost+=slack*slack*(.65 if remaining==1 else 1)
+                if remaining==1 and line_length<width*.35:cost+=1
+                if len(words[end-1])<=2 and remaining>1:cost+=.04
+                if cost<best[0]:best=(cost,(end,*tail))
             return best
-        cost, chosen = balanced(0, len(rows))
-        if chosen: rows = list(chosen)
-    if " ".join(rows) != text:
-        raise ValueError("Wrapping would alter exact reviewed text")
-    return rows
+        _, ends=balanced(0,len(rows))
+        if ends:
+            rows=[];start=0
+            for end in ends:rows.append(line(start,end));start=end
+            breaks=list(ends[:-1])
+    result=WrappedRows(rows,text,[gaps[end-1] for end in breaks])
+    if result.reconstructed()!=text:raise ValueError('Wrapping would alter exact reviewed text')
+    return result
 
 
-def measure(rows, face):
-    ascent, descent = face.getmetrics()
-    boxes = [face.getbbox(row) for row in rows]
-    glyph_height = max(b[3] for b in boxes) - min(b[1] for b in boxes)
-    step = max(round(face.size * 1.30), glyph_height + 6)
-    return glyph_height + (len(rows) - 1) * step, step
+def measure(rows, face, line_spacing=None):
+    if not rows:raise ValueError('Cannot measure empty copy')
+    boxes=[face.getbbox(row) for row in rows]
+    glyph_height=max(b[3] for b in boxes)-min(b[1] for b in boxes)
+    if line_spacing is None:step=max(round(face.size*1.30),glyph_height+6)
+    else:
+        step=round(face.size*line_spacing)
+        if step<glyph_height+4:raise ValueError('Requested leading collides with measured glyphs')
+    return glyph_height+(len(rows)-1)*step,step
 
 
 def luminance(colour):
@@ -75,8 +94,8 @@ def contrast(a,b):
     return (y+.05)/(x+.05)
 
 
-def draw_rows(draw, xy, rows, face, fill):
-    height, step = measure(rows, face)
+def draw_rows(draw, xy, rows, face, fill, line_spacing=None):
+    height, step = measure(rows, face, line_spacing)
     x, y = xy
     # All lines share a baseline origin; per-line top alignment shifts rows
     # containing accents/descenders and creates visibly uneven paragraph spacing.

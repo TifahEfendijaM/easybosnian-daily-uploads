@@ -51,9 +51,8 @@ def publish_facebook_stories(store, package, assets, record=None):
         if os.getenv('FACEBOOK_POSTING_ENABLED') != 'true' or os.getenv('FACEBOOK_STORIES_ENABLED') != 'true':
             raise ValueError('Facebook Stories publisher is disabled')
         facebook = Facebook(); facebook.verify_page()
-        palette = artwork_palette(package,assets)
         for card in package['cards']:
-            kind = card['kind']; stage = 'Facebook Stories rendering'
+            kind = card['kind']; palette=artwork_palette(package,assets,kind); stage = 'Facebook Stories rendering'
             path = ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
             story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'), card)
             body = path.read_bytes()
