@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 from easybosnian.core import ROOT
-from easybosnian.render import render
+from easybosnian.hybrid import render_hybrid as render
 from easybosnian.selection import check_selection, selection_context
 from easybosnian.story_layouts import tall_story_image
 from easybosnian.validate import validate

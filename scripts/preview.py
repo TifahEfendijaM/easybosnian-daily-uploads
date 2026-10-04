@@ -7,8 +7,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from easybosnian.core import ROOT, LAYOUTS, write_json
-from easybosnian.render import render
+from easybosnian.core import ROOT, write_json
+from easybosnian.hybrid import render_hybrid as render, default_plan, editorial_plan
 
 
 def package():
@@ -20,9 +20,9 @@ def package():
       "sources":[{"url":"https://www.pravopis.ba/pravopisni-rjecnik","title":"Pravopis bosanskoga jezika","supports":"Draft renderer fixture; individual dictionary entries still need verification before any history save.","checked_at":"2026-10-02T15:30:00+02:00"},{"url": "https://www.weather.gov/lmk/cloud_classification", "title": "National Weather Service: Cloud Classification", "supports": "Opened source corroborates that high-level clouds are primarily composed of ice crystals and often appear thin. Other fixture claims and live novelty remain unreviewed.", "checked_at": "2026-10-03T12:57:49.877814+00:00"}],
       "private_review":{"correct_option":"B","correct_text":"kišobran","explanation":"Ovaj predmet se otvara i drži iznad glave radi zaštite od kiše.","answer_aliases":["umbrella","suncobran"],"identifying_hints":["predmet koji se otvara iznad glave"],"standard_bosnian_checked":False,"sources_checked":False,"semantic_history_checked":False,"no_answer_leak_checked":False,"history_checked_at":"2026-10-02T15:30:00+02:00","reviewed_at":"2026-10-02T15:30:00+02:00","reviewer":"RENDERER FIXTURE — DO NOT SAVE AS REVIEWED","notes":"Unpublished design fixture. Not researched or checked against live Cloudflare history; flags intentionally false."},
       "cards":[
-        {"kind":"quiz","word":"kišobran","design_template":"framed","question":"Šta nosimo da se zaštitimo od kiše?","options":[{"label":"A","text":"torbu"},{"label":"B","text":"kišobran"},{"label":"C","text":"knjigu"}],"alt_text":"Pitanje dana s tri mogućnosti. Izaberi A, B ili C.","background_prompt":"Photorealistic close-up photograph of rain droplets on plain glass, with softly blurred blue and grey scenery beyond. Gentle overcast daylight, realistic reflections and a calm atmosphere. No text, no lettering, no logos."},
-        {"kind":"lesson","word":"oblak","design_template":"editorial","heading":"Oblak","body":"Tanki oblaci visoko na nebu mogu biti sastavljeni od sitnih kristala leda. Iako izgledaju mekano, iznad nas tada lebdi led.","alt_text":"Znaš li? Zanimljivost o ledu u visokim oblacima.","background_prompt":"Photorealistic photograph of thin, wispy clouds high above a distant mountain ridge. Gentle daylight, cool blue and grey tones, realistic atmospheric detail. Keep the mountains low in the frame with a broad, simple sky above. No text, no lettering, no logos."},
-        {"kind":"word","word":"kap","design_template":"split-cards","heading":"Kap","body":"Vrlo mala količina tečnosti, obično zaobljenog oblika.","example":"Kap vode je pala na sto.","alt_text":"Riječ dana: kap, uz kratko značenje i primjer upotrebe.","background_prompt":"Photorealistic macro photograph of a single clear water droplet resting on a real leaf. Natural morning light, realistic reflections, true-to-life green and blue colours, shallow depth of field and natural botanical textures. No text, no lettering, no logos."}
+        {"kind":"quiz","word":"kišobran","question":"Šta nosimo da se zaštitimo od kiše?","options":[{"label":"A","text":"torbu"},{"label":"B","text":"kišobran"},{"label":"C","text":"knjigu"}],"alt_text":"Pitanje dana s tri mogućnosti. Izaberi A, B ili C.","background_prompt":"Photorealistic close-up photograph of rain droplets on plain glass, with softly blurred blue and grey scenery beyond. Gentle overcast daylight, realistic reflections and a calm atmosphere. No text, no lettering, no logos."},
+        {"kind":"lesson","word":"oblak","heading":"Oblak","body":"Tanki oblaci visoko na nebu mogu biti sastavljeni od sitnih kristala leda. Iako izgledaju mekano, iznad nas tada lebdi led.","alt_text":"Znaš li? Zanimljivost o ledu u visokim oblacima.","background_prompt":"Photorealistic photograph of thin, wispy clouds high above a distant mountain ridge. Gentle daylight, cool blue and grey tones, realistic atmospheric detail. Keep the mountains low in the frame with a broad, simple sky above. No text, no lettering, no logos."},
+        {"kind":"word","word":"kap","heading":"Kap","body":"Vrlo mala količina tečnosti, obično zaobljenog oblika.","example":"Kap vode je pala na sto.","alt_text":"Riječ dana: kap, uz kratko značenje i primjer upotrebe.","background_prompt":"Photorealistic macro photograph of a single clear water droplet resting on a real leaf. Natural morning light, realistic reflections, true-to-life green and blue colours, shallow depth of field and natural botanical textures. No text, no lettering, no logos."}
       ]}
     # Option inflection must match the private answer and word metadata consistently.
     base["cards"][0]["options"][0]["text"]="torba"
@@ -74,12 +74,13 @@ def main():
     for i,c in enumerate(p['cards']):
         sheet.paste(Image.open(output / (c['kind']+'.jpg')).resize((360,450)),(i*360,0))
     sheet.save(output / 'carousel-preview.jpg',quality=95)
-    gallery=Image.new('RGB',(1440,900))
-    for i,style in enumerate(LAYOUTS):
-        card=copy.deepcopy(p['cards'][2]); card['design_template']=style
-        path=output / (style+'.jpg'); render(card,p['design_palette'],output / 'word-background.jpg',path)
-        gallery.paste(Image.open(path).resize((360,450)),((i%4)*360,(i//4)*450))
-    gallery.save(output / 'eight-layouts.jpg',quality=95)
+    gallery=Image.new('RGB',(1080,450))
+    for i,style in enumerate(('rounded','outlined','editorial')):
+        card=copy.deepcopy(p['cards'][2]);plan=editorial_plan(card) if style=='editorial' else default_plan(card)
+        if style=='outlined':plan['blocks'][0]['style']='outlined'
+        path=output / (style+'.jpg');render(card,p['design_palette'],output/'word-background.jpg',path,plan)
+        gallery.paste(Image.open(path).resize((360,450)),(i*360,0))
+    gallery.save(output / 'supported-designs.jpg',quality=95)
     write_json(output / 'metrics.json',metrics)
     print('Unpublished draft previews created; drawn fixture backgrounds, not FLUX')
 

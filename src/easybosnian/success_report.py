@@ -18,7 +18,7 @@ def content_data(package,run_url):
         raise ValueError('Report belongs to another project/run')
     return {'project':PROJECT,'date':package['date'],'batch_id':output_key(package),'theme':package['theme']['name'],
             'difficulty':package.get('bosnian_level','not recorded'),'palette':package['design_palette'],'run_url':run_url,
-            'cards':[{'category':LABELS[c['kind']],'heading':c.get('heading',c.get('question')),'layout':c['design_template'],'prompt':c['background_prompt']} for c in package['cards']]}
+            'cards':[{'category':LABELS[c['kind']],'heading':c.get('heading',c.get('question')),'prompt':c['background_prompt']} for c in package['cards']]}
 
 
 def publication_data(results):
@@ -86,7 +86,7 @@ def render_report(data):
     text+=f"\n[Open this run]({data['run_url']})\n\n### Exact FLUX prompts\n\n"
     for card in data['cards']:
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
-        text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n**Planning layout:** {markdown_text(card['layout'])}\n\n"
+        text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
         if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
         text+=f"{fence}text\n{card['prompt']}\n{fence}\n\n"
     text+='### Publication results\n\n'
@@ -106,7 +106,7 @@ def render_report(data):
     if data.get('final_palette'):markup+='<li><strong>Photo-reviewed final palette:</strong> '+html.escape(data['final_palette'])+'</li>'
     markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
     for card in data['cards']:
-        markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p><p>Planning layout: '+html.escape(card['layout'])+'</p>'
+        markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p>'
         if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'

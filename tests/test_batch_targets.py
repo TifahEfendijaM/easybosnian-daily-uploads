@@ -100,10 +100,13 @@ class BatchTargetTests(unittest.TestCase):
 
     def test_trusted_save_overwrites_latest_and_rejects_an_arbitrary_older_date(self):
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.verify_repository'),patch('easybosnian.cli.today',return_value='2026-10-04'),patch('easybosnian.cli.Store') as store,patch('easybosnian.cli.validate'),patch('easybosnian.cli.fit_check'):
-            path=Path(temp)/'draft.json';write_json(path,self.old)
+            path=Path(temp)/'draft.json';legacy=copy.deepcopy(self.old)
+            for card in legacy['cards']:card['design_template']='framed'
+            write_json(path,legacy)
             store.return_value.history.return_value=self.history
             prepare(path,batch_target='latest',run_date='2026-10-04')
             self.assertEqual(store.return_value.save_content.call_args.args[0]['date'],'2026-10-03')
+            self.assertTrue(all('design_template' not in c for c in store.return_value.save_content.call_args.args[0]['cards']))
             store.return_value.save_content.reset_mock()
             for date,target in [('2026-10-02','latest'),('2026-10-03','today')]:
                 wrong=copy.deepcopy(self.old);wrong['date']=date;write_json(path,wrong)

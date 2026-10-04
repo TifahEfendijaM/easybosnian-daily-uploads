@@ -85,7 +85,8 @@ class SuccessReportTests(unittest.TestCase):
         for private in ('correct_option','correct_text','answer_aliases','private_review','sources_checked'):
             self.assertNotIn(private,str(data));self.assertNotIn(private,markup)
         self.assertIn('https://www.instagram.com/p/example/',text)
-        self.assertEqual([c['layout'] for c in data['cards']],[c['design_template'] for c in package['cards']])
+        self.assertTrue(all('layout' not in c for c in data['cards']))
+        self.assertNotIn('Planning layout',text);self.assertNotIn('Planning layout',markup)
 
     def test_html_escapes_content_and_report_files_remain_in_its_batch_directory(self):
         package=reviewed_fixture();package['cards'][1]['background_prompt']='<script>alert(1)</script>'

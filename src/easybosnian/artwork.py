@@ -12,7 +12,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':2, **{key: package.get(key) for key in ('batch_id', 'date', 'design_palette', 'cards')}}
+    return {'rendering_version':3, **{key: package.get(key) for key in ('batch_id', 'date', 'design_palette', 'cards')}}
 
 
 def artwork(store, package, expose=False, review_images=False, require_prepared=False):

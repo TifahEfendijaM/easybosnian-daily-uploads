@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[2]
 REPO = "TifahEfendijaM/easybosnian-daily-uploads"
 PROJECT = "tifahefendijam-easybosnian-daily-uploads-v1"
 ZONE = ZoneInfo("Europe/Sarajevo")
-LAYOUTS = ("editorial", "framed", "notebook", "ribbon", "split-cards", "minimal", "rounded", "poster")
 
 
 def today():

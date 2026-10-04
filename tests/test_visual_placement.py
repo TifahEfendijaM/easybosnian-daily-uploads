@@ -14,89 +14,14 @@ from PIL import Image, ImageChops
 
 from easybosnian.artwork import artwork
 from easybosnian.cloud_prepare import AgentIntegrityError, run_codex
-from easybosnian.core import LAYOUTS, ROOT, read_json, write_json
+from easybosnian.core import ROOT, read_json, write_json
 from easybosnian.http import SafeError
-from easybosnian.render import HEIGHT, WIDTH, render
+from easybosnian.render import HEIGHT, WIDTH
 from easybosnian.visual_placement import KINDS, RESULT_SCHEMA, composition_sheet, main, review_compositions
 from easybosnian.hybrid import default_plan, render_hybrid, measured_plan, block_spec, serif, editorial_plan
 from easybosnian.stories import artwork_palette
 from test_cloud_preparation import auth
 from test_project import reviewed_fixture
-
-
-class FeedPanelPlacementTests(unittest.TestCase):
-    def test_only_example_moves_while_first_panel_and_header_stay_fixed_for_every_layout(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);photo=root/'photo.jpg'
-            Image.new('RGB',(WIDTH,HEIGHT),'#728192').save(photo)
-            for style in LAYOUTS:
-                for card in (c for c in reviewed_fixture()['cards'] if c['kind']!='quiz'):
-                    if not card.get('example'): card['example']='Ovo je primjer iz svakodnevnog života.'
-                    card['design_template']=style;before=copy.deepcopy(card)
-                    normal_path=root/'normal.jpg';split_path=root/'split.jpg'
-                    normal=render(card,'blue-ice',photo,normal_path)
-                    split=render(card,'blue-ice',photo,split_path,panel_position='example_bottom')
-                    with self.subTest(style=style,kind=card['kind']):
-                        self.assertEqual(card,before)
-                        self.assertEqual(split['panel_position'],'example_bottom')
-                        self.assertEqual(split['panel_bounds'][0],normal['panel_bounds'][0])
-                        self.assertEqual(split['panel_bounds'][1][3],HEIGHT-180)
-                        self.assertGreater(split['panel_bounds'][1][1],normal['panel_bounds'][1][1])
-                        self.assertEqual(split['panel_bounds'][1][3]-split['panel_bounds'][1][1],normal['panel_bounds'][1][3]-normal['panel_bounds'][1][1])
-                        self.assertGreater(split['panel_bounds'][1][1],split['panel_bounds'][0][3]+14)
-                        for key in ('body_font_size','panel_padding','body_line_step','panel_area_ratio','body_contrast','heading_contrast'):
-                            self.assertEqual(normal[key],split[key])
-                        normal_image=Image.open(normal_path);split_image=Image.open(split_path)
-                        # Include the complete unchanged first panel, staying clear of
-                        # JPEG blocks bordering the removed example panel.
-                        fixed=(0,0,WIDTH,normal['panel_bounds'][1][1]-16)
-                        logo=(WIDTH-190,HEIGHT-160,WIDTH,HEIGHT)
-                        self.assertIsNone(ImageChops.difference(normal_image.crop(fixed),split_image.crop(fixed)).getbbox())
-                        self.assertIsNone(ImageChops.difference(normal_image.crop(logo),split_image.crop(logo)).getbbox())
-            cards=reviewed_fixture()['cards']
-            quiz=next(c for c in cards if c['kind']=='quiz')
-            lesson=next(c for c in cards if c['kind']=='lesson')
-            for card in (quiz,dict(lesson,example='')):
-                with self.assertRaisesRegex(ValueError,'requires a lesson/word example'):
-                    render(card,'blue-ice',photo,root/'bad.jpg',panel_position='example_bottom')
-
-    def test_lower_panels_preserve_headers_logo_copy_and_measured_style_for_every_layout(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);photo=root/'photo.jpg'
-            Image.new('RGB',(WIDTH,HEIGHT),'#728192').save(photo)
-            for style in LAYOUTS:
-                for card in reviewed_fixture()['cards']:
-                    card['design_template']=style;before=copy.deepcopy(card)
-                    upper_path=root/'upper.jpg';lower_path=root/'lower.jpg'
-                    normal=render(card,'blue-ice',photo,upper_path)
-                    lower=render(card,'blue-ice',photo,lower_path,panel_position='bottom')
-                    with self.subTest(style=style,kind=card['kind']):
-                        self.assertEqual(card,before)
-                        self.assertEqual(lower['panel_position'],'bottom')
-                        self.assertEqual(lower['panel_bounds'][-1][3],HEIGHT-180)
-                        shift=lower['panel_bounds'][0][1]-normal['panel_bounds'][0][1]
-                        self.assertGreater(shift,0)
-                        for a,b in zip(normal['panel_bounds'],lower['panel_bounds']):
-                            self.assertEqual([b[0],b[1]-shift,b[2],b[3]-shift],a)
-                        for key in ('body_font_size','panel_padding','body_line_step','panel_area_ratio','example_label','body_contrast','heading_contrast'):
-                            self.assertEqual(normal[key],lower[key])
-                        upper=Image.open(upper_path);bottom=Image.open(lower_path)
-                        header=(0,0,WIDTH,normal['panel_bounds'][0][1]-16)
-                        logo=(WIDTH-190,HEIGHT-160,WIDTH,HEIGHT)
-                        self.assertIsNone(ImageChops.difference(upper.crop(header),bottom.crop(header)).getbbox())
-                        self.assertIsNone(ImageChops.difference(upper.crop(logo),bottom.crop(logo)).getbbox())
-
-    def test_lower_position_never_relaxes_fit_or_changes_separate_photo_visual_quiz(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(WIDTH,HEIGHT),'#728192').save(photo)
-            card=reviewed_fixture()['cards'][1];card['body']='Duga rečenica. '*100
-            with self.assertRaisesRegex(ValueError,'does not fit'):
-                render(card,'blue-ice',photo,root/'bad.jpg',panel_position='bottom')
-            card=reviewed_fixture()['cards'][0];card['quiz_format']='visual_identification'
-            a=render(card,'blue-ice',photo,root/'a.jpg')
-            b=render(card,'blue-ice',photo,root/'b.jpg',panel_position='bottom')
-            self.assertEqual(a,b);self.assertEqual((root/'a.jpg').read_bytes(),(root/'b.jpg').read_bytes())
-            with self.assertRaises(ValueError):render(card,'blue-ice',photo,root/'bad.jpg',panel_position='arbitrary')
 
 
 class HybridCompositionTests(unittest.TestCase):
@@ -208,18 +133,19 @@ class HybridCompositionTests(unittest.TestCase):
             root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#728192').save(photo)
             normal=render_hybrid(card,'blue-ice',photo,root/'normal.jpg')
             plan=default_plan(card);plan['confidence']='high'
-            plan['blocks'][0]['style']='outlined';plan['blocks'][1].update(style='boxed',y=950)
+            plan['blocks'][0]['style']='outlined';plan['blocks'][1].update(style='italic_photo',y=950)
             altered=render_hybrid(card,'blue-ice',photo,root/'altered.jpg',plan)
             self.assertEqual(card,before);self.assertNotEqual((root/'normal.jpg').read_bytes(),(root/'altered.jpg').read_bytes())
-            self.assertEqual(altered['block_styles'],{'body':'outlined','example':'boxed'})
-            self.assertEqual(len(altered['panel_bounds']),2);self.assertEqual(normal['body_font_size'],altered['body_font_size'])
+            self.assertEqual(altered['block_styles'],{'body':'outlined','example':'italic_photo'})
+            self.assertEqual(len(altered['panel_bounds']),1);self.assertEqual(normal['body_font_size'],altered['body_font_size'])
             self.assertGreaterEqual(altered['example_contrast'],4.5)
 
     def test_style_contract_rejects_custom_fonts_bad_combinations_and_footer_photo_logo_collisions(self):
         card=reviewed_fixture()['cards'][2]
-        for mutation in ('code','body_italic','example_plain','plain_overlay','footer_logo','footer_photo','photo_body','missing_photo','cover_hybrid'):
+        for mutation in ('boxed','code','body_italic','example_plain','plain_overlay','footer_logo','footer_photo','photo_body','missing_photo','cover_hybrid'):
             plan=editorial_plan(card) if mutation in ('footer_logo','footer_photo','photo_body','missing_photo') else default_plan(card)
-            if mutation=='code':plan['blocks'][0]['style']='draw arbitrary code'
+            if mutation=='boxed':plan['blocks'][1]['style']='boxed'
+            elif mutation=='code':plan['blocks'][0]['style']='draw arbitrary code'
             elif mutation=='body_italic':plan['blocks'][0]['style']='italic_photo'
             elif mutation=='example_plain':plan['blocks'][1]['style']='plain'
             elif mutation=='plain_overlay':plan['blocks'][0]['style']='plain'
@@ -242,12 +168,32 @@ class HybridCompositionTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(self.decision())) as child:
             review_compositions(reviewed_fixture(),self.candidates())
         prompt=child.call_args.args[0]
-        for expected in ('editorial','outlined','italic_photo','italic_footer','boxed','measurements_by_style','x880'):
+        for expected in ('editorial','outlined','italic_photo','italic_footer','measurements_by_style','x880'):
             self.assertIn(expected,prompt)
 
     def test_editorial_default_does_not_clip_long_copy_to_force_design(self):
         card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['body']='Čuvamo svako slovo. '*100
         with self.assertRaises(ValueError):editorial_plan(card)
+
+    def test_legacy_planning_metadata_does_not_affect_final_images_or_unboxed_examples(self):
+        card=copy.deepcopy(reviewed_fixture()['cards'][2])
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#728192').save(photo)
+            baseline=render_hybrid(card,'blue-ice',photo,root/'baseline.jpg')
+            for style in ('framed','poster'):
+                card['design_template']=style
+                result=render_hybrid(card,'blue-ice',photo,root/'legacy.jpg')
+                self.assertEqual(result,baseline)
+                self.assertEqual((root/'legacy.jpg').read_bytes(),(root/'baseline.jpg').read_bytes())
+            for design in ('hybrid','editorial'):
+                plan=default_plan(card) if design=='hybrid' else editorial_plan(card)
+                with patch('easybosnian.hybrid.draw_rows',wraps=__import__('easybosnian.render',fromlist=['draw_rows']).draw_rows) as drawing:
+                    result=render_hybrid(card,'blue-ice',photo,root/'final.jpg',plan)
+                call=next(c for c in drawing.call_args_list if ' '.join(c.args[2])==card['example'])
+                self.assertTrue(str(call.args[3].path).endswith('Lora-Italic.ttf'))
+                self.assertNotIn(result['example_bounds'],result['panel_bounds'])
+            from easybosnian.designs import EXAMPLE_STYLES
+            self.assertEqual(EXAMPLE_STYLES,('italic_photo','italic_footer'))
 
     def test_licensed_serif_has_true_italic_and_complete_bosnian_glyphs(self):
         for italic in (False,True):

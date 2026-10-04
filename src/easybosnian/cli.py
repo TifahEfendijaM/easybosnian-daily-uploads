@@ -16,7 +16,6 @@ from .meta import Instagram, Facebook, facebook_page_token, instagram_deletion_t
 from .daily import daily
 from .buffer import Buffer
 from .notify import failure
-from .render import render
 from .hybrid import render_hybrid
 from .story_layouts import tall_story_image
 from .levels import KEEP_CURRENT, LEVELS, set_level
@@ -62,7 +61,6 @@ def fit_check(package):
     path.parent.mkdir(exist_ok=True)
     Image.new("RGB",(1080,1350),"#7492a5").save(path)
     for card in package["cards"]:
-        render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
         render_hybrid(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-hybrid-fit.jpg"))
         palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
         tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
@@ -71,6 +69,7 @@ def fit_check(package):
 def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
     verify_repository(remote=True)
     package=read_json(path)
+    for card in package.get("cards",[]):card.pop("design_template",None)
     from .selection import batch_date, check_selection, novelty_history, word_levels
     store=Store();history=store.history()
     if package['date']!=batch_date(history,run_date or today(),batch_target):

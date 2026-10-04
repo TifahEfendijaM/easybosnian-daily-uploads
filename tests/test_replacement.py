@@ -30,7 +30,6 @@ class SelectionTests(unittest.TestCase):
         new['design_palette']='gold-cream'
         for c in new['cards']:
             c['background_prompt']+=' New light.'
-            c['design_template']='minimal'
             c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
         check_selection(new,chosen)
         for change in ('caption','body','prompt','word','theme'):

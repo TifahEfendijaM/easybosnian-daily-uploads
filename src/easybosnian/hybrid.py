@@ -35,12 +35,11 @@ def block_spec(card, role, width, style=None):
     size, padding = density(card)
     if role == 'example':
         if style not in EXAMPLE_STYLES:raise ValueError('Unsupported example style')
-        boxed=style=='boxed'
-        face = font(size) if boxed else serif(min(size, 36), italic=True)
-        rows = wrap(card['example'], face, width-(2*padding+24 if boxed else 0))
+        face = serif(min(size, 36), italic=True)
+        rows = wrap(card['example'], face, width)
         label_height = measure(['PRIMJER'], font(21, 'SemiBold'))[0]
         height = label_height + 16 + measure(rows, face)[0]
-        height += 2*padding if boxed else (24 if style=='italic_footer' else 0)
+        height += 24 if style=='italic_footer' else 0
     else:
         if style not in BODY_STYLES or (role!='body' and style=='plain'):
             raise ValueError('Unsupported explanation/answer style')
@@ -110,7 +109,7 @@ def measured_plan(card, plan):
             raise ValueError('Quiz photo treatment is fixed by its reviewed task type')
         if [(b['y'],b['x']) for b in measured] != sorted((b['y'],b['x']) for b in measured):
             raise ValueError('Quiz choices must retain their visual reading order')
-    panel_area=sum((b['bounds'][2]-b['bounds'][0])*b['height'] for b in measured if b['style'] in ('rounded','outlined','boxed'))
+    panel_area=sum((b['bounds'][2]-b['bounds'][0])*b['height'] for b in measured if b['style'] in ('rounded','outlined'))
     if panel_area>WIDTH*HEIGHT*.49:
         raise ValueError('Hybrid copy covers too much of the photograph; never shrink/truncate')
     window=plan['photo_window']
@@ -127,7 +126,7 @@ def measured_plan(card, plan):
                     raise ValueError('Editorial explanation must precede the photograph')
                 if block['role']=='example' and block['y']<window['y']+window['height']+24:
                     raise ValueError('Editorial italic footer must follow the photograph')
-            if block['style'] in ('rounded','outlined','plain','boxed') and not (block['bounds'][3]+24<=window['y'] or block['y']>=window['y']+window['height']+24):
+            if block['style'] in ('rounded','outlined','plain') and not (block['bounds'][3]+24<=window['y'] or block['y']>=window['y']+window['height']+24):
                 raise ValueError('Separate photograph must remain free of explanation panels')
     return measured
 
@@ -242,11 +241,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             if style=='outlined':
                 draw.rectangle(tuple(block['bounds']),fill=paper,outline=accent,width=3)
             else:draw.rounded_rectangle(tuple(block['bounds']),radius=24,fill=paper)
-            if role in ('body','example'):
+            if role=='body':
                 draw.rounded_rectangle((x+18,y+padding,x+23,block['bounds'][3]-padding),radius=2,fill=accent)
-                if role=='example':
-                    label_face=font(21,'SemiBold');draw_rows(draw,(x+padding+24,y+padding),['PRIMJER'],label_face,ink)
-                    y+=measure(['PRIMJER'],label_face)[0]+16;example_contrast=contrast(ink,paper)
                 draw_rows(draw,(x+padding+24,y+padding),rows,face,ink)
             else:
                 marker=(x+20,y+(block['height']-52)/2,x+72,y+(block['height']+52)/2)
@@ -261,8 +257,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     image.convert('RGB').save(output,'JPEG',quality=94,subsampling=0,optimize=True)
     return {'size':[WIDTH,HEIGHT],'typography':'hybrid','palette':palette_id,'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':density(card)[0],'heading_font':'Lora SemiBold','body_font':'Inter',
-            'example_style':next(({'italic_photo':'Lora Italic over photograph','italic_footer':'Lora Italic on paper footer','boxed':'Inter in example panel'}[b['style']] for b in blocks if b['role']=='example'),None),
-            'panel_bounds':[list(map(round,b['bounds'])) for b in blocks if b['style'] in ('rounded','outlined','boxed')],
+            'example_style':next(({'italic_photo':'Lora Italic over photograph','italic_footer':'Lora Italic on paper footer'}[b['style']] for b in blocks if b['role']=='example'),None),
+            'panel_bounds':[list(map(round,b['bounds'])) for b in blocks if b['style'] in ('rounded','outlined')],
             'example_bounds':next((list(map(round,b['bounds'])) for b in blocks if b['role']=='example'),None),
             'photo_bounds':photo_bounds,'photo_cropped':not bool(window) or window['fit']=='cover',
             'body_contrast':round(body_contrast,2),'heading_contrast':round(heading_contrast,2),
