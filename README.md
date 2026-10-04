@@ -33,6 +33,10 @@ Stories use B for word/lesson and visual naming quizzes, A for other quizzes. Vi
 
 One shared A1–C2 difficulty is changed through [configure-level.yml](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml), separately from publication. It persists for future preparations; retained and compatible entered words keep their individual levels. No source/fit/secrecy checks are waived by custom input. See docs/difficulty-policy.md.
 
+## Successful-run reports
+
+Successful daily runs and reruns save a private report with the exact FLUX prompts, per-card layouts, palette, difficulty and confirmed publication links. Public report metadata is captured from the rendering input within that run, so a later replacement cannot change its prompts. Reports appear in the run summary and seven-day private artifact. Optional Gmail delivery sends once at the job's end to the authorized Gmail address, using a dedicated step-scoped app-password secret. Report/mail failure warns without affecting completed uploads; verify checks Gmail authentication without sending, and preview sends no report. See [setup and limits](docs/success-reports.md).
+
 ## Deployment
 
 A merge alone does not deploy Cloudflare. Migration 0005 carries every existing content row and known ID into batch scopes, preserving ID insertion order and all cron claims. Apply it once through Wrangler; never replay migration 0003 or recover discarded packages. Legacy date-only reads remain available; ambiguous date-only writes/generation/publication access refuse to guess. New code uses explicit batch paths. Require checks, finish the protected maintenance sequence, read back live schema/bundle/clock and restore the existing kill switch. No automatic live test is dispatched. See [exact rollout and data limits](docs/multiple-batches.md).
