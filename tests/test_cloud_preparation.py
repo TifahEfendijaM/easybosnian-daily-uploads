@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.cloud_prepare import bootstrap, cloud_run, managed_auth, persist, require_agent_ready, run_codex
-from easybosnian.core import PROJECT, REPO, write_json, read_json
+from easybosnian.core import PROJECT, REPO, ROOT, write_json, read_json
 
 
 def auth(token="fresh"):
@@ -97,6 +97,14 @@ class CloudPreparationTests(unittest.TestCase):
                 result=cloud_run('verify')
                 save.assert_not_called();live.assert_not_called();store.return_value.save_content.assert_not_called()
                 self.assertEqual(result['status'],'cloud connection verified')
+
+    def test_active_research_prompt_omits_redundant_layout_selection(self):
+        prompt=(ROOT/'docs/cloud-agent-task.md').read_text()
+        self.assertIn('omit design_template',prompt)
+        self.assertNotIn('reselect palette and per-card layouts',prompt)
+        self.assertNotIn('Keep palette/layout IDs',prompt)
+        self.assertNotIn('data/design-layouts.json',prompt)
+        self.assertIn('never by this research child',prompt)
 
     def test_preview_reuses_today_without_research_or_live_gate(self):
         date='2026-10-03';package={'date':date,'schema_version':1}
