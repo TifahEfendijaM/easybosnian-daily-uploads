@@ -50,6 +50,15 @@ class StoryLayoutTests(unittest.TestCase):
             self.assertIn('Italic',metrics['example_style']);self.assertGreaterEqual(metrics['example_contrast'],4.5)
             self.assertGreater(metrics['example_bounds'][1],metrics['panel_bounds'][0][3])
             self.assertLessEqual(metrics['example_bounds'][3],1650)
+            rule=metrics['example_rule_bounds']
+            label_call=next(call for call in drawing.call_args_list if call.args[2]==['PRIMJER'])
+            self.assertGreater(rule[1],metrics['panel_bounds'][0][3])
+            self.assertLess(rule[3],label_call.args[1][1])
+            self.assertEqual((rule[0],rule[2]),(64,1016))
+            with Image.open(self.root/'story.jpg') as rendered:
+                pixel=rendered.getpixel((540,rule[1]))
+            accent=tuple(int(palette['accent'][i:i+2],16) for i in (1,3,5))
+            self.assertLessEqual(max(abs(a-b) for a,b in zip(pixel,accent)),12)
             # The example's right padding is bare page colour, never a white panel.
             with Image.open(self.root/'story.jpg') as image:
                 sample=image.getpixel((1000,metrics['example_bounds'][1]+5))
