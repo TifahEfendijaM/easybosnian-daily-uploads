@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 from PIL import Image, ImageOps
 
 from .core import ROOT, read_json
-from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE, FONT_RANGES, LEADING_RANGE, WRAPPING
+from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE, FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES
 
 KINDS = ('quiz', 'lesson', 'word')
 def block_schema(role, styles):
@@ -22,7 +22,8 @@ def block_schema(role, styles):
                 'font_size':{'type':'integer','minimum':low,'maximum':high},
                 'line_spacing':{'type':'number','minimum':LEADING_RANGE[0],'maximum':LEADING_RANGE[1]},
                 'max_lines':{'anyOf':[{'type':'null'},{'type':'integer','minimum':1,'maximum':12}]},
-                'wrapping':{'enum':list(WRAPPING)}}}
+                'wrapping':{'enum':list(WRAPPING)},
+                **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {})}}
 
 
 BLOCK_SCHEMA = {'anyOf':[block_schema('body',BODY_STYLES),
@@ -118,7 +119,7 @@ def review_compositions(package, candidates):
         'nije izbor, over a cramped top-right example. Do not enforce this if it obscures the subject. '
         'Keep important faces, identifying objects and actions visible, and preserve reading flow. '
         'A body may be higher/middle/lower and its example elsewhere; quiz options may be separately '
-        'placed, ordered A then B then C then D by y then x. Do not move everything lower by habit. '
+        'placed INDEPENDENTLY with separate x/y/width, ordered A then B then C then D by y then x. You are not placing a single answer-card stack. For an ordinary quiz, consider a staggered left/right arrangement or different vertical regions around visible subjects when readable, like Mandat at upper-left, Kvorum middle-right and Kampanja lower-left. Stacking is allowed when the photo or exact copy benefits, never a mechanical default. Select each answer badge independently: marker_style=circle, rounded_square, square or triangle. Consistent panel/badge designs are often appealing, but mixed approved styles/badges are allowed when they make a coherent composition. Each answer also retains its own bounded typography. All colours remain from the card palette. Never use design to signal the correct answer; no answer key is provided. Do not move everything lower by habit. '
         'Choose font_size in pixels: body32..48, answers32..46, examples28..40. Choose line_spacing as a font-size multiplier1.20..1.55; actual glyphs must not collide. Optional max_lines1..12 and wrapping=balanced or natural NEVER permit truncation. Supplied heights are reference measurements at default size/leading; Pillow recomputes exact heights for your choices. Allow at least14px between blocks. '
         'Everything stays inside x64..1016, below header_end+24, ending by y1170 above the logo. '
         'Only editorial italic_footer may extend to y1286, with its right edge at most x880 '

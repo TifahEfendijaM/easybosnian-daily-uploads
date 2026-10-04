@@ -6,7 +6,7 @@ ChatGPT selects approved data after inspecting the generated photographs. Pillow
 
 Each card has `confidence`, `design` (`hybrid` / `editorial`), an approved `palette` ID, `photo_window` and ordered `blocks`. Palette IDs come only from `data/design-palettes.json`. A photo window is null or `{y, height, fit}`: x64/width952 are fixed, y250–770, height400–800 (240–800 for visual-identification quizzes), fit `contain` for hybrid or `cover` for editorial. Full-background hybrid uses the feed crop. A contained photo remains complete; an editorial cover crop requires a visual assessment that required subjects survive.
 
-Each block allows only `role`, `style`, `x`, `y`, `width`, `font_size`, `line_spacing`, optional `max_lines` (null or1–12) and `wrapping` (`balanced` or `natural`). All text comes from the exact reviewed card; there is no text field in the proposal. Blocks preserve source order and every role. Labels/title typography stays renderer-controlled.
+Each block allows only `role`, `style`, `x`, `y`, `width`, `font_size`, `line_spacing`, optional `max_lines` (null or1–12) and `wrapping` (`balanced` or `natural`). Answers additionally allow `marker_style`: circle, rounded_square, square or triangle. Body/example roles cannot supply this field. All text comes from the exact reviewed card; there is no text field in the proposal. Blocks preserve source order and every role. Labels/title typography stays renderer-controlled.
 
 | Role | Font targets | Face | Leading |
 |---|---|---|---|
@@ -20,16 +20,16 @@ Leading must additionally leave at least4px between measured full accented glyph
 
 | ID | Trusted renderer | Restriction |
 |---|---|---|
-| rounded | opaque paper, rounded corners, inset accent rule/circular answer marker | hybrid |
-| outlined | square paper, accent outline, square outlined answer marker | hybrid |
+| rounded | opaque paper, rounded corners, inset accent rule/approved answer badge | hybrid |
+| outlined | square paper, accent outline, approved answer badge | hybrid |
 | plain | unboxed copy on paper, no panel or rule | editorial body only |
-| overlay_dark | opaque ink panel, paper text and rectangular paper marker | hybrid |
+| overlay_dark | opaque ink panel, paper text and paper-filled approved answer badge | hybrid |
 | overlay_light | fixed translucent paper preset, accent underline; glyph contrast tested on actual composited photo | hybrid |
-| side_rule | square paper with full-height left accent bar, unboxed answer letter | hybrid |
+| side_rule | square paper with full-height left accent bar, independently chosen answer badge | hybrid |
 | caption | unboxed SemiBold photo copy with separator and trusted neutral contrast fade | full-background hybrid body only, max3 measured lines |
 | bottom_sheet | wide paper sheet, rounded top/square bottom, centered accent handle | hybrid, y>=700, width>=660 |
 | split_panel | square paper, wide accent rail, separate text column | hybrid |
-| minimal_rule | square paper, bottom accent rule, inline answer label | hybrid |
+| minimal_rule | square paper, bottom accent rule, independently chosen answer badge | hybrid |
 
 Every ID reaches distinct Pillow drawing behavior. None is a metadata alias. Editorial supports only plain body and italic_footer example around its separate photograph. Quiz cards remain hybrid with clear panel answers; visual identification requires every answer below the complete photo.
 
@@ -45,4 +45,6 @@ Body/example glyph contrast is at least4.5:1; title contrast is at least3:1. Pho
 
 Invalid/unavailable/uncertain visual proposals use the existing measured deterministic hybrid fallback, never a second model or FLUX call. A per-card measured rejection uses the preparation palette and trusted default font sizes/spacing. If the fallback cannot preserve exact text and readability, the run fails before publishing. Integrity failures remain fatal. Stories keep treatment B and select the matching feed card's final approved palette. Final safe data is captured in the private placement result and GitHub report; no raw model prose is logged.
 
-Legacy `design_template` remains readable but ignored, has no effect on bytes, and is absent from newly saved content. Rendering manifest version4 prevents reuse of artwork generated under an older contract. No Worker/database/scheduler deployment is required. Repository merge activates this contract for subsequent runs.
+Legacy `design_template` remains readable but ignored, has no effect on bytes, and is absent from newly saved content. Rendering manifest version5 prevents reuse of artwork generated under an older contract. No Worker/database/scheduler deployment is required. Repository merge activates this contract for subsequent runs.
+
+Quiz composition: every answer has independent x/y/width, approved panel style and bounded typography. Ordinary choices may be staggered across left/right and upper/middle/lower regions, preserving A/B/C/D reading order and measured visibility/fit. Do not treat them as a single stack or mechanically stack them. Each answer may independently choose marker_style=circle, rounded_square, square or triangle. Coordinated styles/badges are a preference, not a hard rule; mixtures are allowed when the image looks better. All colours remain from the image's approved palette; never highlight an answer as correct. Visual-naming quizzes keep the complete photograph protected with all choices below. Badge shapes are trusted Pillow presets, not model drawing primitives.

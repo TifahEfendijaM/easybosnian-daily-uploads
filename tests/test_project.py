@@ -203,7 +203,9 @@ class RendererTests(unittest.TestCase):
                         if c['kind']=='lesson' and variant=='long':
                             c['body']='Od riječi „oblak“ nastaje pridjev „oblačan“. Kada opisujemo vrijeme, često kažemo: „Danas je oblačno.“ To znači da na nebu ima oblaka. Obrati pažnju na oblik pridjeva: oblačan dan, oblačno jutro i oblačna noć. Tako pridjev usklađujemo s imenicom.'
                         output=Path(directory)/f'{style}-{c["kind"]}-{variant}.jpg'
-                        plan=default_plan(c);plan['blocks'][0]['style']=style
+                        plan=default_plan(c)
+                        for block in plan['blocks']:
+                            if block['role']!='example':block['style']=style
                         metrics=render(c,'blue-ice',background,output,plan)
                         with Image.open(output) as image: self.assertEqual(image.size,(1080,1350))
                         self.assertLess(sum((b[2]-b[0])*(b[3]-b[1]) for b in metrics['panel_bounds'])/(1080*1350),.49)
