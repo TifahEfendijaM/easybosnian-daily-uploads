@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from .core import ROOT
 from .designs import BODY_STYLES, EXAMPLE_STYLES, PANEL_STYLES, MARKER_STYLES, typography
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
-                     draw_rows, font, measure, wrap)
+                     draw_rows, draw_tracked_label, font, measure, wrap)
 
 
 def serif(size, italic=False):
@@ -321,10 +321,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     label=LABELS[card['kind']]
     if plan['design']=='editorial':
         # Approved editorial header; category and title retain their fixed anchors.
-        label_face=font(22,'SemiBold');cursor=64
-        for letter in label:
-            draw.text((cursor,82),letter,font=label_face,fill=ink,anchor='lt')
-            cursor+=label_face.getlength(letter)+4
+        label_face=font(22,'SemiBold')
+        draw_tracked_label(draw,(64,82),label,label_face,ink)
         draw.line((64,120,270,120),fill=accent,width=3)
     else:
         label_face=font(27,'SemiBold')
