@@ -18,7 +18,7 @@ from easybosnian.core import LAYOUTS, ROOT, read_json, write_json
 from easybosnian.http import SafeError
 from easybosnian.render import HEIGHT, WIDTH, render
 from easybosnian.visual_placement import KINDS, RESULT_SCHEMA, composition_sheet, main, review_compositions
-from easybosnian.hybrid import default_plan, render_hybrid, measured_plan, block_spec, serif
+from easybosnian.hybrid import default_plan, render_hybrid, measured_plan, block_spec, serif, editorial_plan
 from easybosnian.stories import artwork_palette
 from test_cloud_preparation import auth
 from test_project import reviewed_fixture
@@ -175,14 +175,79 @@ class HybridCompositionTests(unittest.TestCase):
 
     def test_photo_window_preserves_complete_photo_and_example_stays_over_it(self):
         card=reviewed_fixture()['cards'][2];card['body']='Ovo je kratko objašnjenje.';card['example']='Čuvamo č, ć, š, ž i đ.'
-        plan={'confidence':'high','photo_window':{'y':500,'height':600},'blocks':[
-            {'role':'body','x':64,'y':280,'width':952}, {'role':'example','x':320,'y':920,'width':440}]}
+        plan={'confidence':'high','design':'hybrid','photo_window':{'y':500,'height':600,'fit':'contain'},'blocks':[
+            {'role':'body','style':'rounded','x':64,'y':280,'width':952}, {'role':'example','style':'italic_photo','x':320,'y':920,'width':440}]}
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1024,1024),'#798e95').save(photo)
             result=render_hybrid(card,'terracotta-sand',photo,root/'card.jpg',plan)
             self.assertFalse(result['photo_cropped']);self.assertEqual(result['photo_bounds'],[240,500,840,1100])
             bad=copy.deepcopy(plan);bad['blocks'][-1]['width']=952
             with self.assertRaises(ValueError):render_hybrid(card,'blue-ice',photo,root/'bad.jpg',bad)
+
+    def test_editorial_renders_wide_photo_plain_body_and_italic_footer_with_exact_copy(self):
+        card=copy.deepcopy(reviewed_fixture()['cards'][2]);before=copy.deepcopy(card)
+        plan=editorial_plan(card)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);photo=root/'photo.jpg'
+            Image.new('RGB',(1024,1024),'#718593').save(photo)
+            with patch('easybosnian.hybrid.draw_rows',wraps=__import__('easybosnian.render',fromlist=['draw_rows']).draw_rows) as drawing:
+                result=render_hybrid(card,'terracotta-sand',photo,root/'card.jpg',plan)
+            self.assertEqual(card,before);self.assertEqual(result['design'],'editorial')
+            self.assertEqual(result['block_styles'],{'body':'plain','example':'italic_footer'})
+            self.assertEqual(result['panel_bounds'],[]);self.assertEqual(result['photo_bounds'][2]-result['photo_bounds'][0],952)
+            self.assertTrue(result['photo_cropped']);self.assertGreaterEqual(result['example_contrast'],4.5)
+            self.assertLessEqual(result['example_bounds'][2],880);self.assertLessEqual(result['example_bounds'][3],1286)
+            self.assertGreaterEqual(result['example_bounds'][1],result['photo_bounds'][3]+24)
+            text=[' '.join(call.args[2]) for call in drawing.call_args_list]
+            self.assertIn(card['body'],text);self.assertIn(card['example'],text)
+            with Image.open(root/'card.jpg') as image:self.assertEqual((image.size,image.mode),((1080,1350),'RGB'))
+
+    def test_supported_panel_and_example_styles_change_pixels_not_copy_or_font_fit(self):
+        card=copy.deepcopy(reviewed_fixture()['cards'][2]);before=copy.deepcopy(card)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#728192').save(photo)
+            normal=render_hybrid(card,'blue-ice',photo,root/'normal.jpg')
+            plan=default_plan(card);plan['confidence']='high'
+            plan['blocks'][0]['style']='outlined';plan['blocks'][1].update(style='boxed',y=950)
+            altered=render_hybrid(card,'blue-ice',photo,root/'altered.jpg',plan)
+            self.assertEqual(card,before);self.assertNotEqual((root/'normal.jpg').read_bytes(),(root/'altered.jpg').read_bytes())
+            self.assertEqual(altered['block_styles'],{'body':'outlined','example':'boxed'})
+            self.assertEqual(len(altered['panel_bounds']),2);self.assertEqual(normal['body_font_size'],altered['body_font_size'])
+            self.assertGreaterEqual(altered['example_contrast'],4.5)
+
+    def test_style_contract_rejects_custom_fonts_bad_combinations_and_footer_photo_logo_collisions(self):
+        card=reviewed_fixture()['cards'][2]
+        for mutation in ('code','body_italic','example_plain','plain_overlay','footer_logo','footer_photo','photo_body','missing_photo','cover_hybrid'):
+            plan=editorial_plan(card) if mutation in ('footer_logo','footer_photo','photo_body','missing_photo') else default_plan(card)
+            if mutation=='code':plan['blocks'][0]['style']='draw arbitrary code'
+            elif mutation=='body_italic':plan['blocks'][0]['style']='italic_photo'
+            elif mutation=='example_plain':plan['blocks'][1]['style']='plain'
+            elif mutation=='plain_overlay':plan['blocks'][0]['style']='plain'
+            elif mutation=='footer_logo':plan['blocks'][1]['width']=952
+            elif mutation=='footer_photo':plan['blocks'][1]['y']=plan['photo_window']['y']+40
+            elif mutation=='photo_body':plan['photo_window']['y']=plan['blocks'][0]['y']+40
+            elif mutation=='missing_photo':plan['photo_window']=None
+            else:plan['photo_window']={'y':500,'height':400,'fit':'cover'}
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):measured_plan(card,plan)
+        quiz=reviewed_fixture()['cards'][0];plan=default_plan(quiz);plan['design']='editorial'
+        with self.assertRaises(ValueError):measured_plan(quiz,plan)
+
+    def test_editorial_reference_shows_style_choice_in_fourth_column_and_model_catalogue(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for name,colour in [('photo','red'),('hybrid','blue'),('editorial','green')]:Image.new('RGB',(1080,1350),colour).save(root/(name+'.jpg'))
+            composition_sheet(root/'photo.jpg',root/'hybrid.jpg',root/'sheet.jpg',root/'editorial.jpg')
+            with Image.open(root/'sheet.jpg') as sheet:
+                self.assertEqual(sheet.size,(2880,900));self.assertNotEqual(sheet.getpixel((1800,450)),sheet.getpixel((2520,450)))
+        with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(self.decision())) as child:
+            review_compositions(reviewed_fixture(),self.candidates())
+        prompt=child.call_args.args[0]
+        for expected in ('editorial','outlined','italic_photo','italic_footer','boxed','measurements_by_style','x880'):
+            self.assertIn(expected,prompt)
+
+    def test_editorial_default_does_not_clip_long_copy_to_force_design(self):
+        card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['body']='Čuvamo svako slovo. '*100
+        with self.assertRaises(ValueError):editorial_plan(card)
 
     def test_licensed_serif_has_true_italic_and_complete_bosnian_glyphs(self):
         for italic in (False,True):
@@ -256,6 +321,7 @@ class PreparedArtworkTests(unittest.TestCase):
         stream=io.BytesIO();Image.new('RGB',(1024,1024),'#728192').save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue();store=MagicMock()
         decisions={'palette':'terracotta-sand','cards':{c['kind']:dict(default_plan(c),confidence='high') for c in package['cards']}}
+        decisions['cards']['lesson']['blocks'][0]['style']='outlined'
         # Bad word geometry must fall back alone without a model/generation retry.
         decisions['cards']['word']['blocks'][0]['y']=200
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_placement.review_compositions',return_value=(decisions,'reviewed')) as review,patch('easybosnian.artwork.wait_for_image') as visible,patch.dict(os.environ,{'GITHUB_RUN_URL':'https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/123'}):
@@ -267,10 +333,13 @@ class PreparedArtworkTests(unittest.TestCase):
             self.assertEqual(store.put_file.call_count,3);self.assertEqual(store.expose.call_count,3);self.assertEqual(visible.call_count,3)
             for kind,item in result.items():self.assertEqual(item['path'].read_bytes(),before[kind])
             self.assertEqual(result['lesson']['metrics']['panel_position'],'free')
+            self.assertEqual(result['lesson']['metrics']['block_styles']['body'],'outlined')
             self.assertEqual(result['word']['metrics']['panel_position'],'normal')
             self.assertEqual({item['metrics']['palette'] for item in result.values()},{'terracotta-sand'})
             self.assertEqual(artwork_palette(package,result),read_json(ROOT/'data/design-palettes.json')['terracotta-sand'])
             safe=read_json(Path(temp)/'build'/package['batch_id']/'image-placement-result.json')
+            self.assertEqual(safe['cards']['lesson']['block_styles']['body'],'outlined')
+            self.assertEqual(safe['cards']['word']['block_styles']['body'],'rounded')
             self.assertIn('rejected',safe['cards']['word']['status']);self.assertNotIn('private_review',str(safe))
             self.assertEqual((Path(temp)/'build'/package['batch_id']/'prepared-artwork.secret').stat().st_mode&0o777,0o600)
             store.expose.reset_mock()

@@ -42,6 +42,21 @@ class SuccessReportTests(unittest.TestCase):
             else:bad['cards']['word']['position']='private-model-prose'
             with self.subTest(mutation=mutation),self.assertRaises(ValueError):with_rendering(data,bad)
 
+    def test_final_designs_are_whitelisted_and_visible_in_success_reports(self):
+        package=reviewed_fixture();data=report_data(package,results(),RUN)
+        placement={'batch':package['date'],'batch_id':package['date'],'cards':{
+            kind:{'position':'free','palette':'terracotta-sand','design':'editorial' if kind=='word' else 'hybrid',
+                  'block_styles':{'body':'plain','example':'italic_footer'} if kind=='word' else {'A':'outlined'}} for kind in ('quiz','lesson','word')}}
+        final=with_rendering(data,placement);text,markup=render_report(final)
+        for value in ('editorial','italic_footer','outlined'):
+            self.assertIn(value.replace('_',r'\_'),text);self.assertIn(value,markup)
+        for mutation in ('design','style','role'):
+            bad=copy.deepcopy(placement)
+            if mutation=='design':bad['cards']['word']['design']='private-model-prose'
+            elif mutation=='style':bad['cards']['word']['block_styles']['body']='private-model-prose'
+            else:bad['cards']['word']['block_styles']['private-model-prose']='plain'
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):with_rendering(data,bad)
+
     def test_captured_rendering_input_survives_history_replacement_and_refuses_other_run_batch(self):
         package=reviewed_fixture();source=content_data(package,RUN)
         outcome={'batch':package['date'],'batch_id':package['date'],'platforms':results()}

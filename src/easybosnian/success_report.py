@@ -6,6 +6,7 @@ import re
 from urllib.parse import urlparse
 
 from .batches import output_key
+from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
@@ -60,8 +61,14 @@ def with_rendering(data,placement):
     for kind,result in placement['cards'].items():
         if result['palette'] not in catalogue or result['position'] not in ('free','normal','separate_photo'):
             raise ValueError('Invalid safe rendering metadata')
+        design=result.get('design','hybrid')  # Older private reports remain readable.
+        styles=result.get('block_styles',{})
+        if design not in DESIGNS or not isinstance(styles,dict) or any(
+                role not in ('body','example','A','B','C','D') or style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES)
+                for role,style in styles.items()):
+            raise ValueError('Invalid safe design metadata')
         palettes.add(result['palette'])
-        rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position']}
+        rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,'block_styles':styles}
     if len(palettes)!=1:raise ValueError('Rendering report requires one shared palette')
     return {**data,'final_palette':palettes.pop(),
             'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}
@@ -80,7 +87,7 @@ def render_report(data):
     for card in data['cards']:
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n**Planning layout:** {markdown_text(card['layout'])}\n\n"
-        if card.get('rendering'):text+=f"**Final rendering:** hybrid / {markdown_text(card['rendering']['position'])}; Lora headings, Inter body, italic photographic examples.\n\n"
+        if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
         text+=f"{fence}text\n{card['prompt']}\n{fence}\n\n"
     text+='### Publication results\n\n'
     for platform in data['platforms']:
@@ -100,7 +107,7 @@ def render_report(data):
     markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
     for card in data['cards']:
         markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p><p>Planning layout: '+html.escape(card['layout'])+'</p>'
-        if card.get('rendering'):markup+='<p>Final rendering: hybrid / '+html.escape(card['rendering']['position'])+'; Lora headings, Inter body, italic photographic examples.</p>'
+        if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'
     for platform in data['platforms']:
