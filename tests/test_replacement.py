@@ -101,6 +101,7 @@ class ReplacementTests(unittest.TestCase):
         items=[self.item(kind=kind,id=str(index)) for index,kind in [(10,'feed'),(11,'story'),(12,'story'),(13,'story'),(20,'feed'),(21,'story'),(22,'story'),(23,'story')]]
         store=MagicMock();store.publications.return_value=list(reversed(items))
         ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={x['object_id'] for x in items}
+        ig.delete.side_effect=ig.owned_ids.return_value.discard
         with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
             result=cleanup(store,'2026-10-03','instagram')
         self.assertEqual(result['removed'],4)
@@ -120,7 +121,9 @@ class ReplacementTests(unittest.TestCase):
 
     def test_known_owned_items_deleted_and_manually_absent_items_skipped(self):
         store=MagicMock();store.publications.return_value=[self.item(id='123'),self.item(kind='story',id='456')]
-        ig=MagicMock();ig.owned_ids.side_effect=lambda kind:{'123'} if kind=='feed' else set()
+        remaining={'123'}
+        ig=MagicMock();ig.owned_ids.side_effect=lambda kind:remaining.copy() if kind=='feed' else set()
+        ig.delete.side_effect=remaining.discard
         with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
             result=cleanup(store,'2026-10-03','instagram')
         self.assertEqual(result,{'removed':1,'already_absent':1});ig.delete.assert_called_once_with('123')
@@ -129,6 +132,7 @@ class ReplacementTests(unittest.TestCase):
     def test_verified_facebook_login_id_can_record_pre_feature_instagram_media(self):
         store=MagicMock();store.publications.return_value=[self.item(id='123')]
         ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={'123'}
+        ig.delete.side_effect=ig.owned_ids.return_value.discard
         with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'different-scoped-publishing-id'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
             self.assertEqual(cleanup(store,'2026-10-03','instagram')['removed'],1)
         ig.verify_account.assert_called_once();ig.delete.assert_called_once_with('123')
@@ -145,6 +149,24 @@ class ReplacementTests(unittest.TestCase):
             with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing',side_effect=ValueError('off') if failure=='kill' else None),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
                 with self.assertRaises((ValueError,RuntimeError)):cleanup(store,'2026-10-03','instagram')
             store.forget.assert_not_called()
+
+    def test_instagram_success_response_with_surviving_media_retains_id_without_retry(self):
+        store=MagicMock();store.publications.return_value=[self.item()]
+        ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={'123'}
+        with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
+            with self.assertRaisesRegex(ValueError,'accepted deletion.*identifier retained'):
+                cleanup(store,'2026-10-03','instagram')
+        ig.delete.assert_called_once_with('123')
+        self.assertEqual(ig.owned_ids.call_count,2)
+        store.forget.assert_not_called()
+
+    def test_instagram_failed_post_delete_read_retains_id_and_never_repeats_delete(self):
+        store=MagicMock();store.publications.return_value=[self.item()]
+        ig=MagicMock();ig.user_id='42';ig.owned_ids.side_effect=[{'123'},RuntimeError('read failed')]
+        with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):
+            with self.assertRaisesRegex(RuntimeError,'read failed'):
+                cleanup(store,'2026-10-03','instagram')
+        ig.delete.assert_called_once_with('123');store.forget.assert_not_called()
 
     def test_tiktok_rerun_needs_no_acknowledgement_and_never_claims_or_performs_deletion(self):
         store=MagicMock();store.publications.return_value=[self.item(platform='tiktok')]

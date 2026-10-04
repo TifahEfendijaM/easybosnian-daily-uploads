@@ -90,3 +90,7 @@ batch_target=all_today creates a new UUID batch for the frozen current Sarajevo 
 No migration or schedule change. After reviewing the full diff and existing card previews and passing Python/Worker tests, deploy the compatible Worker first: it adds authenticated date-scoped publication reads and explicit batch/date history removal, while its 05:00 daily/none dispatch stays unchanged. Read back its version, resource identities and cron, and check the new read endpoint without deleting data. Then merge the repository so the form exposes all_today. Require main checks and verify existing content/publication counts remain unchanged. Do not dispatch a live rerun as a deployment test.
 
 Custom words that fail checks are repaired inside preparation: research the intended spelling first, then delegate only the invalid slot if necessary. Empty/unusable entered fields and missing kept words are delegated automatically. Final replacement words, copy, quiz review, prompts and design still pass every normal check; an unrelated batch-wide failure never triggers unvalidated publication. See difficulty-policy.md.
+
+## Confirming Instagram cleanup
+
+Instagram cleanup checks the complete authenticated media listing once after each accepted DELETE. A surviving ID or failed read produces a cleanup warning and keeps that ID; it never repeats the DELETE, and replacement publishing continues independently. Only confirmed absence is counted as removed and forgotten. This is a read within the current attempt, without publication state, retries or a new schedule.

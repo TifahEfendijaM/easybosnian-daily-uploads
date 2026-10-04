@@ -128,6 +128,7 @@ class MultipleBatchesTests(unittest.TestCase):
 
     def test_cleanup_can_only_remove_returned_ids_from_the_exact_batch(self):
         store=MagicMock();ig=MagicMock();ig.user_id='42';ig.owned_ids.return_value={'123','456'}
+        ig.delete.side_effect=ig.owned_ids.return_value.discard
         item={'batch_id':B,'platform':'instagram','kind':'feed','object_id':'123','account_id':'42','recorded_order':2}
         store.publications.return_value=[item]
         with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.InstagramDeletion',return_value=ig):

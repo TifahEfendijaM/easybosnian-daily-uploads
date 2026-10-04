@@ -152,6 +152,7 @@ class AllTodayTests(unittest.TestCase):
         for platform in ('instagram','facebook'):
             items=[{'date':self.date,'batch_id':B,'platform':platform,'kind':kind,'object_id':id,'account_id':'42','recorded_order':n} for n,(kind,id) in enumerate([('feed','123'),('story','456'),('feed','789'),('story','888'),('photo','999')],1)]
             store=MagicMock();store.publications.return_value=items;provider=MagicMock();provider.user_id=provider.page_id='42';provider.owned_ids.return_value={x['object_id'] for x in items}
+            provider.delete.side_effect=provider.owned_ids.return_value.discard
             with patch.dict(os.environ,{'INSTAGRAM_USER_ID':'42'}),patch('easybosnian.replacement.require_publishing'),patch('easybosnian.replacement.'+('InstagramDeletion' if platform=='instagram' else 'Facebook'),return_value=provider):
                 result=cleanup(store,B,platform,all_known=True,expected_date=self.date)
                 self.assertEqual(result['removed'],4 if platform=='instagram' else 2)

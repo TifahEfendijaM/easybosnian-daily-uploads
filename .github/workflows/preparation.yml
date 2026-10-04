@@ -124,42 +124,6 @@ jobs:
       - name: Read only recorded Meta publication capabilities
         if: inputs.mode == 'verify'
         run: python scripts/diagnose_publications.py
-      - name: Read three known publications only; never delete or publish
-        if: inputs.mode == 'verify'
-        run: |
-          python - <<'PY'
-          import json
-          from easybosnian.core import verify_repository, write_json
-          from easybosnian.http import SafeError
-          from easybosnian.meta import Instagram, InstagramDeletion, owned_ids
-          verify_repository(remote=True)
-          publishing = Instagram(); publishing.verify_account()
-          deletion = InstagramDeletion(); deletion.verify_account()
-          providers = {'publishing': publishing, 'deletion': deletion}
-          known = ['18076977554534722', '18098179526293296', '18121471439060321']
-          rows = []
-          for name, provider in providers.items():
-              owned = owned_ids(provider, provider.user_id + '/media', {'fields': 'id', 'limit': 100})
-              for object_id in known:
-                  row = {'api': name, 'object_id': object_id, 'on_verified_feed_edge': object_id in owned}
-                  try:
-                      media = provider.call('GET', object_id, {'fields': 'id,permalink,media_type,timestamp'})
-                      row.update(readable=True, returned_id_matches=media.get('id') == object_id,
-                                 permalink=media.get('permalink'), media_type=media.get('media_type'),
-                                 timestamp=media.get('timestamp'))
-                  except SafeError as error:
-                      row.update(readable=False, http_status=error.http_status)
-                  rows.append(row)
-          result = {'publication': 'Read-only; no deletion, preparation, generation or publication', 'objects': rows}
-          write_json('build/instagram-cleanup-diagnostic.json', result)
-          print(json.dumps(result, indent=2))
-          PY
-      - uses: actions/upload-artifact@v4
-        if: inputs.mode == 'verify'
-        with:
-          name: instagram-cleanup-read-only-${{ github.run_id }}
-          retention-days: 7
-          path: build/instagram-cleanup-diagnostic.json
       - name: Persist refreshed cloud sign-in privately
         id: persist
         if: always() && steps.auth.outcome == 'success'
