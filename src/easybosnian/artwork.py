@@ -6,13 +6,13 @@ from PIL import Image
 from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
-from .hybrid import default_plan, render_hybrid
+from .hybrid import default_plan, editorial_plan, render_hybrid
 from .store import wait_for_image
 
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {key: package.get(key) for key in ('batch_id', 'date', 'design_palette', 'cards')}
+    return {'rendering_version':2, **{key: package.get(key) for key in ('batch_id', 'date', 'design_palette', 'cards')}}
 
 
 def artwork(store, package, expose=False, review_images=False, require_prepared=False):
@@ -42,7 +42,13 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 baseline=output/f'{kind}-hybrid-reference.jpg'
                 metrics=render_hybrid(card,package['design_palette'],background,baseline)
                 sheet=output/f'{kind}-placement-sheet.jpg'
-                composition_sheet(background,baseline,sheet)
+                editorial=None
+                if kind!='quiz':
+                    try:
+                        editorial=output/f'{kind}-editorial-reference.jpg'
+                        render_hybrid(card,package['design_palette'],background,editorial,editorial_plan(card))
+                    except ValueError:editorial=None  # Exact long copy may not fit this optional reference.
+                composition_sheet(background,baseline,sheet,editorial)
                 with Image.open(background) as original:photo_size=list(original.size)
                 candidates[kind]={'baseline':baseline,'metrics':metrics,'sheet':sheet,'photo_size':photo_size}
             proposal,status=review_compositions(package,candidates)
@@ -68,7 +74,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     decision_status='rejected; safe hybrid fallback'
                     print('::warning::Hybrid composition rejected; using measured reference without retry')
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
-                                 'palette':metrics['palette'],'composition':metrics.get('composition')}
+                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'composition':metrics.get('composition')}
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
