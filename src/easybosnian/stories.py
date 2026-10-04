@@ -1,4 +1,4 @@
-"""Publish reviewed Instagram Stories: quiz treatment A, lesson/word treatment B."""
+"""Publish reviewed Instagram Stories with separate photo/text treatment B."""
 from .batches import output_key
 import os
 from urllib.parse import urlparse
@@ -13,7 +13,7 @@ HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
 
 def story_image(source,destination,palette,background=None,card=None):
-    if card and (card['kind'] in ('lesson','word') or card.get('quiz_format') == 'visual_identification'):
+    if card:
         return tall_story_image(card,background,destination,palette)
     with Image.open(source) as image:
         if image.size!=(1080,1350): raise ValueError('Story source must be the 1080×1350 published card')

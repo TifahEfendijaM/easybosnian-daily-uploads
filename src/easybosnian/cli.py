@@ -62,9 +62,8 @@ def fit_check(package):
     Image.new("RGB",(1080,1350),"#7492a5").save(path)
     for card in package["cards"]:
         render(card,package["design_palette"],path,ROOT / "build" / (card["kind"]+"-fit.jpg"))
-        if card['kind'] != 'quiz' or card.get('quiz_format') == 'visual_identification':
-            palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
-            tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
+        palette=read_json(ROOT/'data/design-palettes.json')[package['design_palette']]
+        tall_story_image(card,path,ROOT/'build'/(card['kind']+'-story-fit.jpg'),palette)
 
 
 def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):

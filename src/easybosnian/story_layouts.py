@@ -6,8 +6,8 @@ from .render import LABELS, centered, contrast, density, draw_rows, font, measur
 
 
 def tall_story_image(card, background, destination, palette):
-    if card['kind'] == 'quiz' and card.get('quiz_format') == 'visual_identification':
-        return visual_quiz_image(card, background, destination, palette)
+    if card['kind'] == 'quiz':
+        return _quiz_image(card, background, destination, palette, height=1920)
     if card['kind'] not in ('lesson', 'word'):
         raise ValueError('Tall Story treatment is only for lesson and word cards')
     if not background:
@@ -71,6 +71,13 @@ def visual_quiz_image(card, background, destination, palette, height=1920):
     """Visual naming: question above the complete photo, choices below it."""
     if card['kind'] != 'quiz' or card.get('quiz_format') != 'visual_identification':
         raise ValueError('Separate quiz photo requires reviewed visual-identification metadata')
+    return _quiz_image(card, background, destination, palette, height)
+
+
+def _quiz_image(card, background, destination, palette, height):
+    """All quiz Stories use B; visual naming may also use it in the feed."""
+    if card['kind'] != 'quiz':
+        raise ValueError('Separate quiz photo requires a quiz card')
     if not background or height not in (1350, 1920):
         raise ValueError('Visual quiz requires its original photo and approved output dimensions')
     ink, accent, paper = palette['ink'], palette['accent'], palette['panel']

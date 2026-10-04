@@ -35,14 +35,11 @@ class StoryLayoutTests(unittest.TestCase):
             self.assertLessEqual(metrics['panel_bounds'][-1][3],1650)
             with Image.open(self.root/'story.jpg') as image:self.assertEqual(image.size,(1080,1920))
 
-    def test_only_explicit_visual_naming_quizzes_use_b_in_feed_and_stories(self):
+    def test_only_explicit_visual_naming_quizzes_use_b_in_feed(self):
         card=copy.deepcopy(self.package['cards'][0]);card['question']='Kako se zove predmet na slici?'
         for format in ('other',None):
             if format:card['quiz_format']=format
             else:card.pop('quiz_format',None)
-            with patch('easybosnian.stories.tall_story_image') as tall:
-                story_image(self.card,self.root/'story.jpg',self.palette,self.photo,card)
-                tall.assert_not_called()
             with patch('easybosnian.story_layouts.visual_quiz_image') as tall:
                 render(card,'blue-ice',self.photo,self.root/'feed.jpg');tall.assert_not_called()
         card['quiz_format']='visual_identification'
@@ -56,6 +53,37 @@ class StoryLayoutTests(unittest.TestCase):
                 self.assertLessEqual(metrics['question_bounds'][3],metrics['photo_bounds'][1])
                 self.assertLess(metrics['photo_bounds'][3],metrics['panel_bounds'][0][1])
                 with Image.open(output) as image:self.assertEqual(image.size,(1080,height))
+
+    def test_every_quiz_story_uses_b_with_question_above_complete_photo_and_exact_choices(self):
+        for format in ('other','visual_identification',None):
+            for count in (2,3,4):
+                card=copy.deepcopy(self.package['cards'][0]);card['question']='Koji je odgovor tačan?'
+                if format:card['quiz_format']=format
+                else:card.pop('quiz_format',None)
+                texts=['Da','Ne'] if count==2 else ['torba','kišobran','knjiga','šešir'][:count]
+                card['options']=[{'label':letter,'text':text} for letter,text in zip('ABCD',texts)]
+                before=copy.deepcopy(card)
+                with patch('easybosnian.story_layouts.draw_rows',wraps=draw_rows) as drawing:
+                    metrics=story_image(self.card,self.root/'story.jpg',self.palette,self.photo,card)
+                rendered=[' '.join(call.args[2]) for call in drawing.call_args_list]
+                self.assertIn(card['question'],rendered)
+                for text in texts:self.assertIn(text,rendered)
+                self.assertEqual(card,before);self.assertEqual(metrics['treatment'],'B')
+                self.assertEqual(len(metrics['panel_bounds']),count);self.assertFalse(metrics['photo_cropped'])
+                self.assertAlmostEqual(metrics['photo_size'][0]/metrics['photo_size'][1],1.5,places=2)
+                self.assertLessEqual(metrics['question_bounds'][3],metrics['photo_bounds'][1])
+                self.assertLess(metrics['photo_bounds'][3],metrics['panel_bounds'][0][1])
+                with Image.open(self.root/'story.jpg') as image:self.assertEqual(image.size,(1080,1920))
+
+    def test_nonvisual_quiz_cannot_use_the_visual_feed_entry_and_bad_story_copy_fails_without_changes(self):
+        card=copy.deepcopy(self.package['cards'][0]);card['quiz_format']='other'
+        with self.assertRaises(ValueError):visual_quiz_image(card,self.photo,self.root/'feed.jpg',self.palette,height=1350)
+        with self.assertRaises(ValueError):story_image(self.card,self.root/'story.jpg',self.palette,None,card)
+        bad_palette={**self.palette,'ink':self.palette['panel']}
+        with self.assertRaises(ValueError):story_image(self.card,self.root/'story.jpg',bad_palette,self.photo,card)
+        card['question']='Čć šž đak. '*70;before=copy.deepcopy(card)
+        with self.assertRaises(ValueError):story_image(self.card,self.root/'story.jpg',self.palette,self.photo,card)
+        self.assertEqual(card,before)
 
     def test_regular_word_and_lesson_posts_keep_their_existing_renderer(self):
         for card in self.package['cards'][1:]:

@@ -47,7 +47,7 @@ For custom only, enter custom_theme and choose each custom_word_N_action in quiz
 
 same_words regenerates all text, caption and images for the selected batch’s same theme and words, and selects the palette/per-card layouts again. It is no longer an image-only option. It meets all current content validation, website-footer and quiz-format requirements. Routine 05:00 Cloudflare dispatches use none and new.
 
-Stories use B for word/lesson cards and visual naming quizzes, A for other quizzes. Regular word/lesson posts stay unchanged. Only explicitly reviewed visual_identification quizzes use B on the regular quiz slide too; other quiz types retain the normal overlay. Photos are fully fitted, copy is never truncated and no extra FLUX generation occurs.
+All Stories use B, including ordinary and yes/no quizzes; their question sits above the complete photo and choices below. Regular word/lesson posts stay unchanged. Only explicitly reviewed visual_identification quizzes use B on the regular quiz slide too; other quiz types retain the normal overlay. Photos are fully fitted, copy is never truncated and no extra FLUX generation occurs.
 
 # Change the shared difficulty
 
