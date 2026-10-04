@@ -73,7 +73,13 @@ def cleanup(store, date, platform,all_known=False,expected_date=None):
         for item in selected:
             object_id = item['object_id']; require_publishing()
             if object_id in owned:
-                provider.delete(object_id); result['removed'] += 1
+                provider.delete(object_id)
+                if platform == 'instagram' and object_id in provider.owned_ids(kind):
+                    # A successful DELETE response can disagree with the live
+                    # feed. Read once, retain the known ID and warn; never retry
+                    # the deletion or block independent replacement publishing.
+                    raise ValueError(f'Instagram accepted deletion but media {object_id} remains on its verified {kind} listing; identifier retained, no deletion retry')
+                result['removed'] += 1
             else: result['already_absent'] += 1
             # Retain identifiers after ambiguous deletion/storage failure.
             store.forget(date, platform, object_id)
