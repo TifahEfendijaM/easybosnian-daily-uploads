@@ -6,6 +6,7 @@ from .batches import identity, latest_record
 
 CHOICES = ('new', 'same_theme', 'same_words', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
+WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'history_repeat', 'word_overlap', 'unusable_seed')
 
 
 def batch_date(history, run_date, target='latest'):
@@ -33,28 +34,36 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         actions = custom_actions or ['entered' if word else 'keep_today' for word in words]
         if len(actions) != 3 or any(action not in WORD_ACTIONS for action in actions):
             raise ValueError('Choose keep_today, chatgpt or entered for each custom word')
-        if not previous and (not theme or 'keep_today' in actions):
-            raise ValueError('Without a saved batch, enter a theme and enter or delegate every word')
+        if not previous and not theme:
+            raise ValueError('Without a saved batch, enter a theme')
         for i, action in enumerate(actions):
-            if action == 'entered' and not words[i]:
-                raise ValueError('The entered word action requires a word in its matching field')
             if action != 'entered' and words[i]:
                 raise ValueError('Clear the word field for keep_today/chatgpt, or select entered to use it')
         theme = theme or previous['theme']['name']
         theme_changed = bool(previous and normalise(theme) != normalise(previous['theme']['name']))
         # Keeping an old-theme word is not a request to force it into a new theme.
         effective_actions = ['chatgpt' if theme_changed and action=='keep_today' else action for action in actions]
+        input_fallbacks = []
+        seen = set()
+        for i, action in enumerate(effective_actions):
+            word = previous['words'][i]['lemma'] if action=='keep_today' and previous else words[i]
+            cause = None
+            if action!='chatgpt':
+                if not word or len(word)>180 or not normalise(word): cause='unusable_seed'
+                elif normalise(word) in seen: cause='word_overlap'
+                else: seen.add(normalise(word))
+            if cause:
+                effective_actions[i]='chatgpt'
+                input_fallbacks.append({'word_index':i,'cause':cause})
         words = [previous['words'][i]['lemma'] if action=='keep_today' else (None if action=='chatgpt' else words[i]) for i, action in enumerate(effective_actions)]
-        fixed = [word for word in words if word is not None]
-        if len(set(normalise(w) for w in fixed)) != len(fixed):
-            raise ValueError('Custom content requires three distinct words')
-        if len(theme) > 180 or any(len(word) > 180 for word in fixed):
-            raise ValueError('Custom theme or word exceeds the content schema length limit')
+        if len(theme) > 180:
+            raise ValueError('Custom theme exceeds the content schema length limit')
         pinned_theme = previous['theme'] if previous and normalise(theme) == normalise(previous['theme']['name']) else None
         old_words = previous['words'] if previous else []
         pinned_words = [next((w for w in old_words if normalise(w['lemma']) == normalise(word)), None) if word is not None else None for word in words]
         result.update(requested_theme=theme, requested_words=words,
                       pinned_theme=pinned_theme, pinned_words=pinned_words, word_actions=effective_actions, theme_changed=theme_changed)
+        if input_fallbacks: result['word_input_fallbacks']=input_fallbacks
     return result
 
 
@@ -100,20 +109,24 @@ def retained_metadata(word, pinned, previous):
 
 
 def replacement_review(package, selection):
-    """A reviewed incompatibility permits replacing an entered word, never a level mismatch."""
+    """Review permits fallback for one invalid entered/kept seed, never a batch-check waiver."""
     changes=package['private_review'].get('word_replacements',[]);result={}
     if not isinstance(changes,list):
         raise ValueError('Custom replacement reviews must be a list')
     for change in changes:
         if not isinstance(change,dict) or any(not isinstance(change.get(key),str) for key in ('requested_word','chosen_word','reason')):
             raise ValueError('Custom compatibility replacement review is incomplete')
-        index=change.get('word_index')
-        if (type(index) is not int or index not in (0,1,2) or index in result or selection['word_actions'][index]!='entered'
+        index=change.get('word_index');cause=change.get('cause','theme_mismatch')
+        if (type(index) is not int or index not in (0,1,2) or index in result
+                or selection['word_actions'][index] not in ('entered','keep_today')
+                or cause not in WORD_FALLBACK_CAUSES
+                or (selection['word_actions'][index]=='keep_today' and 'cause' not in change)
+                or selection['requested_words'][index] is None
                 or not isinstance(change.get('reason'),str) or len(change['reason'])<20
                 or normalise(change.get('requested_word',''))!=normalise(selection['requested_words'][index])
                 or normalise(change.get('chosen_word',''))!=normalise(package['words'][index]['lemma'])
                 or normalise(change['chosen_word'])==normalise(change['requested_word'])):
-            raise ValueError('Custom compatibility replacement review does not match an entered word')
+            raise ValueError('Custom word fallback review does not match an entered or kept word')
         result[index]=change
     return result
 
@@ -131,7 +144,12 @@ def word_levels(package, selection, global_level):
     if selection['choice']!='custom': return [global_level]*3
     changes=replacement_review(package,selection);targets=[]
     for index,(requested,pinned) in enumerate(zip(selection['requested_words'],selection['pinned_words'])):
-        if requested is None or index in changes:targets.append(global_level)
+        if index in changes and changes[index].get('cause')=='spelling_correction':
+            level=package['words'][index].get('bosnian_level')
+            if level not in ('A1','A2','B1','B2','C1','C2'):
+                raise ValueError('A corrected custom word needs its own reviewed difficulty')
+            targets.append(level)
+        elif requested is None or index in changes:targets.append(global_level)
         elif pinned:targets.append(retained_level(package['words'][index],pinned,selection['previous']))
         else:
             level=package['words'][index].get('bosnian_level')

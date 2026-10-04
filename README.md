@@ -32,7 +32,7 @@ All visible copy is Bosnian. Quizzes have one objective answer and 2–4 options
 
 All Stories use B: the complete photo and separate text panels, with every quiz question above the photo and its choices below. Visual naming also uses B on the regular quiz slide, with the question above the full photo. Other regular card layouts remain unchanged. New captions end with a fresh contextual Bosnian invitation and exactly `👉easybosnian.com` on their final line; never mention deleted/replaced posts.
 
-One shared A1–C2 difficulty is changed through [configure-level.yml](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml), separately from publication. It persists for future preparations; retained and compatible entered words keep their individual levels. No source/fit/secrecy checks are waived by custom input. See docs/difficulty-policy.md.
+One shared A1–C2 difficulty is changed through [configure-level.yml](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml), separately from publication. It persists for future preparations; retained and compatible entered words keep their individual levels. Custom entered/kept words are first corrected to their researched intended spelling where possible; invalid/incompatible seeds otherwise fall back to ChatGPT choices. Every final draft still passes all source, history, fit and secrecy checks. See docs/difficulty-policy.md.
 
 ## Successful-run reports
 
