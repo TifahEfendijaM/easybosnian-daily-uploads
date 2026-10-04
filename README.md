@@ -24,6 +24,8 @@ DAILY_POSTING_ENABLED is checked unconditionally by live entry points; verify/pr
 
 Private/publication metadata, generation cache, cards, Stories and local artifacts use batch_id. Public image URLs remain random with 14-day expiry; history/answer keys are private. Content rows, known IDs and the cron claim are the only durable bookkeeping; no reservation, immutable package hash, intents, generation-state rows, queue commits, reconciliation or optimistic concurrency.
 
+Workers KV is eventually consistent. Public exposure receives the exact rendered JPEG instead of immediately rereading its private upload. Before any provider receives a fresh URL, the pipeline polls that URL's explicit 404 responses for up to three minutes and requires identical bytes. Only GET requests repeat; uploads, exposure, FLUX and social publishing are submitted once. Authentication/quota/network errors or different public bytes stop immediately. The same path covers all feed cards and Instagram/Facebook Stories. See [storage diagnostics](docs/failures.md#image-storage-visibility).
+
 The credential-free Codex child keeps its stripped environment, workspace sandbox, structured ready/blocked contract and tracked-file diff check. It cannot publish or call protected APIs. The wrapper enforces schema, Bosnian spelling/diacritics, source/semantic review, quiz secrecy, measured text fit, shared difficulty and footer before saving. Never truncate text. Source review dates describe actual research, even when replacing an earlier content date. notify.failure retains build/failure.txt and opens a private GitHub issue with stage/date/publication status/run link; safe artifacts last seven days.
 
 ## Editorial and design

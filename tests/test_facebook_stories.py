@@ -13,6 +13,7 @@ from easybosnian.core import ROOT, PROJECT, REPO
 from easybosnian.daily import daily
 from easybosnian.facebook_stories import publish_facebook_stories, verify_story
 from easybosnian.meta import Facebook
+from easybosnian.http import SafeError
 from easybosnian.readiness import check_infrastructure
 from test_project import reviewed_fixture
 
@@ -79,17 +80,26 @@ class FacebookStoryTests(unittest.TestCase):
                 assets[card['kind']] = {'path': path, 'background_path': background}
             facebook = MagicMock(); facebook.photo.side_effect = ['101', '102', '103']; facebook.story.side_effect = ['201', '202', '203']
             facebook.stories.return_value = {'data': [story(str(201+i), str(101+i)) for i in range(3)]}
-            store = MagicMock(); store.expose.side_effect = lambda date,name: 'https://images.example/'+name
+            store = MagicMock(); store.expose.side_effect = lambda date,name,body: 'https://images.example/'+name
+            image_reads={}
+            def read_image(method,url,**kwargs):
+                self.assertEqual(method,'GET');image_reads[url]=image_reads.get(url,0)+1
+                if image_reads[url]==1:raise SafeError('not visible',http_status=404)
+                return (build/url.rsplit('/',1)[-1]).read_bytes()
             with patch.dict(os.environ, {'FACEBOOK_POSTING_ENABLED': 'true', 'FACEBOOK_STORIES_ENABLED': 'true'}), \
                  patch('easybosnian.facebook_stories.ROOT', root), patch('easybosnian.facebook_stories.require_publishing') as kill, \
                  patch('easybosnian.facebook_stories.Facebook', return_value=facebook), \
-                 patch('easybosnian.facebook_stories.request', side_effect=lambda method,url,**kwargs: (build/url.rsplit('/',1)[-1]).read_bytes()), \
+                 patch('easybosnian.facebook_stories.request', side_effect=read_image), \
+                 patch('easybosnian.store.time.sleep'), \
                  patch('easybosnian.facebook_stories.failure', return_value='safe failure'):
                 result = publish_facebook_stories(store, package, assets)
                 self.assertTrue(result['published']); facebook.verify_page.assert_called_once()
                 self.assertEqual([x['slide'] for x in result['stories']], ['quiz', 'lesson', 'word'])
                 self.assertEqual([call.args[0] for call in facebook.story.call_args_list], ['101', '102', '103'])
                 self.assertEqual([call.args[1] for call in facebook.photo.call_args_list], [c['alt_text'] for c in package['cards']])
+                self.assertEqual(list(image_reads.values()),[2,2,2])
+                self.assertEqual(store.put_file.call_count,3);self.assertEqual(store.expose.call_count,3)
+                for call in store.expose.call_args_list:self.assertEqual(call.args[2],(build/call.args[1]).read_bytes())
                 for card in package['cards']:
                     with Image.open(build/(card['kind']+'-story.jpg')) as image: self.assertEqual(image.size, (1080, 1920))
                 facebook.photo.reset_mock(); facebook.story.reset_mock(); facebook.photo.side_effect = ['101', '102', '103']; facebook.story.side_effect = ['201', '202', '203']

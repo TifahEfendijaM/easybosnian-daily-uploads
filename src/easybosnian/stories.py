@@ -8,6 +8,7 @@ from .http import SafeError, request
 from .meta import Instagram
 from .notify import failure
 from .story_layouts import tall_story_image
+from .store import wait_for_image
 
 HIGHLIGHTS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 
@@ -52,8 +53,9 @@ def publish_stories(store,package,assets,record=None):
         for card in package['cards']:
             kind=card['kind'];stage='Instagram Stories rendering'
             path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
-            store.put_file(output_key(package),path.name,path.read_bytes());url=store.expose(output_key(package),path.name)
-            if request('GET',url,raw=True)!=path.read_bytes(): raise ValueError('Story bytes differ from the rendered Story')
+            body=path.read_bytes();stage='Instagram Stories storage'
+            store.put_file(output_key(package),path.name,body);url=store.expose(output_key(package),path.name,body)
+            wait_for_image(url,body,fetch=request)
             stage='Instagram Stories container creation';require_publishing();container=ig.story(url)
             diagnostic={'slide':kind,'container_id':container};containers.append(diagnostic)
             stage='Instagram Stories readiness';diagnostic['ready_status']=ig.ready(container,stable=True)
