@@ -158,13 +158,14 @@ class HybridCompositionTests(unittest.TestCase):
         quiz=reviewed_fixture()['cards'][0];plan=default_plan(quiz);plan['design']='editorial'
         with self.assertRaises(ValueError):measured_plan(quiz,plan)
 
-    def test_editorial_reference_shows_style_choice_in_fourth_column_and_model_catalogue(self):
+    def test_routine_sheet_avoids_editorial_priming_but_keeps_approved_exception(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            for name,colour in [('photo','red'),('hybrid','blue'),('editorial','green')]:Image.new('RGB',(1080,1350),colour).save(root/(name+'.jpg'))
-            composition_sheet(root/'photo.jpg',root/'hybrid.jpg',root/'sheet.jpg',root/'editorial.jpg')
+            for name,colour in [('photo','red'),('hybrid','blue')]:Image.new('RGB',(1080,1350),colour).save(root/(name+'.jpg'))
+            composition_sheet(root/'photo.jpg',root/'hybrid.jpg',root/'sheet.jpg')
             with Image.open(root/'sheet.jpg') as sheet:
-                self.assertEqual(sheet.size,(2880,900));self.assertNotEqual(sheet.getpixel((1800,450)),sheet.getpixel((2520,450)))
+                self.assertEqual(sheet.size,(2160,900))
+                self.assertNotEqual(sheet.getpixel((1080,450)),sheet.getpixel((1800,450)))
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(self.decision())) as child:
             review_compositions(reviewed_fixture(),self.candidates())
         prompt=child.call_args.args[0]
@@ -273,6 +274,8 @@ class PreparedArtworkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_placement.review_compositions',return_value=(decisions,'reviewed')) as review,patch('easybosnian.artwork.wait_for_image') as visible,patch.dict(os.environ,{'GITHUB_RUN_URL':'https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/123'}):
             prepared=artwork(store,package,review_images=True)
             before={kind:item['path'].read_bytes() for kind,item in prepared.items()}
+            for candidate in review.call_args.args[1].values():
+                with Image.open(candidate['sheet']) as sheet:self.assertEqual(sheet.size,(2160,900))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
             result=artwork(store,package,expose=True,require_prepared=True)
             self.assertEqual(provider.generate.call_count,3);review.assert_called_once()
