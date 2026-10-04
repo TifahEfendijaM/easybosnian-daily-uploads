@@ -40,12 +40,17 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
-                paths={position:output/f'{kind}-{position}-candidate.jpg' for position in ('normal','bottom')}
+                positions=['normal','bottom']
+                example_movable=kind!='quiz' and bool(card.get('example'))
+                if example_movable: positions.append('example_bottom')
+                paths={position:output/f'{kind}-{position}-candidate.jpg' for position in positions}
                 metrics={position:render(card,package['design_palette'],background,path,panel_position=position) for position,path in paths.items()}
                 sheet=output/f'{kind}-placement-sheet.jpg'
-                contact_sheet(background,paths['normal'],paths['bottom'],sheet)
+                contact_sheet(background,paths['normal'],paths['bottom'],sheet,
+                              example_bottom=paths.get('example_bottom'))
                 candidates[kind]={'paths':paths,'metrics':metrics,'sheet':sheet,
-                    'movable':not (kind=='quiz' and card.get('quiz_format')=='visual_identification')}
+                    'movable':not (kind=='quiz' and card.get('quiz_format')=='visual_identification'),
+                    'example_movable':example_movable}
             decisions,status=review_positions(package,candidates)
             write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
                         'status':status,'cards':decisions})

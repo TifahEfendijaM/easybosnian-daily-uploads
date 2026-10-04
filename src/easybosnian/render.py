@@ -146,8 +146,10 @@ def panel(draw, box, style, palette, option=False):
 
 
 def render(card, palette_id, background, output, panel_position='normal'):
-    if panel_position not in ('normal', 'bottom'):
-        raise ValueError('Panel position must be normal or bottom')
+    if panel_position not in ('normal', 'bottom', 'example_bottom'):
+        raise ValueError('Panel position must be normal, bottom or example_bottom')
+    if panel_position == 'example_bottom' and (card['kind'] == 'quiz' or not card.get('example')):
+        raise ValueError('Moving only PRIMJER requires a lesson/word example panel')
     palette = json.loads((ROOT / "data/design-palettes.json").read_text())[palette_id]
     if card['kind'] == 'quiz' and card.get('quiz_format') == 'visual_identification':
         from .story_layouts import visual_quiz_image
@@ -230,11 +232,14 @@ def render(card, palette_id, background, output, panel_position='normal'):
     panel_area = sum(b[1] * full_width for b in blocks)
     if y > min(height - 180, 1050) or panel_area > WIDTH * height * 0.49:
         raise ValueError("Copy does not fit while preserving artwork; rewrite reviewed package")
-    # Move the complete measured panel group, never the category/title or text.
+    # Move the measured group or only PRIMJER, never the category/title or text.
     # Leave a clear strip above the fixed original logo at the bottom right.
     if panel_position == 'bottom':
         offset = height - 180 - (blocks[-1][0] + blocks[-1][1])
         blocks = [(top + offset, h, lines, marker, example) for top, h, lines, marker, example in blocks]
+    elif panel_position == 'example_bottom':
+        top, h, lines, marker, example = blocks[-1]
+        blocks[-1] = (height - 180 - h, h, lines, marker, example)
     bounds = []
     for index, (top, block_height, rows, marker, is_example) in enumerate(blocks):
         box = (MARGIN, top, WIDTH - MARGIN, top + block_height)
