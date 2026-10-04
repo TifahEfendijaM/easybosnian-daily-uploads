@@ -35,7 +35,7 @@ One shared A1–C2 difficulty is changed through [configure-level.yml](https://g
 
 ## Successful-run reports
 
-Successful daily runs and reruns save a private report with the exact FLUX prompts, per-card layouts, palette, difficulty and confirmed publication links. Public report metadata is captured from the rendering input within that run, so a later replacement cannot change its prompts. Reports appear in the run summary and seven-day private artifact. Optional Gmail delivery sends once at the job's end to the authorized Gmail address, using a dedicated step-scoped app-password secret. Report/mail failure warns without affecting completed uploads; verify checks Gmail authentication without sending, and preview sends no report. See [setup and limits](docs/success-reports.md).
+Successful daily runs and reruns save a private report with the exact FLUX prompts, per-card layouts, palette, difficulty and confirmed publication links. Open [daily workflow runs](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/preparation.yml), select the completed run, then read **EasyBosnian — successful-run report** on its **Summary** page. The three prompts have copyable code blocks. Download Markdown/HTML/JSON copies under **Artifacts** for seven days. Public report metadata is captured from the rendering input within that run, so a later replacement cannot change its prompts. Report failure warns without affecting completed uploads. Verify and preview create no publication-success report. No email credential or extra setup is required. See [access and limits](docs/success-reports.md).
 
 ## Deployment
 

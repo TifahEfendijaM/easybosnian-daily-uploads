@@ -1,7 +1,6 @@
 import copy
 import io
 import os
-import smtplib
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -11,12 +10,10 @@ from unittest.mock import patch
 import yaml
 
 from easybosnian.core import REPO,ROOT
-from easybosnian.http import SafeError
-from easybosnian.success_report import content_data, gmail_operation, main, render_report, report_data, saved_report_data, write_report
+from easybosnian.success_report import content_data, main, render_report, report_data, saved_report_data, write_report
 from test_project import reviewed_fixture
 
 RUN='https://github.com/'+REPO+'/actions/runs/123'
-PASSWORD='abcdefghijklmnop'
 
 
 def results():
@@ -75,44 +72,25 @@ class SuccessReportTests(unittest.TestCase):
             else:url='https://github.com/other/repo/actions/runs/123'
             with self.subTest(change=change),self.assertRaises(ValueError):report_data(p,r,url)
 
-    def test_smtp_uses_tls_and_sends_exactly_once_to_authorized_own_address(self):
+    def test_github_summary_has_copyable_prompts_and_no_email_setup_or_send(self):
         data=report_data(reviewed_fixture(),results(),RUN)
-        with patch.dict(os.environ,{'REPORT_EMAIL_TO':'owner@gmail.com','REPORT_GMAIL_APP_PASSWORD':'abcd efgh ijkl mnop'}),patch('easybosnian.success_report.verify_repository'),patch('easybosnian.success_report.smtplib.SMTP_SSL') as smtp:
-            client=smtp.return_value.__enter__.return_value;client.send_message.return_value={}
-            self.assertIn('accepted',gmail_operation(data)['status'])
-            self.assertEqual(smtp.call_args.args,('smtp.gmail.com',465));self.assertEqual(smtp.call_args.kwargs['timeout'],30)
-            client.login.assert_called_once_with('owner@gmail.com',PASSWORD)
-            client.send_message.assert_called_once()
-            message=client.send_message.call_args.args[0]
-            self.assertEqual(message['To'],'owner@gmail.com');self.assertEqual(message['From'],'owner@gmail.com')
-            self.assertIn(data['cards'][0]['prompt'],message.get_body(preferencelist=('plain',)).get_content())
-
-    def test_authentication_check_never_sends_and_errors_never_echo_credentials_or_retry(self):
-        env={'REPORT_EMAIL_TO':'owner@gmail.com','REPORT_GMAIL_APP_PASSWORD':PASSWORD}
-        with patch.dict(os.environ,env),patch('easybosnian.success_report.verify_repository'),patch('easybosnian.success_report.smtplib.SMTP_SSL') as smtp:
-            client=smtp.return_value.__enter__.return_value
-            self.assertIn('no email sent',gmail_operation()['status']);client.send_message.assert_not_called()
-            client.login.reset_mock();client.login.side_effect=smtplib.SMTPAuthenticationError(535,PASSWORD.encode())
-            with self.assertRaises(SafeError) as error:gmail_operation()
-            self.assertIn('535',str(error.exception));self.assertNotIn(PASSWORD,str(error.exception));client.login.assert_called_once()
-
-    def test_ambiguous_send_failure_is_not_retried_or_logged_verbatim(self):
-        with patch.dict(os.environ,{'REPORT_EMAIL_TO':'owner@gmail.com','REPORT_GMAIL_APP_PASSWORD':PASSWORD}),patch('easybosnian.success_report.verify_repository'),patch('easybosnian.success_report.smtplib.SMTP_SSL') as smtp:
-            client=smtp.return_value.__enter__.return_value;client.send_message.side_effect=TimeoutError(PASSWORD)
-            with self.assertRaises(SafeError) as error:gmail_operation(report_data(reviewed_fixture(),results(),RUN))
-            self.assertNotIn(PASSWORD,str(error.exception));client.send_message.assert_called_once()
-
-    def test_disabled_mail_does_not_connect_or_send(self):
-        with patch.dict(os.environ,{'SUCCESS_REPORT_EMAIL_ENABLED':'false'}),patch('sys.argv',['report','send']),patch('easybosnian.cli.prepared_batch',return_value=('2026-10-04','b-'+'a'*32,False)),patch('easybosnian.success_report.gmail_operation') as smtp,redirect_stdout(io.StringIO()):
-            main();smtp.assert_not_called()
-
-    def test_workflow_success_only_mail_and_credential_isolation(self):
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+            write_report(data)
+            text=(Path(temp)/'summary.md').read_text()
+            self.assertIn('## EasyBosnian — successful-run report',text)
+            self.assertEqual(text.count('```text'),3)
+            self.assertIn('### Publication results',text)
+            self.assertIn('Open published content',text)
         workflow=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
-        job=workflow['jobs']['run'];self.assertNotIn('REPORT_GMAIL_APP_PASSWORD',job['env'])
-        report=next(s for s in job['steps'] if s.get('id')=='report')
-        self.assertIn("inputs.mode == 'daily'",report['if']);self.assertEqual(report['continue-on-error'],'true')
-        email=job['steps'][-1];self.assertEqual(email['run'],'python -m easybosnian.success_report send')
-        self.assertIn("steps.publication.outcome == 'success'",email['if']);self.assertIn("steps.report.outcome == 'success'",email['if'])
-        self.assertEqual(email['continue-on-error'],'true')
-        check=next(s for s in job['steps'] if s.get('run')=='python -m easybosnian.success_report check')
-        self.assertIn("inputs.mode == 'verify'",check['if'])
+        steps=workflow['jobs']['run']['steps'];report=next(s for s in steps if s.get('id')=='report')
+        self.assertIn("inputs.mode == 'daily'",report['if'])
+        self.assertIn("steps.publication.outcome == 'success'",report['if'])
+        self.assertEqual(report['continue-on-error'],'true')
+        self.assertLess(steps.index(report),next(i for i,s in enumerate(steps) if s.get('uses')=='actions/upload-artifact@v4'))
+        self.assertNotIn('GMAIL',str(workflow));self.assertNotIn('EMAIL',str(workflow))
+
+    def test_prompt_fences_cannot_break_out_or_change_the_original_prompt(self):
+        p=reviewed_fixture();p['cards'][0]['background_prompt']='Exact prompt with ``` and <script> tagged content'
+        text,markup=render_report(report_data(p,results(),RUN))
+        self.assertIn('````text\n'+p['cards'][0]['background_prompt']+'\n````',text)
+        self.assertNotIn('<script>',markup)

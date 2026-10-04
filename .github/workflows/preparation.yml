@@ -156,12 +156,6 @@ jobs:
         if: success() && inputs.mode == 'daily' && steps.publication.outcome == 'success'
         continue-on-error: true
         run: python -m easybosnian.success_report build
-      - name: Check Gmail reporting connection without sending
-        if: always() && inputs.mode == 'verify' && vars.REPORT_EMAIL_TO != ''
-        env:
-          REPORT_EMAIL_TO: ${{ vars.REPORT_EMAIL_TO }}
-          REPORT_GMAIL_APP_PASSWORD: ${{ secrets.REPORT_GMAIL_APP_PASSWORD }}
-        run: python -m easybosnian.success_report check
       - name: Preserve cards and safe diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -176,11 +170,3 @@ jobs:
             build/failure.txt
             build/*/success-report.*
           if-no-files-found: ignore
-      - name: Email successful-publication report
-        if: success() && inputs.mode == 'daily' && steps.publication.outcome == 'success' && steps.report.outcome == 'success'
-        continue-on-error: true
-        env:
-          REPORT_EMAIL_TO: ${{ vars.REPORT_EMAIL_TO }}
-          REPORT_GMAIL_APP_PASSWORD: ${{ secrets.REPORT_GMAIL_APP_PASSWORD }}
-          SUCCESS_REPORT_EMAIL_ENABLED: ${{ vars.SUCCESS_REPORT_EMAIL_ENABLED }}
-        run: python -m easybosnian.success_report send

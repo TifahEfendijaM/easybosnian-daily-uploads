@@ -1,18 +1,12 @@
-"""Private successful-publication reports and one Gmail SMTP attempt; no publishing."""
+"""Private successful-publication reports for GitHub summaries and artifacts."""
 import argparse
 import html
 import os
 import re
-import smtplib
-import ssl
-from email.message import EmailMessage
 from urllib.parse import urlparse
 
-import certifi
-
 from .batches import output_key
-from .core import PROJECT, REPO, ROOT, read_json, verify_repository, write_json
-from .http import SafeError
+from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 PLATFORMS={'instagram':'Instagram','facebook':'Facebook','tiktok':'TikTok','instagram_stories':'Instagram Stories','facebook_stories':'Facebook Stories'}
@@ -56,17 +50,41 @@ def saved_report_data(source,outcome,date,batch_id,run_url):
     return {**source,'platforms':publication_data(outcome['platforms'])}
 
 
+def markdown_text(value):
+    return re.sub(r'([\\`*_{}\[\]()#+.!|>\-])',r'\\\1',html.escape(str(value),quote=False))
+
+
 def render_report(data):
-    text=f"EasyBosnian — successful publication report\n\nContent date: {data['date']}\nBatch ID: {data['batch_id']}\nTheme: {data['theme']}\nDifficulty: {data['difficulty']}\nPalette: {data['palette']}\nRun: {data['run_url']}\n\n"
+    text='## EasyBosnian — successful-run report\n\n'
+    for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Palette','palette')]:
+        text+=f"- **{label}:** {markdown_text(data[key])}\n"
+    text+=f"\n[Open this run]({data['run_url']})\n\n### Exact FLUX prompts\n\n"
     for card in data['cards']:
-        text+=f"{card['category']} — {card['heading']}\nLayout: {card['layout']}\n\nExact FLUX prompt:\n{card['prompt']}\n\n"
-    text+='Publication results\n\n'
+        fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
+        text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n**Layout:** {markdown_text(card['layout'])}\n\n{fence}text\n{card['prompt']}\n{fence}\n\n"
+    text+='### Publication results\n\n'
     for platform in data['platforms']:
-        text+=f"{platform['name']}: {platform['status']}\n"+'\n'.join(platform['links'])+'\n'
-        if platform['cleanup_warning']:text+='Replacement cleanup warning: earlier content may remain.\n'
+        text+=f"**{markdown_text(platform['name'])}:** {markdown_text(platform['status'])}\n\n"
+        for link in platform['links']:
+            target=link.replace('<','%3C').replace('>','%3E')
+            text+=f'- [Open published content](<{target}>)\n'
+        text+='\n'
+        if platform['cleanup_warning']:text+='> Replacement cleanup warning: earlier content may remain.\n\n'
     text+='\nResults describe this run at completion. Later replacements or expired Stories may change link availability.\n'
     # Everything is escaped; no remote images, scripts or answer-key/review fields.
-    markup='<!doctype html><html><head><meta charset="utf-8"></head><body><div style="font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:auto;color:#203142"><h1>EasyBosnian report</h1><pre style="font:inherit;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(text)+'</pre></div></body></html>'
+    markup='<!doctype html><html><head><meta charset="utf-8"><title>EasyBosnian report</title></head><body><main style="font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:24px;color:#203142"><h1>EasyBosnian — successful-run report</h1><ul>'
+    for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Palette','palette')]:
+        markup+='<li><strong>'+label+':</strong> '+html.escape(str(data[key]))+'</li>'
+    markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
+    for card in data['cards']:
+        markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p><p>Layout: '+html.escape(card['layout'])+'</p><pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
+    markup+='<h2>Publication results</h2>'
+    for platform in data['platforms']:
+        markup+='<p><strong>'+html.escape(platform['name'])+':</strong> '+html.escape(platform['status'])+'</p><ul>'
+        for link in platform['links']:markup+='<li><a href="'+html.escape(link,quote=True)+'">Open published content</a></li>'
+        markup+='</ul>'
+        if platform['cleanup_warning']:markup+='<p>Replacement cleanup warning: earlier content may remain.</p>'
+    markup+='<p>Results describe this run at completion. Later replacements or expired Stories may change link availability.</p></main></body></html>'
     return text,markup
 
 
@@ -81,59 +99,20 @@ def write_report(data):
     return directory
 
 
-def gmail_credentials():
-    address=os.getenv('REPORT_EMAIL_TO','').strip()
-    password=''.join(os.getenv('REPORT_GMAIL_APP_PASSWORD','').split())
-    if not re.fullmatch(r'[A-Za-z0-9._+\-]+@(?:gmail|googlemail)\.com',address):
-        raise ValueError('Set REPORT_EMAIL_TO to the authorized Gmail address')
-    if not re.fullmatch(r'[A-Za-z0-9]{16}',password):
-        raise ValueError('Set the private 16-character REPORT_GMAIL_APP_PASSWORD secret')
-    return address,password
-
-
-def gmail_operation(data=None):
-    verify_repository(remote=True);address,password=gmail_credentials()
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com',465,timeout=30,context=ssl.create_default_context(cafile=certifi.where())) as client:
-            client.login(address,password)
-            if data is not None:
-                text,markup=render_report(data);message=EmailMessage()
-                message['From']=address;message['To']=address
-                message['Subject']='EasyBosnian — '+data['date']+' — '+' '.join(data['theme'].split())
-                message.set_content(text);message.add_alternative(markup,subtype='html')
-                if client.send_message(message):raise RuntimeError('Recipient refused')
-    except Exception as error:
-        code=getattr(error,'smtp_code',None);code=code if type(code) is int else 'unavailable'
-        raise SafeError(f'Report email operation not confirmed; SMTP code {code}; check Gmail authorization; no resend') from None
-    return {'status':'SMTP accepted the report; inbox delivery not independently confirmed' if data is not None else 'Gmail TLS/login verified; no email sent'}
-
-
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['build','check','send']);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['build']);parser.parse_args()
     try:
-        if args.action=='check':result=gmail_operation()
-        else:
-            from .cli import prepared_batch
-            date,batch_id,_=prepared_batch('daily')
-            if args.action=='build':
-                source=read_json(ROOT/'build'/batch_id/'report-source.json')
-                outcome=read_json(ROOT/'build'/batch_id/'platforms-result.json')
-                data=saved_report_data(source,outcome,date,batch_id,os.environ['GITHUB_RUN_URL']);write_report(data)
-                result={'status':'Private success report prepared','batch_id':batch_id,'prompts':len(data['cards'])}
-            elif os.getenv('SUCCESS_REPORT_EMAIL_ENABLED')!='true':result={'status':'Report email disabled; sending credential setup pending'}
-            else:
-                data=read_json(ROOT/'build'/batch_id/'success-report.json')
-                if (data['date']!=date or data['batch_id']!=batch_id or data['project']!=PROJECT
-                        or data['run_url']!=os.environ['GITHUB_RUN_URL']):raise ValueError('Wrong report batch/run')
-                result=gmail_operation(data)
-        if args.action!='build' and os.getenv('GITHUB_STEP_SUMMARY'):
-            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:summary.write('\nReport email: '+result['status']+'\n')
-        print(result['status'])
+        from .cli import prepared_batch
+        date,batch_id,_=prepared_batch('daily')
+        source=read_json(ROOT/'build'/batch_id/'report-source.json')
+        outcome=read_json(ROOT/'build'/batch_id/'platforms-result.json')
+        data=saved_report_data(source,outcome,date,batch_id,os.environ['GITHUB_RUN_URL']);write_report(data)
+        print('Private success report prepared in the run summary and artifact')
     except Exception as error:
-        status=str(error) if isinstance(error,(ValueError,SafeError)) else 'Report step failed; inspect private artifact/access; no resend'
-        # Known messages only; never SMTP response prose or credentials.
+        status=str(error) if isinstance(error,ValueError) else 'Report step failed; inspect private artifact/access'
+        # Never print private result data or free-form model output.
         if os.getenv('GITHUB_STEP_SUMMARY'):
-            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:summary.write('\nReport email/report preparation not confirmed. '+status+'\n')
+            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:summary.write('\nSuccess report preparation not confirmed. '+status+'\n')
         print('::warning::'+status)
         raise SystemExit(1) from None
 
