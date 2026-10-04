@@ -6,7 +6,7 @@ import re
 from urllib.parse import urlparse
 
 from .batches import output_key
-from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES
+from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES, MARKER_STYLES
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
@@ -67,6 +67,9 @@ def with_rendering(data,placement):
                 role not in ('body','example','A','B','C','D') or style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES)
                 for role,style in styles.items()):
             raise ValueError('Invalid safe design metadata')
+        badges=result.get('answer_badges',{})
+        if not isinstance(badges,dict) or any(role not in ('A','B','C','D') or style not in MARKER_STYLES for role,style in badges.items()):
+            raise ValueError('Invalid safe answer badge metadata')
         palettes.add(result['palette'])
         safe_typography={}
         from .designs import typography
@@ -76,7 +79,7 @@ def with_rendering(data,placement):
             typography(role,values['font_size'],values['line_spacing'],values['max_lines'],values['wrapping'])
             safe_typography[role]=dict(values)
         rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,
-                               'block_styles':styles,'block_typography':safe_typography}
+                               'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography}
 
     return {**data,'final_palette':next(iter(palettes)) if len(palettes)==1 else 'per card',
             'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}

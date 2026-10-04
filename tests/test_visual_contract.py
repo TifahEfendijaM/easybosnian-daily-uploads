@@ -134,12 +134,38 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         for card in package['cards']:
             self.assertEqual(selected['cards'][card['kind']],dict(default_plan(card),palette=package['design_palette']))
 
+    def test_quiz_options_have_independent_styles_badges_typography_and_geometry(self):
+        quiz=copy.deepcopy(reviewed_fixture()['cards'][0]);quiz['options'].append({'label':'D','text':'Glas'})
+        plan=default_plan(quiz)
+        for i,(block,style,badge) in enumerate(zip(plan['blocks'],('rounded','outlined','side_rule','overlay_dark'),
+                                                 ('circle','rounded_square','square','triangle'))):
+            block.update(x=64 if i%2==0 else 564,y=400+i*185,width=452,style=style,marker_style=badge,
+                         font_size=34+i*2,line_spacing=1.3)
+        measured=measured_plan(quiz,plan)
+        self.assertEqual([b['x'] for b in measured],[64,564,64,564])
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);Image.new('RGB',(1080,1350),'#394854').save(root/'photo.jpg')
+            metrics=render_hybrid(quiz,'blue-ice',root/'photo.jpg',root/'quiz.jpg',plan)
+            self.assertEqual(list(metrics['answer_badges'].values()),['circle','rounded_square','square','triangle'])
+            variants=[]
+            for badge in ('circle','rounded_square','square','triangle'):
+                same=default_plan(quiz)
+                for b in same['blocks']:b['marker_style']=badge
+                render_hybrid(quiz,'blue-ice',root/'photo.jpg',root/'quiz.jpg',same)
+                variants.append((root/'quiz.jpg').read_bytes())
+            self.assertEqual(len(set(variants)),4)
+        bad=copy.deepcopy(plan);bad['blocks'][0]['marker_style']='draw a star'
+        with self.assertRaises(ValueError):measured_plan(quiz,bad)
+        for card in reviewed_fixture()['cards'][1:]:
+            bad=default_plan(card);bad['blocks'][0]['marker_style']='triangle'
+            with self.assertRaises(ValueError):measured_plan(card,bad)
+
     def test_legacy_design_template_cannot_change_artwork_cache_provenance(self):
         from easybosnian.artwork import render_input
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],4)
+        self.assertEqual(expected['rendering_version'],5)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

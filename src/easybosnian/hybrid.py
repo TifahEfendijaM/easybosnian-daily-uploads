@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .core import ROOT
-from .designs import BODY_STYLES, EXAMPLE_STYLES, PANEL_STYLES, typography
+from .designs import BODY_STYLES, EXAMPLE_STYLES, PANEL_STYLES, MARKER_STYLES, typography
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -64,6 +64,7 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
 def declared_block(card,role,width=952,style=None,**geometry):
     spec=block_spec(card,role,width,style)
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
+            **({'marker_style':'circle'} if role not in ('body','example') else {}),
             'line_spacing':1.30,'max_lines':None,'wrapping':'balanced',**geometry}
 
 
@@ -237,12 +238,22 @@ def draw_panel(image, block, palette):
     if role=='body' and style in ('rounded','outlined'):
         draw.rounded_rectangle((x+18,y+padding,x+23,bottom-padding),radius=2,fill=accent)
     if role!='body':
-        marker=(x+20,y+(block['height']-52)/2,x+72,y+(block['height']+52)/2)
-        if style=='rounded':draw.ellipse(marker,fill=accent)
-        elif style=='outlined':draw.rectangle(marker,outline=accent,width=3)
-        elif style=='overlay_dark':draw.rectangle(marker,fill=paper)
-        elif style=='split_panel':marker=(x+15,marker[1],x+67,marker[3])
-        centered(draw,marker,role,font(28,'Bold'),ink if style=='overlay_dark' else colour)
+        marker_style=block.get('marker_style','circle')
+        if marker_style not in MARKER_STYLES:raise ValueError('Unsupported answer badge')
+        marker=(x+15 if style=='split_panel' else x+20,
+                y+(block['height']-52)/2,
+                x+67 if style=='split_panel' else x+72,
+                y+(block['height']+52)/2)
+        badge_fill=paper if style in ('overlay_dark','split_panel') else accent
+        label_colour=ink
+        if marker_style=='circle':draw.ellipse(marker,fill=badge_fill)
+        elif marker_style=='rounded_square':draw.rounded_rectangle(marker,radius=14,fill=badge_fill)
+        elif marker_style=='square':draw.rectangle(marker,fill=badge_fill)
+        else:
+            mid_x=(marker[0]+marker[2])/2;mid_y=(marker[1]+marker[3])/2
+            draw.polygon(((mid_x,mid_y-30),(mid_x+32,mid_y+30),(mid_x-32,mid_y+30)),fill=badge_fill)
+            marker=(marker[0],marker[1]+9,marker[2],marker[3]+9)
+        centered(draw,marker,role,font(24 if marker_style=='triangle' else 28,'Bold'),label_colour)
     return colour
 
 
@@ -360,6 +371,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
                 'photo_size':[photo_bounds[2]-photo_bounds[0],photo_bounds[3]-photo_bounds[1]]} if card.get('quiz_format')=='visual_identification' else {}),
             'typography':'hybrid','palette':palette_id,'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),
+            'answer_badges':{b['role']:b.get('marker_style','circle') for b in blocks if b['role'] not in ('body','example')},
             'block_typography':{b['role']:{k:b[k] for k in ('font_size','line_spacing','max_lines','wrapping')} for b in blocks},'heading_font':'Lora SemiBold','body_font':'Inter',
             'example_style':next(({'italic_photo':'Lora Italic over photograph','italic_photo_fade':'Lora Italic over photograph with neutral fade','italic_footer':'Lora Italic on paper footer'}[b['style']] for b in blocks if b['role']=='example'),None),
             'panel_bounds':[list(map(round,b['bounds'])) for b in blocks if b['style'] in PANEL_STYLES],

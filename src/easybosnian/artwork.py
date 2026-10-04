@@ -12,7 +12,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':4, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':5, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -76,7 +76,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     decision_status='rejected; safe hybrid fallback'
                     print('::warning::Hybrid composition rejected; using measured reference without retry')
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
-                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'block_typography':metrics['block_typography'],'composition':metrics.get('composition')}
+                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],'block_typography':metrics['block_typography'],'composition':metrics.get('composition')}
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
