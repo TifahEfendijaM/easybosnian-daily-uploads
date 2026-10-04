@@ -38,13 +38,14 @@ def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,
         # Novelty was checked against all history at the trusted save. Independent
         # batches may deliberately reuse terms; keep full schema/editorial/secrecy checks.
         validate(package)
-        if mode=='daily' and os.getenv('GITHUB_RUN_URL'):
+        if mode=='daily' and os.getenv('GITHUB_RUN_URL') and os.getenv('EASYBOSNIAN_PREPARED_ARTWORK')!='true':
             try:
                 from .success_report import content_data
                 write_json(ROOT/'build'/key/'report-source.json',content_data(package,os.environ['GITHUB_RUN_URL']))
             except Exception:
                 print('::warning::Report metadata could not be captured; publication continues independently')
-        stage='rendering';assets=artwork(store,package,expose=mode=='daily')
+        stage='rendering';assets=artwork(store,package,expose=mode=='daily',
+            require_prepared=os.getenv('EASYBOSNIAN_PREPARED_ARTWORK')=='true')
     except Exception as error:
         stage=getattr(error,'stage',None) or stage
         print(failure(date,stage,error,'nothing published by this run',os.getenv('GITHUB_RUN_URL')))

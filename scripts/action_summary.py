@@ -22,6 +22,12 @@ if platforms:
     if all_results.get('history_cleanup'):
         history=all_results['history_cleanup']
         text+=f"\nAll-today history: {history['status']}; {history['removed']} batches removed\n"
+placements=list(Path('build').glob('*/image-placement-result.json'))
+if placements:
+    placement=json.loads(placements[0].read_text())
+    text+='\nFeed text placement: '+placement['status']+'\n'
+    for kind,result in placement['cards'].items():
+        text+='- '+kind+': '+result['position']+'\n'
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
 print(text)

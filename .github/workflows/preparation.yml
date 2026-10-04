@@ -124,17 +124,25 @@ jobs:
       - name: Read only recorded Meta publication capabilities
         if: inputs.mode == 'verify'
         run: python scripts/diagnose_publications.py
+      - name: Generate backgrounds and visually place feed text privately
+        id: artwork
+        if: success() && inputs.mode != 'verify'
+        env:
+          EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
+          MODE: ${{ inputs.mode }}
+        run: python -m easybosnian.visual_placement
       - name: Persist refreshed cloud sign-in privately
         id: persist
         if: always() && steps.auth.outcome == 'success'
         env:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
         run: python -m easybosnian.cloud_prepare persist
-      - name: Render the prepared history row and publish only in daily mode
+      - name: Use prepared cards and publish only in daily mode
         id: publication
         if: success() && inputs.mode != 'verify'
         env:
           MODE: ${{ inputs.mode }}
+          EASYBOSNIAN_PREPARED_ARTWORK: 'true'
         run: easybosnian run --mode "$MODE" --prepared
       - name: Report otherwise unhandled workflow failure
         if: failure()
@@ -145,6 +153,7 @@ jobs:
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
           AUTH_OUTCOME: ${{ steps.auth.outcome }}
           PREPARATION_OUTCOME: ${{ steps.preparation.outcome }}
+          ARTWORK_OUTCOME: ${{ steps.artwork.outcome }}
           PERSIST_OUTCOME: ${{ steps.persist.outcome }}
           PUBLICATION_OUTCOME: ${{ steps.publication.outcome }}
         run: python scripts/workflow_failure.py
