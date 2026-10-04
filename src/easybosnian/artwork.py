@@ -12,7 +12,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':8, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':9, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -43,8 +43,8 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 baseline=output/f'{kind}-hybrid-reference.jpg'
                 metrics=render_hybrid(card,package['design_palette'],background,baseline)
                 sheet=output/f'{kind}-placement-sheet.jpg'
-                # Routine sheets do not visually prime the exceptional middle-photo layout.
-                composition_sheet(background,baseline,sheet)
+                # The model sees only real photos/crops; baseline remains a private measured fallback.
+                composition_sheet(background,sheet)
                 with Image.open(background) as original:photo_size=list(original.size)
                 candidates[kind]={'baseline':baseline,'metrics':metrics,'sheet':sheet,'photo_size':photo_size}
             proposal,status=review_compositions(package,candidates)
