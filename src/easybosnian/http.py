@@ -9,10 +9,13 @@ from urllib.request import Request, urlopen
 
 
 class SafeError(RuntimeError):
-    def __init__(self,message,stage=None,http_status=None):
+    def __init__(self,message,stage=None,http_status=None,*,reason=None,provider_code=None,provider_http_status=None):
         super().__init__(message)
         self.stage=stage
         self.http_status=http_status
+        self.reason=reason
+        self.provider_code=provider_code
+        self.provider_http_status=provider_http_status
 
 
 STORAGE_REASONS={
@@ -22,6 +25,42 @@ STORAGE_REASONS={
     'asset_read_failed':'private image read failed',
     'asset_exposure_failed':'public image storage failed',
 }
+
+FLUX_REASONS={
+    'cache_read_failed':'private background cache read failed',
+    'ai_binding_missing':'Cloudflare Workers AI binding is missing',
+    'ai_call_failed':'Cloudflare Workers AI inference failed',
+    'ai_response_invalid':'Cloudflare Workers AI returned an invalid response',
+    'ai_image_missing':'Cloudflare Workers AI returned no image',
+    'cache_write_failed':'private background cache write failed',
+}
+# Workers AI's documented codes only; never provider prose or arbitrary fields.
+FLUX_CODES=frozenset((5007,5004,3039,3003,5018,5016,3023,3041,5035,5019,5005,3042,3006,3007,3008,3036,3040))
+
+
+def safe_response_error(payload,http_status=None):
+    payload=payload if isinstance(payload,dict) else {}
+    stage=payload.get('stage') if payload.get('stage') in ('FLUX generation','storage') else None
+    reason=payload.get('reason')
+    reason=reason if isinstance(reason,str) else None
+    detail='inspect provider permissions/status'
+    codes=provider_codes(payload)
+    code=status=None
+    if stage=='FLUX generation':
+        value=payload.get('code')
+        code=value if type(value) is int and value in FLUX_CODES else None
+        value=payload.get('provider_http_status')
+        status=value if type(value) is int and 100<=value<=599 else None
+        codes=f"provider code {code if code is not None else 'unavailable'}; provider HTTP {status if status is not None else 'unavailable'}"
+        detail=FLUX_REASONS.get(reason,detail)
+        reason=reason if reason in FLUX_REASONS else None
+    elif stage=='storage':
+        detail=STORAGE_REASONS.get(reason,detail)
+        reason=reason if reason in STORAGE_REASONS else None
+    else: reason=None
+    prefix=f'HTTP {http_status}' if http_status is not None else 'Provider rejected the request'
+    return SafeError(f'{prefix}; {codes}; {detail}',stage,http_status,
+                     reason=reason,provider_code=code,provider_http_status=status)
 
 
 def provider_codes(payload):
@@ -57,13 +96,9 @@ def request(method, url, data=None, headers=None, form=None, raw=False, timeout=
         # Never dump error bodies: providers can echo tokens, payloads or query strings.
         try:
             payload = json.loads(error.read())
-            codes = provider_codes(payload)
-            stage = payload.get("stage") if payload.get("stage") in ("FLUX generation","storage") else None
-            reason = STORAGE_REASONS.get(payload.get('reason'),'') if stage=='storage' else ''
         except Exception:
-            codes = provider_codes(None); stage = None; reason = ''
-        detail = reason or 'inspect provider permissions/status'
-        raise SafeError(f"HTTP {error.code}; {codes}; {detail}",stage,error.code) from None
+            payload = None
+        raise safe_response_error(payload,error.code) from None
     except (URLError, TimeoutError, OSError):
         raise SafeError("Network request failed or timed out; remote outcome may be uncertain") from None
     if raw:
@@ -73,7 +108,7 @@ def request(method, url, data=None, headers=None, form=None, raw=False, timeout=
     except (ValueError, UnicodeError):
         raise SafeError("Provider returned an invalid JSON response") from None
     if isinstance(result, dict) and result.get('error'):
-        raise SafeError(f"Provider rejected the request; {provider_codes(result)}; inspect provider permissions/status")
+        raise safe_response_error(result)
     if isinstance(result, dict) and result.get('success') is False:
         raise SafeError('Provider returned success=false; the operation was not confirmed')
     return result
