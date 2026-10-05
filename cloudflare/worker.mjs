@@ -9,6 +9,15 @@ function storageFailure(reason,status,name) {
   console.error(JSON.stringify({event:'image_storage_failed',reason,http_status:status,asset:name}));
   return response({error:'Image storage operation failed',stage:'storage',reason},status);
 }
+function generationFailure(reason,error=null) {
+  // Only documented numeric codes and fixed reasons; never exception prose/prompts/tokens.
+  const known=[5007,5004,3039,3003,5018,5016,3023,3041,5035,5019,5005,3042,3006,3007,3008,3036,3040];
+  const match=typeof error?.message==='string'?error.message.match(/(?:^|[ :])([0-9]{4})(?=:)/):null;
+  const value=Number(error?.code ?? match?.[1]);
+  const provider_code=known.includes(value)?value:null;
+  console.error(JSON.stringify({event:'flux_generation_failed',reason,http_status:409,provider_code}));
+  return response({error:'FLUX generation failed; inspect fixed reason and provider code',stage:'FLUX generation',reason,code:provider_code},409);
+}
 async function row(env,id) {return env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE batch_id=?').bind(id).first();}
 async function legacyScope(env,date,write=false) {
   const r=await env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE date=? ORDER BY created_at DESC,rowid DESC LIMIT 2').bind(date).all();
@@ -164,9 +173,17 @@ export default {
         const r=await scope(env,p.batch_id || p.date,true);if(!r) return response({error:'No reviewed content'},404);
         if(p.date && p.date!==r.date) throw Error('Wrong content date');
         if(JSON.parse(r.content_json).cards.find(c=>c.kind===p.kind).background_prompt!==p.prompt) throw Error('Prompt differs from reviewed content');
-        const key=`private-ai:${r.batch_id}:${p.kind}`,cached=await imageValue(env,key,r.batch_id,r.date);if(cached) return response({image:cached});
-        const result=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4});if(!result.image) throw Error('FLUX returned no image');
-        await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});return response({image:result.image});
+        const key=`private-ai:${r.batch_id}:${p.kind}`;let cached,result;
+        try {cached=await imageValue(env,key,r.batch_id,r.date);}
+        catch(error) {return generationFailure('cache_read_failed',error);}
+        if(cached) return response({image:cached});
+        if(typeof env.AI?.run!=='function') return generationFailure('ai_binding_missing');
+        try {result=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4});}
+        catch(error) {return generationFailure('ai_call_failed',error);}
+        if(!result?.image) return generationFailure('ai_image_missing');
+        try {await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});}
+        catch(error) {return generationFailure('cache_write_failed',error);}
+        return response({image:result.image});
       }
       const asset=path.match(/^\/v1\/(private|expose)\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(.+)$/);
       if(asset && NAME.test(asset[3])) {
