@@ -9,7 +9,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 from PIL import Image, ImageDraw
 
-from easybosnian.designs import BODY_STYLES, EXAMPLE_STYLES
+from easybosnian.designs import BODY_STYLES, EXAMPLE_STYLES, PANEL_STYLES, MARKER_STYLES
 from easybosnian.hybrid import block_spec, default_plan, declared_block, editorial_plan, measured_plan, render_hybrid
 from easybosnian.render import font, measure, wrap, draw_tracked_label
 from easybosnian.visual_placement import RESULT_SCHEMA, review_compositions
@@ -103,7 +103,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         face=font(48);rows=wrap('ČĆŠŽĐ\u0301',face,500)
         with self.assertRaises(ValueError):measure(rows,face,1.0)
 
-    def test_ten_body_styles_are_real_distinct_pixels_and_examples_remain_unboxed_italic(self):
+    def test_body_styles_are_real_distinct_pixels_and_examples_remain_unboxed_italic(self):
         card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['body']='Čuvamo svako slovo.';card['example']='Čuvamo č, ć, š, ž i đ.'
         before=copy.deepcopy(card)
         with tempfile.TemporaryDirectory() as tmp:
@@ -117,7 +117,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['body_contrast'],4.5)
                 self.assertEqual(metrics['block_styles']['body'],style)
                 outputs[style]=(root/'card.jpg').read_bytes()
-            self.assertEqual(len(set(outputs.values())),10)
+            self.assertEqual(len(set(outputs.values())),14)
             for style in EXAMPLE_STYLES:
                 plan=editorial_plan(card) if style=='italic_footer' else default_plan(card)
                 plan['blocks'][-1]['style']=style
@@ -127,6 +127,33 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertTrue(str(example.args[3].path).endswith('Lora-Italic.ttf'))
                 self.assertNotIn(metrics['example_bounds'],metrics['panel_bounds'])
             self.assertEqual(card,before)
+
+    def test_every_answer_panel_combines_with_every_badge_without_changing_copy_or_geometry(self):
+        quiz=copy.deepcopy(reviewed_fixture()['cards'][0])
+        quiz['question']='Koji je odgovor tačan?'
+        quiz['options']=[{'label':'A','text':'Čuvamo sva slova.'},{'label':'B','text':'Biramo drugi odgovor.'}]
+        before=copy.deepcopy(quiz)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#394854').save(photo)
+            variants={}
+            for style in PANEL_STYLES:
+                bounds=[];pixels=[]
+                for badge in MARKER_STYLES:
+                    plan=default_plan(quiz)
+                    for i,block in enumerate(plan['blocks']):
+                        block.update(style=style,marker_style=badge,x=64,y=740+i*180,width=952)
+                    with patch('easybosnian.hybrid.draw_rows',wraps=__import__('easybosnian.render',fromlist=['draw_rows']).draw_rows) as draw:
+                        metrics=render_hybrid(quiz,'blue-ice',photo,root/'answer.jpg',plan)
+                    self.assertGreaterEqual(metrics['body_contrast'],4.5)
+                    self.assertEqual(metrics['answer_badges'],{'A':badge,'B':badge})
+                    text=[' '.join(c.args[2]) for c in draw.call_args_list]
+                    for option in quiz['options']:self.assertIn(option['text'],text)
+                    bounds.append(metrics['panel_bounds']);pixels.append((root/'answer.jpg').read_bytes())
+                self.assertTrue(all(b==bounds[0] for b in bounds))
+                self.assertEqual(len(set(pixels)),4)
+                variants[style]=pixels[0]
+            self.assertEqual(len(set(variants.values())),12)
+        self.assertEqual(quiz,before)
 
     def test_bottom_sheet_and_required_photo_content_geometry_are_enforced(self):
         card=reviewed_fixture()['cards'][2]
@@ -179,7 +206,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],9)
+        self.assertEqual(expected['rendering_version'],10)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

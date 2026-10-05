@@ -234,6 +234,24 @@ def draw_panel(image, block, palette):
     elif style=='minimal_rule':
         draw.rectangle((x,y,right,bottom),fill=paper)
         draw.line((x,bottom-2,right,bottom-2),fill=accent,width=5)
+    elif style=='double_frame':
+        draw.rectangle((x,y,right,bottom),fill=paper,outline=accent,width=4)
+        draw.rectangle((x+10,y+10,right-10,bottom-10),outline=ink,width=1)
+    elif style=='notebook_margin':
+        draw.rectangle((x,y,right,bottom),fill=paper)
+        draw.line((x+12,y+12,x+12,bottom-12),fill=accent,width=3)
+        for tick_y in range(round(y+18),round(bottom-12),16):
+            draw.line((x+3,tick_y,x+8,tick_y),fill=accent,width=2)
+    elif style=='top_ribbon':
+        draw.rectangle((x,y,right,bottom),fill=paper)
+        draw.rectangle((x,y,right,y+8),fill=accent)
+        draw.line((x+padding,bottom-10,right-padding,bottom-10),fill=ink,width=1)
+    elif style=='corner_brackets':
+        draw.rectangle((x,y,right,bottom),fill=paper)
+        for corner_x,direction_x in ((x+8,1),(right-8,-1)):
+            for corner_y,direction_y in ((y+8,1),(bottom-8,-1)):
+                draw.line((corner_x+32*direction_x,corner_y,corner_x,corner_y,
+                           corner_x,corner_y+24*direction_y),fill=accent,width=3)
     else:raise ValueError('Unsupported trusted panel renderer')
     if role=='body' and style in ('rounded','outlined'):
         draw.rounded_rectangle((x+18,y+padding,x+23,bottom-padding),radius=2,fill=accent)

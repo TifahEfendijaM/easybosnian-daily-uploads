@@ -1,7 +1,8 @@
 """Trusted declarative catalogue. Every treatment has a real Pillow renderer."""
 DESIGNS = ('hybrid', 'editorial')
 BODY_STYLES = ('rounded', 'outlined', 'plain', 'overlay_dark', 'overlay_light',
-               'side_rule', 'caption', 'bottom_sheet', 'split_panel', 'minimal_rule')
+               'side_rule', 'caption', 'bottom_sheet', 'split_panel', 'minimal_rule',
+               'double_frame', 'notebook_margin', 'top_ribbon', 'corner_brackets')
 EXAMPLE_STYLES = ('italic_photo', 'italic_photo_fade', 'italic_footer')
 PANEL_STYLES = tuple(s for s in BODY_STYLES if s not in ('plain', 'caption'))
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
@@ -21,6 +22,10 @@ STYLE_CATALOGUE = {
     'bottom_sheet': 'Wide paper sheet with 54px rounded top corners and square bottom; centered accent handle. Must start at y700 or lower and be at least 660px wide.',
     'split_panel': 'Square paper panel with a full-height 82px accent rail; answer label in rail, body text in its own column.',
     'minimal_rule': 'Square paper panel with just a 5px bottom accent rule; approved answer badge.',
+    'double_frame': 'Paper panel with an accent outer frame and a fine inset ink frame, inspired by the former framed treatment; independent approved answer badge.',
+    'notebook_margin': 'Paper panel with a thin accent margin and small ruled edge ticks, inspired by the former notebook treatment; decoration stays outside the glyphs and answer badge.',
+    'top_ribbon': 'Paper panel with a full-width accent top ribbon and a fine ink bottom rule, inspired by the former ribbon treatment; independent approved answer badge.',
+    'corner_brackets': 'Paper panel with four inset accent corner brackets instead of a continuous outline; independent approved answer badge.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
     'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using only renderer-owned neutral feathered contrast presets when needed.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
