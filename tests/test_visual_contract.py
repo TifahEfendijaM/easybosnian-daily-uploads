@@ -155,6 +155,51 @@ class DeclarativeVisualContractTests(unittest.TestCase):
             self.assertEqual(len(set(variants.values())),12)
         self.assertEqual(quiz,before)
 
+    def test_shared_answer_row_aligns_panel_heights_badges_and_glyph_baselines(self):
+        quiz=copy.deepcopy(reviewed_fixture()['cards'][0])
+        quiz['question']='Šta se lijepi na pismo kao sredstvo plaćanja poštarine?'
+        quiz['options']=[{'label':'A','text':'Razglednica'},
+                         {'label':'B','text':'Poštanska marka'},
+                         {'label':'C','text':'Novine'}]
+        plan=default_plan(quiz);plan['confidence']='high'
+        for block,(x,y,width) in zip(plan['blocks'],((64,320,440),(524,320,492),(64,490,320))):
+            block.update(x=x,y=y,width=width,style='minimal_rule',font_size=38,line_spacing=1.3)
+        measured=measured_plan(quiz,plan)
+        self.assertEqual(measured[0]['bounds'][1::2],measured[1]['bounds'][1::2])
+        self.assertEqual(measured[2]['y'],490)  # Intentional stagger stays exact.
+        before=copy.deepcopy(quiz)
+        from easybosnian.render import draw_rows
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);Image.new('RGB',(1080,1350),'#394854').save(root/'photo.jpg')
+            with patch('easybosnian.hybrid.draw_rows',wraps=draw_rows) as drawing:
+                metrics=render_hybrid(quiz,'charcoal-lemon',root/'photo.jpg',root/'quiz.jpg',plan)
+            calls=[c for c in drawing.call_args_list if hasattr(c.args[2],'source')
+                   and c.args[2].source in [o['text'] for o in quiz['options']]]
+            self.assertEqual(len(calls),3)
+            # draw_rows subtracts actual glyph top; compare the common origin,
+            # rather than demanding accent pixels begin at the same height.
+            origins=[c.args[1][1]-min(c.args[3].getbbox(row)[1] for row in c.args[2]) for c in calls]
+            self.assertEqual(origins[0],origins[1])
+            self.assertEqual(metrics['panel_bounds'][0][1::2],metrics['panel_bounds'][1][1::2])
+            for call,option in zip(calls,quiz['options']):
+                self.assertEqual(call.args[2].reconstructed(),option['text'])
+        self.assertEqual(quiz,before)
+
+    def test_shared_answer_font_cells_preserve_multiline_diacritics_and_fit(self):
+        quiz=copy.deepcopy(reviewed_fixture()['cards'][0])
+        quiz['options']=[{'label':'A','text':'Čuvanje pisama i čitanje poruka'},
+                         {'label':'B','text':'Širenje znanja i slanje čestitki'}]
+        specs=[block_spec(quiz,role,440,font_size=38) for role in ('A','B')]
+        self.assertGreater(len(specs[0]['rows']),1)
+        self.assertEqual(len(specs[0]['rows']),len(specs[1]['rows']))
+        self.assertEqual(specs[0]['height'],specs[1]['height'])
+        for spec,option in zip(specs,quiz['options']):
+            self.assertEqual(spec['rows'].reconstructed(),option['text'])
+            actual_height=measure(spec['rows'],spec['face'],spec['line_spacing'])[0]
+            self.assertLessEqual(spec['text_cell_offset']+actual_height,spec['text_cell_height'])
+        with self.assertRaises(ValueError):
+            block_spec(quiz,'A',440,font_size=38,max_lines=1)
+
     def test_bottom_sheet_and_required_photo_content_geometry_are_enforced(self):
         card=reviewed_fixture()['cards'][2]
         for change in ({'y':600},{'y':750,'width':480}):
@@ -206,7 +251,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],10)
+        self.assertEqual(expected['rendering_version'],11)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

@@ -31,7 +31,7 @@ def roles(card):
 
 def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
                max_lines=None, wrapping='balanced'):
-    """Only trusted fonts/presets; actual glyphs determine final height."""
+    """Trusted fonts/presets; actual glyphs and shared answer cells determine height."""
     style=style or ('italic_photo_fade' if role=='example' else 'rounded')
     size,padding=density(card)
     size=font_size if font_size is not None else (min(size,36) if role=='example' else size)
@@ -55,10 +55,23 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
         raise ValueError('Actual glyphs exceed block width')
     if max_lines is not None and len(rows)>max_lines:raise ValueError('Exact text exceeds maximum lines; never truncate')
     if style=='caption' and len(rows)>3:raise ValueError('Caption treatment is limited to three measured lines')
-    height=measure(rows,face,line_spacing)[0]+extra
+    text_height,step=measure(rows,face,line_spacing)
+    text_offset=0
+    if role not in ('body','example'):
+        # A shared font cell keeps neighbouring answers' panel heights and
+        # baselines aligned despite different accents or descenders. Include
+        # all exact choices so unusual Unicode glyphs remain inside the cell.
+        samples=['ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzČĆŠŽĐčćšžđ0123456789',
+                 *(option['text'] for option in card['options'])]
+        bounds=[face.getbbox(text) for text in samples]
+        cell_top=min(box[1] for box in bounds)
+        text_offset=min(face.getbbox(row)[1] for row in rows)-cell_top
+        text_height=max(box[3] for box in bounds)-cell_top+(len(rows)-1)*step
+    height=text_height+extra
     if role not in ('body','example'):height=max(92,height)
     return {'face':face,'rows':rows,'height':height,'padding':padding,'size':size,'style':style,
-            'font_size':size,'line_spacing':line_spacing,'max_lines':max_lines,'wrapping':wrapping,'text_inset':inset}
+            'font_size':size,'line_spacing':line_spacing,'max_lines':max_lines,'wrapping':wrapping,'text_inset':inset,
+            'text_cell_height':text_height,'text_cell_offset':text_offset}
 
 
 def declared_block(card,role,width=952,style=None,**geometry):
@@ -367,7 +380,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         else:
             colour=draw_panel(image,block,palette)
             draw=ImageDraw.Draw(image)
-            text_y=y+padding if role=='body' else y+(block['height']-measure(rows,face,leading)[0])/2
+            text_y=(y+padding if role=='body' else
+                    y+(block['height']-block['text_cell_height'])/2+block['text_cell_offset'])
             text_x=x+block['text_inset']
             if style=='overlay_light':
                 # Glyph-level verification against the actual composited photograph;
