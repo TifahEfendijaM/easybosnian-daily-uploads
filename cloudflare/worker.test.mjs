@@ -321,3 +321,20 @@ test('publication identifiers are protected and cleanup cannot cross batches on 
   await f.send('DELETE',path(A)+'/instagram/123');assert.ok(f.ids.has('instagram:456'));assert.equal(f.ids.size,1);
   await f.save(content(B));listed=await (await f.send('GET',path(B))).json();assert.equal(listed.items[0].object_id,'456');
 });
+
+
+test('generation failures expose only fixed stages and known codes without a second AI call',async t=>{
+  const logs=[];t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+  for(const fault of ['cache_read_failed','ai_binding_missing','ai_call_failed','ai_image_missing','cache_write_failed']) {
+    const f=batchFixture();await f.save(content(A));let calls=0;
+    if(fault==='cache_read_failed')f.env.IMAGES.get=async()=>{throw Error('private cache token');};
+    if(fault==='ai_binding_missing')delete f.env.AI;
+    else f.env.AI.run=async()=>{calls++;if(fault==='ai_call_failed')throw Error('AiError: 3040: private prompt and token');return fault==='ai_image_missing'?{}:{image:'image'};};
+    if(fault==='cache_write_failed')f.env.IMAGES.put=async()=>{throw Error('private cache token');};
+    const r=await f.send('POST','/v1/generate',{batch_id:A,date:'2026-10-04',kind:'quiz',prompt:'reviewed prompt'});
+    assert.equal(r.status,409);const value=await r.json();assert.equal(value.reason,fault);
+    assert.equal(value.code,fault==='ai_call_failed'?3040:null);
+    assert.equal(value.stage,'FLUX generation');assert.ok(calls<=1);
+    assert.ok(!JSON.stringify(value).includes('private'));assert.ok(!JSON.stringify(logs).includes('private'));
+  }
+});
