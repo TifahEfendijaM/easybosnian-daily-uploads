@@ -16,7 +16,7 @@ Each block allows only `role`, `style`, `x`, `y`, `width`, `font_size`, `line_sp
 
 Leading must additionally leave at least4px between measured full accented glyph bounds. Pillow computes height; the model cannot specify height or replace text with manually line-broken copy. `max_lines` rejects overlong exact text rather than truncating it. Natural wrapping is greedy; balanced wrapping distributes the minimum number of lines without tiny orphan lines. Unicode spaces preserve exact reconstruction; NBSP, narrow NBSP and word joiners remain unbreakable. Diacritics and combining characters are never stripped or normalised for drawing.
 
-## Ten real body treatments
+## Fourteen real body treatments
 
 | ID | Trusted renderer | Restriction |
 |---|---|---|
@@ -30,8 +30,12 @@ Leading must additionally leave at least4px between measured full accented glyph
 | bottom_sheet | wide paper sheet, rounded top/square bottom, centered accent handle | hybrid, y>=700, width>=660 |
 | split_panel | square paper, wide accent rail, separate text column | hybrid |
 | minimal_rule | square paper, bottom accent rule, independently chosen answer badge | hybrid |
+| double_frame | paper, accent outer frame and fine inset ink frame | hybrid |
+| notebook_margin | paper, accent margin and short ruled edge ticks outside text/badge | hybrid |
+| top_ribbon | paper, full-width top accent ribbon and fine inset ink bottom rule | hybrid |
+| corner_brackets | paper, four inset accent corner brackets without a continuous frame | hybrid |
 
-Every ID reaches distinct Pillow drawing behavior. None is a metadata alias. Editorial supports only plain body and italic_footer example around its separate photograph. Quiz cards remain hybrid with clear panel answers; visual identification requires every answer below the complete photo.
+All twelve panel treatments combine independently with all four answer badge shapes. Frame, notebook-margin and ribbon decorations bring back details from the earlier catalogue as trusted presets; they do not revive preparation-time design_template selection or boxed PRIMJER. Every ID reaches distinct Pillow drawing behavior. None is a metadata alias. Editorial supports only plain body and italic_footer example around its separate photograph. Quiz cards remain hybrid with clear panel answers; visual identification requires every answer below the complete photo.
 
 ## Separate PRIMJER enum
 
@@ -45,7 +49,7 @@ Body/example glyph contrast is at least4.5:1; title contrast is at least3:1. Pho
 
 Invalid/unavailable/uncertain visual proposals use the existing measured deterministic hybrid fallback, never a second model or FLUX call. A per-card measured rejection uses the preparation palette and trusted default font sizes/spacing. If the fallback cannot preserve exact text and readability, the run fails before publishing. Integrity failures remain fatal. Stories keep treatment B and select the matching feed card's final approved palette. Final safe data is captured in the private placement result and GitHub report; no raw model prose is logged.
 
-Legacy `design_template` remains readable but ignored, has no effect on bytes, and is absent from newly saved content. Rendering manifest version6 prevents reuse of artwork generated under an older contract. No Worker/database/scheduler deployment is required. Repository merge activates this contract for subsequent runs.
+Legacy `design_template` remains readable but ignored, has no effect on bytes, and is absent from newly saved content. Rendering manifest version10 prevents reuse of artwork generated under an older catalogue. No Worker/database/scheduler deployment is required. Repository merge activates this contract for subsequent runs.
 
 Quiz composition: every answer has independent x/y/width, approved panel style and bounded typography. Ordinary choices may be staggered across left/right and upper/middle/lower regions, preserving A/B/C/D reading order and measured visibility/fit. Do not treat them as a single stack or mechanically stack them. Each answer may independently choose marker_style=circle, rounded_square, square or triangle. Coordinated styles/badges are a preference, not a hard rule; mixtures are allowed when the image looks better. All colours remain from the image's approved palette; never highlight an answer as correct. Visual-naming quizzes keep the complete photograph protected with all choices below. Badge shapes are trusted Pillow presets, not model drawing primitives.
 
@@ -53,7 +57,7 @@ Editorial category tracking uses one shared capital baseline; Š and Č retain t
 
 Ordinary lesson/word feed cards prefer the full photographic background with separately placed approved body and italic example treatments. Separate middle photo windows are a less-frequent alternative, mainly when long exact copy or important photo subjects make a readable/elegant overlay difficult. Visual-identification quiz photo protection remains unchanged. Stories use treatment B with a thin palette-accent rule above PRIMJER, which remains unboxed Lora Italic.
 
-Full-background hybrid is the strong ordinary-card default. Choose its nine body treatments freely after trying plausible independent block placements; the routine model sheet contains only the original photo, feed crop and hybrid reference, without an editorial example that could bias every card toward a middle photo. Middle windows remain an exceptional last resort when long exact copy cannot fit elegantly or readable overlays would obscure important subjects. This is a content/photo-based preference, not a random selection probability.
+Full-background hybrid is the strong ordinary-card default. Choose its approved body treatments freely after comparing compatible treatments and plausible independent block placements; the routine model sheet contains only the original photo and exact feed crop, without any styled reference that could bias the choice. Middle windows remain an exceptional last resort when long exact copy cannot fit elegantly or readable overlays would obscure important subjects. This is a content/photo-based preference, not a random selection probability.
 
 The visual reviewer receives only the complete generated photographs and exact feed crops, without any rendered hybrid/editorial style example. Exact public block text and measured heights are supplied as data; quiz answer keys remain excluded. The deterministic default_plan is explicitly an uncertainty fallback, not an example to imitate. The approved catalogue, strict declarative choices, full-photo preference and measured safe fallback remain unchanged.
 

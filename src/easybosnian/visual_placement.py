@@ -122,7 +122,7 @@ def review_compositions(package, candidates):
         'the full-photo strong default, the approved middle-photo exception or any safety constraint. '
         'Hybrid body/answers choose real treatments from the catalogue; plain is editorial only, caption is body only (max3 lines). Bottom_sheet requires width>=660 and y>=700. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (preset neutral contrast fade), or editorial italic_footer. Never box an example. '
         'For ordinary lesson/word cards use full-background hybrid as the STRONG DEFAULT. '
-        'Choose freely among its nine approved body treatments, placing body and unboxed italic '
+        'Choose freely among its approved body treatments, placing body and unboxed italic '
         'example around the important visible subjects. No hybrid body treatment has priority '
         'merely because it is the deterministic default. First assess several plausible independent '
         'block placements on the full photograph, using measured typography and readable contrast. '
