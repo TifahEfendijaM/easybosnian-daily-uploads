@@ -14,9 +14,29 @@ NEXT={
 }
 
 
+def next_step(stage,error):
+    if stage=='FLUX generation':
+        code=getattr(error,'provider_code',None)
+        if code==3036:
+            return 'Cloudflare reports the daily free allocation is exhausted. It resets at 00:00 UTC; reduce preview usage. No paid fallback or automatic retry is sent.'
+        if code==3040:
+            return 'Cloudflare reports temporary inference capacity exhaustion. Check Workers AI service status before deliberately starting another run; no automatic retry is sent.'
+        if code in (3007,3008) or getattr(error,'provider_http_status',None)==408:
+            return 'Cloudflare inference timed out or was aborted. Check Workers AI service status and inspect saved artwork before deliberately starting another run; no automatic retry is sent.'
+        if code==5035:
+            return 'Cloudflare reports a paid-plan-only model. Check that this Worker uses the approved Free FLUX.1 Schnell model; do not upgrade or use a paid fallback.'
+        if getattr(error,'reason',None) in ('cache_read_failed','cache_write_failed'):
+            return 'Check this project’s private Workers KV binding, access and free storage limits; no generation or write retry is sent.'
+        if getattr(error,'reason',None)=='ai_binding_missing':
+            return 'Restore the AI binding on this project’s existing Worker; no inference request was sent.'
+        if code in (5018,5016,3023,3041,5007,3042,3003,5019,5004,5005,3039,3006):
+            return 'Check the approved model ID, Workers AI binding, account access and request limits against the reported Cloudflare code; no automatic retry or paid fallback is sent.'
+    return NEXT.get(stage,'Inspect the failed step and actual platform posts before manually running daily again; another run can publish duplicates.')
+
+
 def failure(date,stage,error,publication,run_url=None):
-    next_step=NEXT.get(stage,'Inspect the failed step and actual platform posts before manually running daily again; another run can publish duplicates.')
-    text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {next_step}\n'
+    action=next_step(stage,error)
+    text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {action}\n'
     path=ROOT/'build/failure.txt';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8')
     try: gh('issue','create','--repo',REPO,'--title',f'EasyBosnian {date}: {stage} failed','--body-file',str(path))
     except Exception as problem: text+='Failure notification issue could not be created: '+redact(problem)+'\n'

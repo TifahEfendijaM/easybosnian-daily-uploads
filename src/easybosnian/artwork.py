@@ -93,4 +93,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             manifest.chmod(0o600)
         return assets
     except Exception as error:
-        raise SafeError(str(error),getattr(error,'stage',None) or stage) from None
+        raise SafeError(str(error),getattr(error,'stage',None) or stage,
+                        getattr(error,'http_status',None),reason=getattr(error,'reason',None),
+                        provider_code=getattr(error,'provider_code',None),
+                        provider_http_status=getattr(error,'provider_http_status',None)) from None

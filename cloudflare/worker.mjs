@@ -9,14 +9,15 @@ function storageFailure(reason,status,name) {
   console.error(JSON.stringify({event:'image_storage_failed',reason,http_status:status,asset:name}));
   return response({error:'Image storage operation failed',stage:'storage',reason},status);
 }
-function generationFailure(reason,error=null) {
+function generationFailure(reason,error=null,providerStatus=null) {
   // Only documented numeric codes and fixed reasons; never exception prose/prompts/tokens.
   const known=[5007,5004,3039,3003,5018,5016,3023,3041,5035,5019,5005,3042,3006,3007,3008,3036,3040];
   const match=typeof error?.message==='string'?error.message.match(/(?:^|[ :])([0-9]{4})(?=:)/):null;
-  const value=Number(error?.code ?? match?.[1]);
+  const value=error?.internalCode ?? error?.code ?? error?.errors?.[0]?.code ?? (match?Number(match[1]):null);
   const provider_code=known.includes(value)?value:null;
-  console.error(JSON.stringify({event:'flux_generation_failed',reason,http_status:409,provider_code}));
-  return response({error:'FLUX generation failed; inspect fixed reason and provider code',stage:'FLUX generation',reason,code:provider_code},409);
+  const provider_http_status=Number.isInteger(providerStatus) && providerStatus>=100 && providerStatus<=599?providerStatus:null;
+  console.error(JSON.stringify({event:'flux_generation_failed',reason,http_status:409,provider_code,provider_http_status}));
+  return response({error:'FLUX generation failed; inspect fixed reason and provider code',stage:'FLUX generation',reason,code:provider_code,provider_http_status},409);
 }
 async function row(env,id) {return env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE batch_id=?').bind(id).first();}
 async function legacyScope(env,date,write=false) {
@@ -173,16 +174,22 @@ export default {
         const r=await scope(env,p.batch_id || p.date,true);if(!r) return response({error:'No reviewed content'},404);
         if(p.date && p.date!==r.date) throw Error('Wrong content date');
         if(JSON.parse(r.content_json).cards.find(c=>c.kind===p.kind).background_prompt!==p.prompt) throw Error('Prompt differs from reviewed content');
-        const key=`private-ai:${r.batch_id}:${p.kind}`;let cached,result;
+        const key=`private-ai:${r.batch_id}:${p.kind}`;let cached,result,upstream;
         try {cached=await imageValue(env,key,r.batch_id,r.date);}
-        catch(error) {return generationFailure('cache_read_failed',error);}
+        catch {return generationFailure('cache_read_failed');}
         if(cached) return response({image:cached});
         if(typeof env.AI?.run!=='function') return generationFailure('ai_binding_missing');
-        try {result=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4});}
+        // A per-call Response retains the upstream status without consulting the
+        // binding's mutable lastRequest fields. Exactly one inference is sent.
+        try {upstream=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4},{returnRawResponse:true});}
         catch(error) {return generationFailure('ai_call_failed',error);}
-        if(!result?.image) return generationFailure('ai_image_missing');
+        if(!(upstream instanceof Response)) return generationFailure('ai_response_invalid');
+        try {result=await upstream.json();}
+        catch {return generationFailure(upstream.ok?'ai_response_invalid':'ai_call_failed',null,upstream.status);}
+        if(!upstream.ok || result?.success===false) return generationFailure('ai_call_failed',result,upstream.status);
+        if(typeof result?.image!=='string' || !result.image) return generationFailure('ai_image_missing',null,upstream.status);
         try {await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});}
-        catch(error) {return generationFailure('cache_write_failed',error);}
+        catch {return generationFailure('cache_write_failed');}
         return response({image:result.image});
       }
       const asset=path.match(/^\/v1\/(private|expose)\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(.+)$/);

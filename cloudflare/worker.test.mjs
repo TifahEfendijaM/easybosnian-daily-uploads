@@ -159,7 +159,7 @@ function batchFixture() {
       const [batch_id,platform,object_id]=this.args,key=platform+':'+object_id;if(ids.get(key)?.batch_id===batch_id)ids.delete(key);
     } else throw Error('Unexpected write query');
     return {meta:{changes:1}};
-  }};}},IMAGES:{get:async key=>kv.get(key),delete:async key=>{deleted.push(key);kv.delete(key);},put:async(key,value,options)=>{assert.equal(options.expirationTtl,14*86400);kv.set(key,value);}},AI:{run:async(model,options)=>{generated++;assert.equal(model,'@cf/black-forest-labs/flux-1-schnell');assert.equal(options.steps,4);return {image:'image-'+options.prompt};}}};
+  }};}},IMAGES:{get:async key=>kv.get(key),delete:async key=>{deleted.push(key);kv.delete(key);},put:async(key,value,options)=>{assert.equal(options.expirationTtl,14*86400);kv.set(key,value);}},AI:{run:async(model,options,bindingOptions)=>{generated++;assert.equal(model,'@cf/black-forest-labs/flux-1-schnell');assert.equal(options.steps,4);assert.deepEqual(bindingOptions,{returnRawResponse:true});return Response.json({image:'image-'+options.prompt});}}};
   const send=(method,path,body)=>worker.fetch(new Request('https://example.test'+path,{method,headers:{Authorization:'Bearer private','Content-Type':'application/json'},...(body!==undefined?{body:JSON.stringify(body)}:{})}),env);
   const save=p=>send('PUT','/v1/history/batches/'+p.batch_id,p);
   return {env,history,ids,kv,deleted,send,save,get generated(){return generated;}};
@@ -325,16 +325,57 @@ test('publication identifiers are protected and cleanup cannot cross batches on 
 
 test('generation failures expose only fixed stages and known codes without a second AI call',async t=>{
   const logs=[];t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
-  for(const fault of ['cache_read_failed','ai_binding_missing','ai_call_failed','ai_image_missing','cache_write_failed']) {
+  for(const fault of ['cache_read_failed','ai_binding_missing','ai_call_failed','ai_response_invalid','ai_image_missing','cache_write_failed']) {
     const f=batchFixture();await f.save(content(A));let calls=0;
     if(fault==='cache_read_failed')f.env.IMAGES.get=async()=>{throw Error('private cache token');};
     if(fault==='ai_binding_missing')delete f.env.AI;
-    else f.env.AI.run=async()=>{calls++;if(fault==='ai_call_failed')throw Error('AiError: 3040: private prompt and token');return fault==='ai_image_missing'?{}:{image:'image'};};
+    else f.env.AI.run=async()=>{calls++;if(fault==='ai_call_failed')throw Error('AiError: 3040: private prompt and token');return fault==='ai_response_invalid'?new Response('private invalid response'):Response.json(fault==='ai_image_missing'?{}:{image:'image'});};
     if(fault==='cache_write_failed')f.env.IMAGES.put=async()=>{throw Error('private cache token');};
     const r=await f.send('POST','/v1/generate',{batch_id:A,date:'2026-10-04',kind:'quiz',prompt:'reviewed prompt'});
     assert.equal(r.status,409);const value=await r.json();assert.equal(value.reason,fault);
     assert.equal(value.code,fault==='ai_call_failed'?3040:null);
     assert.equal(value.stage,'FLUX generation');assert.ok(calls<=1);
     assert.ok(!JSON.stringify(value).includes('private'));assert.ok(!JSON.stringify(logs).includes('private'));
+  }
+});
+
+test('per-call FLUX responses retain upstream status and documented codes without logging their bodies or retrying',async t=>{
+  const logs=[];t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+  const cases=[
+    [429,{internalCode:3040,description:'private prompt and token'},3040],
+    [429,{errors:[{code:3036,message:'private prompt and token'}]},3036],
+    [403,{code:5035,message:'private prompt and token'},5035],
+    [408,{internalCode:3007},3007],
+    [503,{errors:[{code:9999,message:'private prompt and token'}]},null],
+    [429,{internalCode:'3040-private-token'},null],
+    [429,{internalCode:'3040'},null],
+    [502,'private non-JSON upstream body',null],
+    [200,{success:false,errors:[{code:3040,message:'private prompt and token'}]},3040],
+  ];
+  for(const [status,body,code] of cases) {
+    const f=batchFixture();await f.save(content(A));
+    // Never consult shared mutable binding diagnostics from another request.
+    f.env.AI.lastRequestHttpStatusCode=403;f.env.AI.lastRequestInternalStatusCode=5035;
+    const run=t.mock.method(f.env.AI,'run',async()=>typeof body==='string'?new Response(body,{status}):Response.json(body,{status}));
+    const put=t.mock.method(f.env.IMAGES,'put',async()=>{throw Error('Must not cache failure');});
+    const r=await f.send('POST','/v1/generate',{batch_id:A,date:'2026-10-04',kind:'quiz',prompt:'reviewed prompt'});
+    assert.equal(r.status,409);const result=await r.json();
+    assert.equal(result.reason,'ai_call_failed');assert.equal(result.code,code);assert.equal(result.provider_http_status,status);
+    assert.equal(run.mock.callCount(),1);assert.equal(put.mock.callCount(),0);
+    assert.deepEqual(run.mock.calls[0].arguments,['@cf/black-forest-labs/flux-1-schnell',{prompt:'reviewed prompt',steps:4},{returnRawResponse:true}]);
+    assert.ok(!JSON.stringify(result).includes('private'));assert.ok(!JSON.stringify(logs).includes('private'));
+    assert.equal(logs.at(-1).provider_http_status,status);
+  }
+});
+
+test('FLUX invalid success responses and network failures never cache or resend inference',async t=>{
+  const logs=[];t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+  for(const value of [null,{image:123},{image:''},new Response('private invalid JSON'),new Error('private network token')]) {
+    const f=batchFixture();await f.save(content(A));
+    const run=t.mock.method(f.env.AI,'run',async()=>{if(value instanceof Error)throw value;return value instanceof Response?value:Response.json(value);});
+    const r=await f.send('POST','/v1/generate',{batch_id:A,date:'2026-10-04',kind:'quiz',prompt:'reviewed prompt'});
+    const result=await r.json();assert.equal(r.status,409);assert.equal(run.mock.callCount(),1);
+    assert.equal(result.code,null);assert.ok(!f.kv.has('private-ai:'+A+':quiz'));
+    assert.ok(!JSON.stringify(result).includes('private'));assert.ok(!JSON.stringify(logs).includes('private'));
   }
 });
