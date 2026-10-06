@@ -24,7 +24,11 @@ discovery/task verification. Retain the previously authorized
 dropping them breaks the independent Facebook/deletion credentials. Verify
 MANAGE or CREATE_CONTENT on the exact Page from the authenticated accounts edge.
 No assignment is changed and no broader permission is silently substituted.
-Both additional scopes require explicit user consent before token storage/merge.
+Both additional scopes were explicitly approved and consented to on October 6.
+The renewed token passed the exact Page/profile and MANAGE/CREATE_CONTENT task
+checks, and its separate repository secrets were saved before merge. Protected
+credentials are not included in `instagram-poll-authorization.json`; that file
+records only the verified identity, required scopes and effective expiry.
 
 Use `easybosnian authorize-instagram-polls` with its hidden prompts, never token
 arguments. It exchanges once, checks app ID, USER token type, scopes, expiry,
