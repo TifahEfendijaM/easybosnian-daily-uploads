@@ -141,7 +141,7 @@ class MultipleBatchesTests(unittest.TestCase):
     def test_prepared_result_controls_batch_identity_and_cleanup_independently_of_date(self):
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.ROOT',Path(temp)),patch('easybosnian.cli.today',return_value='2026-10-04'):
             path=Path(temp)/'build/preparation-result.json'
-            result={'project':PROJECT,'date':'2026-10-03','batch_id':A,'mode':'daily','status':'reviewed content available in private history','batch_target':'latest','cleanup_batch_id':A}
+            result={'project':PROJECT,'date':'2026-10-03','batch_id':A,'mode':'daily','status':'reviewed content staged privately','batch_target':'latest','cleanup_batch_id':A}
             write_json(path,result);self.assertEqual(prepared_batch('daily'),('2026-10-03',A,True))
             result.update(date='2026-10-04',batch_target='none',batch_id=B,cleanup_batch_id=None)
             write_json(path,result);self.assertEqual(prepared_batch('daily'),('2026-10-04',B,False))

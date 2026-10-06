@@ -153,7 +153,7 @@ class CustomWordFallbackTests(unittest.TestCase):
                     store.return_value.history.return_value={'project':PROJECT,'days':[]}
                     store.return_value.publications_for_date.return_value=[]
                     result=cloud_run('daily','custom','Pijaca i kupovina',['Tezga','Cijenkati se',''],['entered','entered','chatgpt'],batch_target=target)
-                    self.assertEqual(result['status'],'reviewed content available in private history')
+                    self.assertEqual(result['status'],'reviewed content staged privately')
                     child.assert_called_once();save.assert_called_once()
                     self.assertEqual(save.call_args.kwargs['batch_target'],target)
                     store.return_value.remove_content.assert_not_called()

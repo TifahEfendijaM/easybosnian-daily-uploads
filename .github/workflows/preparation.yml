@@ -115,7 +115,7 @@ jobs:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: python -m easybosnian.cloud_prepare bootstrap
-      - name: Verify connections or prepare reviewed content in history
+      - name: Verify connections or stage reviewed content privately
         id: preparation
         env:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex

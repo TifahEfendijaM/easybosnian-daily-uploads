@@ -20,6 +20,8 @@ if platforms:
         if result.get('error'): text+=f"  Error: {result['error']}\n"
         cleanup=result.get('replacement_cleanup',{})
         if cleanup.get('scope')=='all_today':text+=f"  All-today cleanup: {cleanup['status']}; {cleanup['removed']} removed, {cleanup['already_absent']} already absent\n"
+    if 'history_saved' in all_results:
+        text+='\nPublished content history: '+('saved after confirmed feed publication' if all_results['history_saved'] else 'not saved; inspect publication/history failures')+'\n'
     if all_results.get('history_cleanup'):
         history=all_results['history_cleanup']
         text+=f"\nAll-today history: {history['status']}; {history['removed']} batches removed\n"

@@ -344,11 +344,13 @@ test('per-call FLUX responses retain upstream status and documented codes withou
   const cases=[
     [429,{internalCode:3040,description:'private prompt and token'},3040],
     [429,{errors:[{code:3036,message:'private prompt and token'}]},3036],
+    [409,{error:{code:9998,message:'private prompt and token'}},9998],
+    [409,{result:{error:{code:9997,message:'private prompt and token'}}},9997],
     [403,{code:5035,message:'private prompt and token'},5035],
     [408,{internalCode:3007},3007],
-    [503,{errors:[{code:9999,message:'private prompt and token'}]},null],
+    [503,{errors:[{code:9999,message:'private prompt and token'}]},9999],
     [429,{internalCode:'3040-private-token'},null],
-    [429,{internalCode:'3040'},null],
+    [429,{internalCode:'3040'},3040],
     [502,'private non-JSON upstream body',null],
     [200,{success:false,errors:[{code:3040,message:'private prompt and token'}]},3040],
   ];
@@ -378,4 +380,64 @@ test('FLUX invalid success responses and network failures never cache or resend 
     assert.equal(result.code,null);assert.ok(!f.kv.has('private-ai:'+A+':quiz'));
     assert.ok(!JSON.stringify(result).includes('private'));assert.ok(!JSON.stringify(logs).includes('private'));
   }
+});
+
+test('inline reviewed generation stays out of history and fresh reruns do not reuse earlier AI caches',async()=>{
+  const f=batchFixture(),p=content(C),r1='r-'+'1'.repeat(32),r2='r-'+'2'.repeat(32);
+  const generate=(extra={})=>f.send('POST','/v1/generate',{batch_id:C,date:p.date,kind:'quiz',prompt:'reviewed prompt',reviewed_content:p,artwork_id:r1,...extra});
+  assert.equal((await generate()).status,200);assert.equal(f.history.size,0);
+  assert.equal((await generate()).status,200);assert.equal(f.generated,1);
+  assert.equal((await generate({artwork_id:r2})).status,200);assert.equal(f.generated,2);
+  assert.equal((await generate({prompt:'unreviewed prompt'})).status,409);
+  assert.equal((await generate({batch_id:B})).status,409);
+  assert.equal((await generate({date:'2026-10-03'})).status,409);
+  assert.equal((await generate({artwork_id:'../other'})).status,409);
+  const unchecked=structuredClone(p);unchecked.private_review.sources_checked=false;
+  assert.equal((await generate({reviewed_content:unchecked})).status,409);
+  await f.save(content(C,'2026-10-03'));
+  assert.equal((await generate()).status,409);assert.equal(f.generated,2);
+});
+
+test('staged authenticated assets and known IDs work before history, with exact batch/date isolation',async()=>{
+  const f=batchFixture(),headers={Authorization:'Bearer private','X-EasyBosnian-Content-Date':'2026-10-04'};
+  const jpeg=new Uint8Array(100);jpeg[0]=255;jpeg[1]=216;
+  const send=(method,path,body,h=headers)=>worker.fetch(new Request('https://example.test'+path,{method,headers:h,...(body!==undefined?{body}: {})}),f.env);
+  const path='/v1/private/batches/'+C+'/quiz-card.jpg';
+  assert.equal((await send('PUT',path,jpeg)).status,200);assert.equal((await send('GET',path)).status,200);
+  assert.equal(f.history.size,0);
+  const payload=JSON.stringify({platform:'instagram',kind:'feed',object_id:'123',account_id:'42'});
+  assert.equal((await send('POST','/v1/publications/batches/'+C,payload)).status,200);
+  assert.equal(f.ids.get('instagram:123').date,'2026-10-04');assert.equal(f.history.size,0);
+  assert.equal((await send('PUT','/v1/private/2026-10-04/quiz-card.jpg',jpeg)).status,409);
+  assert.equal((await send('PUT',path,jpeg,{'X-EasyBosnian-Content-Date':'2026-10-04'})).status,401);
+  await f.save(content(C,'2026-10-03'));
+  assert.equal((await send('PUT',path,jpeg)).status,409);
+  assert.equal((await send('POST','/v1/publications/batches/'+C,payload)).status,409);
+});
+
+test('post-publication history saves preserve freshly rendered assets while legacy saves invalidate them',async()=>{
+  const f=batchFixture();const p=content(C);
+  f.kv.set('private:'+C+':quiz-card.jpg','fresh');
+  const result=await worker.fetch(new Request('https://example.test/v1/history/batches/'+C,{method:'PUT',headers:{Authorization:'Bearer private','Content-Type':'application/json','X-EasyBosnian-Preserve-Artwork':'true'},body:JSON.stringify(p)}),f.env);
+  assert.equal(result.status,200);assert.equal(f.history.size,1);assert.equal(f.kv.get('private:'+C+':quiz-card.jpg'),'fresh');
+  const before=f.history.get(C).created_at;
+  await f.save(p);assert.equal(f.history.get(C).created_at,before);assert.ok(!f.kv.has('private:'+C+':quiz-card.jpg'));
+});
+
+test('failed provider bodies remain private and redacted without history insertion or inference retry',async t=>{
+  const f=batchFixture(),p=content(C),run='r-'+'1'.repeat(32),logs=[];
+  f.env.GITHUB_DISPATCH_TOKEN='private-dispatch-token';
+  t.mock.method(console,'error',line=>logs.push(line));
+  const body={error:{code:9996,message:'original diagnostic private private-dispatch-token access_token=another-secret'}};
+  const inference=t.mock.method(f.env.AI,'run',async()=>Response.json(body,{status:409}));
+  const result=await f.send('POST','/v1/generate',{batch_id:C,date:p.date,kind:'quiz',prompt:'reviewed prompt',reviewed_content:p,artwork_id:run});
+  const safe=await result.json();assert.equal(result.status,409);assert.equal(safe.code,9996);assert.equal(safe.provider_http_status,409);assert.equal(safe.diagnostic_saved,true);
+  assert.equal(inference.mock.callCount(),1);assert.equal(f.history.size,0);
+  assert.ok(!JSON.stringify(logs).includes('original diagnostic'));assert.ok(!JSON.stringify(safe).includes('original diagnostic'));
+  const path='/v1/generation-errors/batches/'+C+'/'+run+'/quiz';
+  assert.equal((await worker.fetch(new Request('https://example.test'+path),f.env)).status,401);
+  const read=await f.send('GET',path);assert.equal(read.status,200);const privateBody=await read.text();
+  assert.ok(privateBody.includes('original diagnostic'));assert.ok(!privateBody.includes('private-dispatch-token'));assert.ok(!privateBody.includes('another-secret'));
+  assert.equal((await f.send('GET','/v1/generation-errors/batches/'+B+'/'+run+'/quiz')).status,404);
+  assert.equal(inference.mock.callCount(),1);
 });

@@ -23,6 +23,8 @@ def next_step(stage,error):
             return 'Cloudflare reports temporary inference capacity exhaustion. Check Workers AI service status before deliberately starting another run; no automatic retry is sent.'
         if code in (3007,3008) or getattr(error,'provider_http_status',None)==408:
             return 'Cloudflare inference timed out or was aborted. Check Workers AI service status and inspect saved artwork before deliberately starting another run; no automatic retry is sent.'
+        if getattr(error,'provider_http_status',None)==409:
+            return 'Cloudflare returned an upstream conflict, not a confirmed quota error. Inspect this run’s protected provider diagnostic and current Workers AI status; no automatic retry or paid fallback is sent.'
         if code==5035:
             return 'Cloudflare reports a paid-plan-only model. Check that this Worker uses the approved Free FLUX.1 Schnell model; do not upgrade or use a paid fallback.'
         if getattr(error,'reason',None) in ('cache_read_failed','cache_write_failed'):

@@ -1,7 +1,8 @@
-"""Render the selected reviewed history row once, sharing its cards across publishers."""
+"""Render the runner-staged reviewed candidate once, sharing cards across publishers."""
 from .batches import output_key
 import io
 import os
+import uuid
 from PIL import Image
 from .core import ROOT, read_json, write_json
 from .http import SafeError, request
@@ -20,6 +21,8 @@ def render_input(package):
 def artwork(store, package, expose=False, review_images=False, require_prepared=False):
     date=package['date']; output=ROOT/'build'/output_key(package); output.mkdir(parents=True,exist_ok=True)
     assets={}; stage='FLUX generation'
+    if package.get('batch_id'):store.use_content(package)
+    artwork_id='r-'+uuid.uuid4().hex
     try:
         if review_images and (expose or require_prepared):
             raise ValueError('Visual artwork preparation must remain private')
@@ -39,7 +42,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             for card in package['cards']:
                 kind=card['kind']; background=output/f'{kind}-background.jpg'
                 stage='FLUX generation'
-                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
+                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
                 baseline=output/f'{kind}-hybrid-reference.jpg'
                 metrics=render_hybrid(card,package['design_palette'],background,baseline)
@@ -91,7 +94,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                                  **({'rejection':rejection} if rejection is not None else {})}
             else:
                 stage='FLUX generation'
-                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
+                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
                 metrics=render_hybrid(card,package['design_palette'],background,path)
             body=path.read_bytes()

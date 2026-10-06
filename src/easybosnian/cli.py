@@ -91,8 +91,31 @@ def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
     from .levels import load_level
     level=load_level()
     validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level));fit_check(package)
-    store.save_content(package)
-    print('Reviewed content saved in private history for '+package['date'])
+    stage_content(package)
+    print('Reviewed content staged privately; history unchanged for '+package['date'])
+    return package
+
+
+def stage_content(package,root=None):
+    """Ephemeral runner input, never novelty history or a committed queue."""
+    path=(root or ROOT)/'build/reviewed-content.secret'
+    path.parent.mkdir(parents=True,exist_ok=True)
+    temporary=path.with_suffix('.tmp')
+    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+    os.fchmod(fd,0o600)
+    with os.fdopen(fd,'w',encoding='utf-8') as output:
+        json.dump({'project':PROJECT,'run_url':os.getenv('GITHUB_RUN_URL'),'content':package},output,ensure_ascii=False)
+    temporary.replace(path)
+
+
+def prepared_content(mode):
+    date,batch_id,_=prepared_batch(mode)
+    staged=read_json(ROOT/'build/reviewed-content.secret')
+    package=staged['content']
+    if (staged.get('project')!=PROJECT or staged.get('run_url')!=os.getenv('GITHUB_RUN_URL')
+            or package.get('batch_id')!=batch_id or package.get('date')!=date):
+        raise ValueError('Staged content belongs to a different preparation/run')
+    validate(package)
     return package
 
 
@@ -101,7 +124,7 @@ def prepared_date(mode):
     result=read_json(ROOT/'build/preparation-result.json')
     date=result.get('date')
     if (mode not in ('preview','daily') or result.get('mode')!=mode or result.get('project')!=PROJECT
-            or result.get('status')!='reviewed content available in private history'
+            or result.get('status')!='reviewed content staged privately'
             or not isinstance(date,str) or calendar_date.fromisoformat(date).isoformat()!=date or date>today()):
         raise ValueError('No successful preparation result for this mode and batch date')
     return date
@@ -255,7 +278,7 @@ def main():
     elif args.command=="prepare": prepare(args.path)
     elif args.command=='run':
         if args.prepared:
-            date,batch_id,replace,scope=prepared_batch(args.mode,details=True);daily(date,args.mode,batch_id=batch_id,replace=replace,**scope)
+            date,batch_id,replace,scope=prepared_batch(args.mode,details=True);daily(date,args.mode,batch_id=batch_id,replace=replace,package=prepared_content(args.mode),**scope)
         else:daily(args.date,args.mode)
     elif args.command=="set-secret": set_secret(args.name,args.local)
     elif args.command=="set-worker-secret": set_worker_secret(args.name)

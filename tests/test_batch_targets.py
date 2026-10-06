@@ -99,14 +99,17 @@ class BatchTargetTests(unittest.TestCase):
         self.assertEqual(novelty_history(history,'2026-10-03',chosen)['days'][1]['content'],other)
 
     def test_trusted_save_overwrites_latest_and_rejects_an_arbitrary_older_date(self):
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.verify_repository'),patch('easybosnian.cli.today',return_value='2026-10-04'),patch('easybosnian.cli.Store') as store,patch('easybosnian.cli.validate'),patch('easybosnian.cli.fit_check'):
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.ROOT',Path(temp)),patch('easybosnian.cli.verify_repository'),patch('easybosnian.cli.today',return_value='2026-10-04'),patch('easybosnian.cli.Store') as store,patch('easybosnian.cli.validate'),patch('easybosnian.cli.fit_check'):
             path=Path(temp)/'draft.json';legacy=copy.deepcopy(self.old)
             for card in legacy['cards']:card['design_template']='framed'
             write_json(path,legacy)
             store.return_value.history.return_value=self.history
             prepare(path,batch_target='latest',run_date='2026-10-04')
-            self.assertEqual(store.return_value.save_content.call_args.args[0]['date'],'2026-10-03')
-            self.assertTrue(all('design_template' not in c for c in store.return_value.save_content.call_args.args[0]['cards']))
+            store.return_value.save_content.assert_not_called()
+            from easybosnian.core import read_json
+            staged=read_json(Path(temp)/'build/reviewed-content.secret')['content']
+            self.assertEqual(staged['date'],'2026-10-03')
+            self.assertTrue(all('design_template' not in c for c in staged['cards']))
             store.return_value.save_content.reset_mock()
             for date,target in [('2026-10-02','latest'),('2026-10-03','today')]:
                 wrong=copy.deepcopy(self.old);wrong['date']=date;write_json(path,wrong)
@@ -116,7 +119,7 @@ class BatchTargetTests(unittest.TestCase):
     def test_publication_and_cleanup_use_prepared_date_not_current_clock(self):
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.ROOT',Path(temp)),patch('easybosnian.cli.today',return_value='2026-10-04'),patch('easybosnian.daily.ROOT',Path(temp)),patch('easybosnian.daily.today',return_value='2026-10-04'),patch('easybosnian.daily.verify_repository'),patch('easybosnian.daily.require_publishing'),patch('easybosnian.daily.validate'),patch('easybosnian.daily.artwork',return_value={}),patch('easybosnian.daily.Store') as store,patch('easybosnian.daily.cleanup',return_value={'removed':0}) as cleanup,patch('easybosnian.daily.publish_instagram',return_value={'status':'published','published':True}),patch.dict(os.environ,{'FACEBOOK_POSTING_ENABLED':'false','TIKTOK_POSTING_ENABLED':'false','INSTAGRAM_STORIES_ENABLED':'false'},clear=True):
             path=Path(temp)/'build/preparation-result.json'
-            result={'date':'2026-10-03','mode':'daily','project':PROJECT,'status':'reviewed content available in private history'}
+            result={'date':'2026-10-03','mode':'daily','project':PROJECT,'status':'reviewed content staged privately'}
             write_json(path,result);store.return_value.content.return_value=self.old
             daily(prepared_date('daily'),'daily')
             store.return_value.content.assert_called_once_with('2026-10-03')

@@ -9,15 +9,26 @@ function storageFailure(reason,status,name) {
   console.error(JSON.stringify({event:'image_storage_failed',reason,http_status:status,asset:name}));
   return response({error:'Image storage operation failed',stage:'storage',reason},status);
 }
-function generationFailure(reason,error=null,providerStatus=null) {
-  // Only documented numeric codes and fixed reasons; never exception prose/prompts/tokens.
-  const known=[5007,5004,3039,3003,5018,5016,3023,3041,5035,5019,5005,3042,3006,3007,3008,3036,3040];
+function generationFailure(reason,error=null,providerStatus=null,diagnosticSaved=false) {
+  // Bounded numeric codes (including undocumented ones) and fixed reasons only.
+  // Upstream error envelopes vary; never echo provider prose/prompts/tokens.
   const match=typeof error?.message==='string'?error.message.match(/(?:^|[ :])([0-9]{4})(?=:)/):null;
-  const value=error?.internalCode ?? error?.code ?? error?.errors?.[0]?.code ?? (match?Number(match[1]):null);
-  const provider_code=known.includes(value)?value:null;
+  const value=error?.internalCode ?? error?.code ?? error?.errors?.[0]?.code ?? error?.error?.code ?? error?.result?.error?.code ?? (match?Number(match[1]):null);
+  const numeric=typeof value==='string' && /^[0-9]{1,5}$/.test(value)?Number(value):value;
+  const provider_code=Number.isInteger(numeric) && numeric>0 && numeric<=99999?numeric:null;
   const provider_http_status=Number.isInteger(providerStatus) && providerStatus>=100 && providerStatus<=599?providerStatus:null;
   console.error(JSON.stringify({event:'flux_generation_failed',reason,http_status:409,provider_code,provider_http_status}));
-  return response({error:'FLUX generation failed; inspect fixed reason and provider code',stage:'FLUX generation',reason,code:provider_code,provider_http_status},409);
+  return response({error:'FLUX generation failed; inspect fixed reason and provider code',stage:'FLUX generation',reason,code:provider_code,provider_http_status,diagnostic_saved:diagnosticSaved},409);
+}
+async function captureGenerationError(env,p,body) {
+  // Private diagnostics, never a retry/intent/history record. Do not retain
+  // successful image payloads or echo provider prose into logs/issues.
+  if(!BATCH.test(p.batch_id) || !/^r-[a-f0-9]{32}$/.test(p.artwork_id) || !body || body.length>65536) return false;
+  let safe=body;
+  for(const token of [env.ADMIN_TOKEN,env.GITHUB_DISPATCH_TOKEN]) if(token) safe=safe.split(token).join('[REDACTED]');
+  safe=safe.replace(/(access_token|client_secret|authorization)["'\s:=]+[^\s",&}]+/gi,'$1=[REDACTED]');
+  try {await env.IMAGES.put(`private-error:${p.batch_id}:${p.artwork_id}:${p.kind}`,safe,{expirationTtl:14*86400});return true;}
+  catch {return false;}
 }
 async function row(env,id) {return env.DB.prepare('SELECT batch_id,date,created_at,content_json FROM history WHERE batch_id=?').bind(id).first();}
 async function legacyScope(env,date,write=false) {
@@ -26,11 +37,16 @@ async function legacyScope(env,date,write=false) {
   return r.results[0] || null;
 }
 async function scope(env,key,write=false) {return DATE.test(key)?legacyScope(env,key,write):row(env,key);}
-async function saveHistory(env,p,id) {
+async function stagedScope(env,key,req) {
+  const r=await scope(env,key,true),date=req.headers.get('X-EasyBosnian-Content-Date');
+  if(date!==null && (!BATCH.test(key) || !DATE.test(date) || (r && r.date!==date))) throw Error('Invalid staged scope');
+  return r || (date!==null?{batch_id:key,date}:null);
+}
+async function saveHistory(env,p,id,preserveArtwork=false) {
   safePackage(p,p.date);if(!BATCH.test(id) || p.batch_id!==id) throw Error('Invalid batch identity');
   const result=await env.DB.prepare('INSERT INTO history(batch_id,date,created_at,theme_json,words_json,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(batch_id) DO UPDATE SET theme_json=excluded.theme_json,words_json=excluded.words_json,content_json=excluded.content_json WHERE history.date=excluded.date').bind(id,p.date,new Date().toISOString(),JSON.stringify(p.theme),JSON.stringify(p.words),JSON.stringify(p)).run();
   if(!result.meta.changes) throw Error('Existing batch date differs');
-  await clearArtwork(env,id,p.date);
+  if(!preserveArtwork) await clearArtwork(env,id,p.date);
 }
 async function clearArtwork(env,id,date) {
   const namespaces=[id,...(id==='legacy-'+date?[date]:[])];
@@ -130,7 +146,7 @@ export default {
           return response({project:PROJECT,items:result.results});
         }
         if(req.method==='POST' && !platform) {
-          const content=record || await row(env,id);if(!content) throw Error('No batch for publication identifiers');
+          const content=record || await stagedScope(env,id,req);if(!content) throw Error('No batch for publication identifiers');
           const p=await req.json();
           if(Object.keys(p).sort().join(',')!=='account_id,kind,object_id,platform' || !['instagram','facebook','tiktok'].includes(p.platform) || !['feed','story','photo'].includes(p.kind)) throw Error('Invalid publication identifier');
           const idPattern=p.platform==='tiktok'?/^[a-f0-9]{24}$/:/^\d+(?:_\d+)?$/;
@@ -166,15 +182,30 @@ export default {
         if(req.method==='PUT') {
           const p=await req.json();let id=key;
           if(legacy) {if(p.date!==key) throw Error('Invalid content date');const r=await legacyScope(env,key,true);id=r?.batch_id || 'legacy-'+key;if(p.batch_id && p.batch_id!==id) throw Error('Wrong legacy batch');p.batch_id=id;}
-          await saveHistory(env,p,id);return response({batch_id:id,date:p.date,status:'reviewed content saved'});
+          await saveHistory(env,p,id,req.headers.get('X-EasyBosnian-Preserve-Artwork')==='true');return response({batch_id:id,date:p.date,status:'reviewed content saved'});
         }
+      }
+      const diagnostic=path.match(/^\/v1\/generation-errors\/batches\/(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})\/(r-[a-f0-9]{32})\/(quiz|lesson|word)$/);
+      if(diagnostic && req.method==='GET') {
+        const body=await env.IMAGES.get(`private-error:${diagnostic[1]}:${diagnostic[2]}:${diagnostic[3]}`);
+        return body===null || body===undefined?response({error:'No private provider diagnostic'},404):new Response(body,{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
       }
       if(path==='/v1/generate' && req.method==='POST') {
         const p=await req.json();if(!KINDS.includes(p.kind) || (p.batch_id?!BATCH.test(p.batch_id):!DATE.test(p.date))) throw Error('Invalid artwork identity');
-        const r=await scope(env,p.batch_id || p.date,true);if(!r) return response({error:'No reviewed content'},404);
+        let r,reviewed;
+        if(p.reviewed_content!==undefined) {
+          safePackage(p.reviewed_content,p.date);
+          if(!BATCH.test(p.batch_id) || p.reviewed_content.batch_id!==p.batch_id || !/^r-[a-f0-9]{32}$/.test(p.artwork_id)) throw Error('Invalid staged artwork identity');
+          const old=await row(env,p.batch_id);if(old && old.date!==p.date) throw Error('Wrong existing batch date');
+          reviewed=p.reviewed_content;r={batch_id:p.batch_id,date:p.date};
+        } else {
+          r=await scope(env,p.batch_id || p.date,true);if(!r) return response({error:'No reviewed content'},404);
+          reviewed=JSON.parse(r.content_json);
+          if(p.artwork_id!==undefined) throw Error('Artwork run ID requires inline reviewed content');
+        }
         if(p.date && p.date!==r.date) throw Error('Wrong content date');
-        if(JSON.parse(r.content_json).cards.find(c=>c.kind===p.kind).background_prompt!==p.prompt) throw Error('Prompt differs from reviewed content');
-        const key=`private-ai:${r.batch_id}:${p.kind}`;let cached,result,upstream;
+        if(reviewed.cards.find(c=>c.kind===p.kind).background_prompt!==p.prompt) throw Error('Prompt differs from reviewed content');
+        const key=p.reviewed_content!==undefined?`private-ai:${r.batch_id}:${p.artwork_id}:${p.kind}`:`private-ai:${r.batch_id}:${p.kind}`;let cached,result,upstream;
         try {cached=await imageValue(env,key,r.batch_id,r.date);}
         catch {return generationFailure('cache_read_failed');}
         if(cached) return response({image:cached});
@@ -184,9 +215,10 @@ export default {
         try {upstream=await env.AI.run('@cf/black-forest-labs/flux-1-schnell',{prompt:p.prompt,steps:4},{returnRawResponse:true});}
         catch(error) {return generationFailure('ai_call_failed',error);}
         if(!(upstream instanceof Response)) return generationFailure('ai_response_invalid');
-        try {result=await upstream.json();}
-        catch {return generationFailure(upstream.ok?'ai_response_invalid':'ai_call_failed',null,upstream.status);}
-        if(!upstream.ok || result?.success===false) return generationFailure('ai_call_failed',result,upstream.status);
+        let rawBody;
+        try {rawBody=await upstream.text();result=JSON.parse(rawBody);}
+        catch {return generationFailure(upstream.ok?'ai_response_invalid':'ai_call_failed',null,upstream.status,await captureGenerationError(env,p,rawBody || ''));}
+        if(!upstream.ok || result?.success===false) return generationFailure('ai_call_failed',result,upstream.status,await captureGenerationError(env,p,rawBody));
         if(typeof result?.image!=='string' || !result.image) return generationFailure('ai_image_missing',null,upstream.status);
         try {await env.IMAGES.put(key,result.image,{expirationTtl:14*86400});}
         catch {return generationFailure('cache_write_failed');}
@@ -194,7 +226,7 @@ export default {
       }
       const asset=path.match(/^\/v1\/(private|expose)\/(?:batches\/)?(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(.+)$/);
       if(asset && NAME.test(asset[3])) {
-        const [,kind,id,name]=asset,r=await scope(env,id,true);if(!r) return response({error:'No reviewed content'},404);const key=`private:${r.batch_id}:${name}`;
+        const [,kind,id,name]=asset,r=await stagedScope(env,id,req);if(!r) return response({error:'No reviewed content'},404);const key=`private:${r.batch_id}:${name}`;
         if(kind==='private' && req.method==='GET') {
           try {const data=await imageValue(env,key,r.batch_id,r.date,{type:'arrayBuffer',cacheTtl:30});return data?new Response(data,{headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store'}}):response({error:'Asset not found'},404);}
           catch {return storageFailure('asset_read_failed',503,name);}
