@@ -96,7 +96,7 @@ class SuccessReportTests(unittest.TestCase):
         final=with_rendering(data,placement);text,markup=render_report(final)
         self.assertEqual(final['palette'],package['design_palette'])
         self.assertEqual(final['final_palette'],'terracotta-sand')
-        self.assertIn('Photo-reviewed final palette',text);self.assertIn('Final rendering',markup)
+        self.assertIn('Final rendered palette',text);self.assertIn('Final rendering',markup)
         self.assertNotIn('private-model-prose',str(final))
         for mutation in ('date','batch','palette','position'):
             bad=copy.deepcopy(placement)

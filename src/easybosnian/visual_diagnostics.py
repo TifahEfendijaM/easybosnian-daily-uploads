@@ -7,6 +7,53 @@ REVIEW_FAILURES = frozenset(('review timed out', 'ChatGPT execution failed; chec
     'review returned no result', 'invalid review JSON', 'review violated the declarative schema',
     'review unavailable; exact cause not recorded'))
 
+PALETTE_REASONS = {
+    'chatgpt': frozenset(('ChatGPT selected this approved palette',)),
+    'fallback': frozenset(('ChatGPT palette missing', 'ChatGPT palette not approved',
+        'ChatGPT palette fails text contrast', 'ChatGPT palette fails photographic contrast',
+        'Review unavailable; using preparation palette')),
+    'unknown': frozenset(('Palette source not recorded in this older run',)),
+}
+PALETTE_RENDER_FAILURES = frozenset((
+    'Hybrid palette fails text contrast',
+    'Actual photographic text contrast fails; never publish unreadable copy',
+    'Unshaded photo text fails measured contrast',
+))
+
+
+def select_palette(plan, fallback):
+    """Resolve only the palette; never repair any other reviewed field."""
+    from .core import ROOT, read_json
+    from .render import contrast
+    catalogue=read_json(ROOT/'data/design-palettes.json')
+    if fallback not in catalogue:raise ValueError('Unknown approved palette')
+    requested=plan.get('palette')
+    reason=None
+    if 'palette' not in plan:reason='ChatGPT palette missing'
+    elif not isinstance(requested,str) or requested not in catalogue:
+        reason='ChatGPT palette not approved'
+    else:
+        colours=catalogue[requested]
+        if min(contrast(colours['ink'],colours['panel']),contrast(colours['ink'],colours['accent']))<4.5:
+            reason='ChatGPT palette fails text contrast'
+    if reason:return fallback,{'source':'fallback','reason':reason}
+    return requested,{'source':'chatgpt','reason':'ChatGPT selected this approved palette'}
+
+
+def safe_palette_outcome(value):
+    if not isinstance(value,dict) or set(value)!= {'source','reason'}:
+        raise ValueError('Invalid palette provenance metadata')
+    if (not isinstance(value['source'],str) or not isinstance(value['reason'],str) or
+            value['source'] not in PALETTE_REASONS or value['reason'] not in PALETTE_REASONS[value['source']]):
+        raise ValueError('Unapproved palette provenance metadata')
+    return copy.deepcopy(value)
+
+
+def rendering_provenance(card, review_status=None):
+    """Old artifacts cannot establish palette source; never guess from equal IDs."""
+    palette=card.get('palette_outcome',{'source':'unknown','reason':'Palette source not recorded in this older run'})
+    return {'layout':rendering_outcome(card,review_status),'palette':safe_palette_outcome(palette)}
+
 
 def review_failure(error):
     if isinstance(error,json.JSONDecodeError):return 'invalid review JSON'
@@ -21,7 +68,7 @@ def review_failure(error):
 def rendering_outcome(card, review_status=None):
     """Only trusted classifications can reach the summary or recent-design context."""
     status=card.get('status')
-    if status=='accepted':return {'source':'chatgpt','reason':'Pillow validated and used ChatGPT’s choices'}
+    if status=='accepted':return {'source':'chatgpt','reason':'Pillow validated and used ChatGPT’s layout choices'}
     if card.get('rejection'):
         return {'source':'fallback','reason':'Pillow rejected the proposal: '+safe_rejection(card['rejection'])['reason']}
     reason=card.get('review_failure')

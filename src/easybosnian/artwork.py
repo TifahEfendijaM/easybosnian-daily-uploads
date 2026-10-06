@@ -8,13 +8,14 @@ from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
 from .hybrid import default_plan, render_hybrid
-from .visual_diagnostics import approved_proposal, rejection_diagnostic, rendering_outcome, REVIEW_FAILURES
+from .visual_diagnostics import (rejection_diagnostic, rendering_outcome, rendering_provenance,
+    select_palette, safe_palette_outcome, PALETTE_RENDER_FAILURES, REVIEW_FAILURES)
 from .store import wait_for_image
 
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':13, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':14, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -64,13 +65,40 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 metrics=saved['metrics'][kind]
             elif review_images:
                 plan=proposal['cards'][kind]
-                palette=plan.get('palette',package['design_palette'])
+                if status=='reviewed':
+                    palette,palette_outcome=select_palette(plan,package['design_palette'])
+                    recorded=proposal.get('palette_decisions',{}).get(kind)
+                    if recorded is not None and palette_outcome['source']=='chatgpt':
+                        palette_outcome=safe_palette_outcome(recorded)
+                else:
+                    palette=package['design_palette']
+                    palette_outcome={'source':'fallback','reason':'Review unavailable; using preparation palette'}
                 model_accepted=status=='reviewed' and plan['confidence']=='high'
-                if not model_accepted:plan=default_plan(card)
-                rejection=None
+                plan=dict(plan,palette=palette) if model_accepted else default_plan(card)
+                rejection=None;palette_rejection=None
                 stage='Pillow rendering'
+                def render_selected(selected_plan):
+                    nonlocal palette,palette_outcome,palette_rejection
+                    try:
+                        return render_hybrid(card,palette,background,path,selected_plan)
+                    except ValueError as error:
+                        if (str(error) not in PALETTE_RENDER_FAILURES or
+                                palette_outcome['source']!='chatgpt'):
+                            raise
+                        # A bounded local colour fallback, never another model,
+                        # generation, storage or publication request. Preserve
+                        # every layout field and revalidate against real pixels.
+                        palette_rejection=rejection_diagnostic(error,selected_plan)
+                        write_json(output/f'{kind}-palette-rejection-result.json',
+                                   {'batch':date,'batch_id':package.get('batch_id'),'card':kind,**palette_rejection})
+                        print(f"::warning::{kind} palette rejected: {palette_rejection['reason']}; validating unchanged layout with preparation palette")
+                        palette_outcome={'source':'fallback','reason':'ChatGPT palette fails photographic contrast'}
+                        if palette==package['design_palette']:raise
+                        palette=package['design_palette']
+                        selected_plan['palette']=palette
+                        return render_hybrid(card,palette,background,path,selected_plan)
                 try:
-                    metrics=render_hybrid(card,palette,background,path,plan)
+                    metrics=render_selected(plan)
                     decision_status='accepted' if model_accepted else 'default'
                 except ValueError as error:
                     # Bad cosmetic geometry/contrast cannot trigger a second model
@@ -79,25 +107,22 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     write_json(output/f'{kind}-rejection-result.json',{'batch':date,'batch_id':package.get('batch_id'),
                                'card':kind,**rejection})
                     print(f"::warning::{kind} composition rejected: {rejection['reason']}; using measured fallback without retry")
-                    # A geometry rejection should not undo a valid photo-reviewed palette.
-                    # Invalid colour contracts/contrast retain the preparation-palette fallback.
-                    from .render import contrast
-                    from .hybrid import ROOT as renderer_root
-                    catalogue=read_json(renderer_root/'data/design-palettes.json')
-                    selected=catalogue.get(palette)
-                    keep_palette=(approved_proposal(plan) is not None and selected is not None
-                                  and min(contrast(selected['ink'],selected['panel']),contrast(selected['ink'],selected['accent']))>=4.5)
-                    metrics=render_hybrid(card,palette if keep_palette else package['design_palette'],background,path,default_plan(card))
+                    # Palette was independently resolved; replacing the layout
+                    # must not replace a valid model-selected palette too.
+                    metrics=render_selected(default_plan(card))
                     decision_status='rejected; safe hybrid fallback'
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
                                  'palette':metrics['palette'],'design':metrics['design'],'category_style':metrics['category_style'],
                                  'heading_tone':metrics['heading_tone'],'example_tone':metrics['example_tone'],
                                  'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],
                                  'block_typography':metrics['block_typography'],'composition':metrics.get('composition'),
-                                 **({'rejection':rejection} if rejection is not None else {})}
+                                 'palette_outcome':palette_outcome,
+                                 **({'rejection':rejection} if rejection is not None else {}),
+                                 **({'palette_rejection':palette_rejection} if palette_rejection is not None else {})}
                 if proposal.get('failure_reason') in REVIEW_FAILURES:
                     decisions[kind]['review_failure']=proposal['failure_reason']
                 decisions[kind]['outcome']=rendering_outcome(decisions[kind],status)
+                decisions[kind]['provenance']=rendering_provenance(decisions[kind],status)
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)

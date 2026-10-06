@@ -35,7 +35,8 @@ class HybridCompositionTests(unittest.TestCase):
         result=self.decision()
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(result)) as child:
             decisions,status=review_compositions(reviewed_fixture(),self.candidates())
-        self.assertEqual(decisions,result);self.assertEqual(status,'reviewed');child.assert_called_once()
+        self.assertEqual(decisions['cards'],result['cards']);self.assertEqual(status,'reviewed');child.assert_called_once()
+        self.assertTrue(all(p['source']=='chatgpt' for p in decisions['palette_decisions'].values()))
         self.assertTrue(child.call_args.kwargs['read_only']);self.assertEqual(child.call_args.kwargs['timeout'],120)
         self.assertEqual(child.call_args.kwargs['result_contract'],RESULT_SCHEMA)
         self.assertEqual(child.call_args.kwargs['images'],[self.candidates()[k]['sheet'] for k in KINDS])

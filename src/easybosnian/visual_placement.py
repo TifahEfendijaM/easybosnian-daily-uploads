@@ -203,15 +203,28 @@ def review_compositions(package, candidates, recent=()):
     try:
         result=json.loads(run_codex(prompt,timeout=120,result_contract=RESULT_SCHEMA,
                     images=[candidates[k]['sheet'] for k in KINDS],read_only=True))
+        # The model contract remains strict. Only palette failures are isolated
+        # by the trusted wrapper; every other field still validates unchanged.
+        from .visual_diagnostics import select_palette
+        palette_decisions={}
+        if isinstance(result,dict) and isinstance(result.get('cards'),dict):
+            for kind in KINDS:
+                plan=result['cards'].get(kind)
+                if isinstance(plan,dict):
+                    palette,palette_decisions[kind]=select_palette(plan,package['design_palette'])
+                    plan['palette']=palette
         if list(Draft202012Validator(RESULT_SCHEMA).iter_errors(result)):
             raise ValueError('Invalid visual composition')
+        result['palette_decisions']=palette_decisions
         return result,'reviewed'
     except AgentIntegrityError:raise
     except Exception as error:
         from .visual_diagnostics import review_failure
         reason=review_failure(error)
         print('::warning::Visual composition unavailable: '+reason+'; using safe hybrid layout without retry')
-        return {'failure_reason':reason,'cards':{c['kind']:dict(default_plan(c),palette=package['design_palette']) for c in package['cards']}},'unavailable'
+        return {'failure_reason':reason,
+                'palette_decisions':{k:{'source':'fallback','reason':'Review unavailable; using preparation palette'} for k in KINDS},
+                'cards':{c['kind']:dict(default_plan(c),palette=package['design_palette']) for c in package['cards']}},'unavailable'
 
 def main():
     from .artwork import artwork

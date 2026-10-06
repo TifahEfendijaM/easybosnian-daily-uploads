@@ -10,7 +10,7 @@ from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
                       STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE)
-from .visual_diagnostics import safe_rejection, rendering_outcome, approved_proposal
+from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
@@ -91,7 +91,8 @@ def with_rendering(data,placement):
             safe_typography[role]=dict(values)
         rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,
                                'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography,
-                               'outcome':rendering_outcome(result,placement.get('status'))}
+                               'outcome':rendering_outcome(result,placement.get('status')),
+                               'provenance':rendering_provenance(result,placement.get('status'))}
         for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
@@ -106,6 +107,7 @@ def with_rendering(data,placement):
                 raise ValueError('Final composition differs from rendered design metadata')
             rendered[LABELS[kind]]['composition']=composition
         if result.get('rejection') is not None:rendered[LABELS[kind]]['rejection']=safe_rejection(result['rejection'])
+        if result.get('palette_rejection') is not None:rendered[LABELS[kind]]['palette_rejection']=safe_rejection(result['palette_rejection'])
 
     return {**data,'final_palette':next(iter(palettes)) if len(palettes)==1 else 'per card',
             'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}
@@ -144,6 +146,11 @@ def decision_lines(rendering):
     return lines
 
 
+def provenance_lines(rendering):
+    return [label+' source: '+rendering['provenance'][key]['source']+' — '+rendering['provenance'][key]['reason']
+            for label,key in (('Layout','layout'),('Palette','palette'))]
+
+
 def prompt_block(prompt):
     fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',prompt)),default=0))
     return f'{fence}text\n{prompt}\n{fence}\n\n'
@@ -161,8 +168,7 @@ def visual_summary(source,placement=None):
         text+='#### '+markdown_text(card['category'])+'\n\n'
         rendering=card.get('rendering')
         if rendering:
-            outcome=rendering['outcome']
-            text+='**Visual decision — '+markdown_text(outcome['source'])+':** '+markdown_text(outcome['reason'])+'\n\n'
+            text+=''.join('**'+markdown_text(line)+'**\n\n' for line in provenance_lines(rendering))
             text+='**Applied design:**\n\n'+''.join('- '+markdown_text(line)+'\n' for line in decision_lines(rendering))+'\n'
         else:text+='Visual decisions not available: generation/review may not have completed.\n\n'
         text+=prompt_block(card['prompt'])
@@ -173,15 +179,16 @@ def render_report(data):
     text='## EasyBosnian — successful-run report\n\n'
     for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Preparation fallback palette','palette')]:
         text+=f"- **{label}:** {markdown_text(data[key])}\n"
-    if data.get('final_palette'):text+=f"- **Photo-reviewed final palette:** {markdown_text(data['final_palette'])}\n"
+    if data.get('final_palette'):text+=f"- **Final rendered palette:** {markdown_text(data['final_palette'])}\n"
     text+=f"\n[Open this run]({data['run_url']})\n\n### Exact FLUX prompts\n\n"
     for card in data['cards']:
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
         if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['palette'])} / {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
-        outcome=card.get('rendering',{}).get('outcome')
-        if outcome:text+='**Visual decision — '+markdown_text(outcome['source'])+':** '+markdown_text(outcome['reason'])+'\n\n'
         if card.get('rendering'):
+            text+=''.join('**'+markdown_text(line)+'**\n\n' for line in provenance_lines(card['rendering']))
             text+='**Applied design:**\n\n'+''.join('- '+markdown_text(line)+'\n' for line in decision_lines(card['rendering']))+'\n'
+        palette_rejection=card.get('rendering',{}).get('palette_rejection')
+        if palette_rejection:text+='**Palette fallback:** '+markdown_text(safe_rejection(palette_rejection)['reason'])+'\n\n'
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
@@ -203,15 +210,16 @@ def render_report(data):
     markup='<!doctype html><html><head><meta charset="utf-8"><title>EasyBosnian report</title></head><body><main style="font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:24px;color:#203142"><h1>EasyBosnian — successful-run report</h1><ul>'
     for label,key in [('Content date','date'),('Batch ID','batch_id'),('Theme','theme'),('Difficulty','difficulty'),('Preparation fallback palette','palette')]:
         markup+='<li><strong>'+label+':</strong> '+html.escape(str(data[key]))+'</li>'
-    if data.get('final_palette'):markup+='<li><strong>Photo-reviewed final palette:</strong> '+html.escape(data['final_palette'])+'</li>'
+    if data.get('final_palette'):markup+='<li><strong>Final rendered palette:</strong> '+html.escape(data['final_palette'])+'</li>'
     markup+='</ul><p><a href="'+html.escape(data['run_url'],quote=True)+'">Open this run</a></p><h2>Exact FLUX prompts</h2>'
     for card in data['cards']:
         markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p>'
         if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['palette'])+' / '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
-        outcome=card.get('rendering',{}).get('outcome')
-        if outcome:markup+='<p><strong>Visual decision — '+html.escape(outcome['source'])+':</strong> '+html.escape(outcome['reason'])+'</p>'
         if card.get('rendering'):
+            markup+=''.join('<p><strong>'+html.escape(line)+'</strong></p>' for line in provenance_lines(card['rendering']))
             markup+='<p><strong>Applied design:</strong></p><ul>'+''.join('<li>'+html.escape(line)+'</li>' for line in decision_lines(card['rendering']))+'</ul>'
+        palette_rejection=card.get('rendering',{}).get('palette_rejection')
+        if palette_rejection:markup+='<p><strong>Palette fallback:</strong> '+html.escape(safe_rejection(palette_rejection)['reason'])+'</p>'
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
