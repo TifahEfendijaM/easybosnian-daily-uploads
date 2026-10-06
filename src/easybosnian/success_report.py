@@ -1,12 +1,14 @@
 """Private successful-publication reports for GitHub summaries and artifacts."""
 import argparse
 import html
+import json
 import os
 import re
 from urllib.parse import urlparse
 
 from .batches import output_key
-from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES, MARKER_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES
+from .visual_diagnostics import safe_rejection
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
@@ -64,7 +66,7 @@ def with_rendering(data,placement):
         design=result.get('design','hybrid')  # Older private reports remain readable.
         styles=result.get('block_styles',{})
         if design not in DESIGNS or not isinstance(styles,dict) or any(
-                role not in ('body','example','A','B','C','D') or style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES)
+                role not in ('body','example','A','B','C','D') or style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES)
                 for role,style in styles.items()):
             raise ValueError('Invalid safe design metadata')
         badges=result.get('answer_badges',{})
@@ -80,6 +82,11 @@ def with_rendering(data,placement):
             safe_typography[role]=dict(values)
         rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,
                                'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography}
+        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
+            if field in result:
+                if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
+                rendered[LABELS[kind]][field]=result[field]
+        if result.get('rejection') is not None:rendered[LABELS[kind]]['rejection']=safe_rejection(result['rejection'])
 
     return {**data,'final_palette':next(iter(palettes)) if len(palettes)==1 else 'per card',
             'cards':[{**card,'rendering':rendered[card['category']]} for card in data['cards']]}
@@ -99,6 +106,11 @@ def render_report(data):
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
         if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['palette'])} / {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
+        rejection=card.get('rendering',{}).get('rejection')
+        if rejection:
+            safe=safe_rejection(rejection)
+            text+='**Layout fallback:** '+markdown_text(safe['reason'])+'\n\n'
+            text+='<details><summary>Rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(safe['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
         text+=f"{fence}text\n{card['prompt']}\n{fence}\n\n"
     text+='### Publication results\n\n'
     for platform in data['platforms']:
@@ -119,6 +131,10 @@ def render_report(data):
     for card in data['cards']:
         markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p>'
         if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['palette'])+' / '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
+        rejection=card.get('rendering',{}).get('rejection')
+        if rejection:
+            safe=safe_rejection(rejection)
+            markup+='<p><strong>Layout fallback:</strong> '+html.escape(safe['reason'])+'</p><details><summary>Rejected approved rendering parameters</summary><pre>'+html.escape(json.dumps(safe['proposal'],ensure_ascii=False,indent=2))+'</pre></details>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'
     for platform in data['platforms']:

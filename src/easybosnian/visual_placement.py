@@ -6,7 +6,9 @@ from jsonschema import Draft202012Validator
 from PIL import Image, ImageOps
 
 from .core import ROOT, read_json
-from .designs import DESIGNS, BODY_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE, FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES
+from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
+                     FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
+                     CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE)
 
 KINDS = ('quiz', 'lesson', 'word')
 def block_schema(role, styles):
@@ -23,11 +25,12 @@ def block_schema(role, styles):
                 'line_spacing':{'type':'number','minimum':LEADING_RANGE[0],'maximum':LEADING_RANGE[1]},
                 'max_lines':{'anyOf':[{'type':'null'},{'type':'integer','minimum':1,'maximum':12}]},
                 'wrapping':{'enum':list(WRAPPING)},
-                **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {})}}
+                **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {}),
+                **({'photo_tone':{'enum':list(PHOTO_TONES)}} if role=='example' else {})}}
 
 
 BLOCK_SCHEMA = {'anyOf':[block_schema('body',BODY_STYLES),
-                         block_schema('answer',tuple(s for s in BODY_STYLES if s not in ('plain','caption'))),
+                         block_schema('answer',ANSWER_STYLES),
                          block_schema('example',EXAMPLE_STYLES)]}
 CARD_SCHEMA = {
     'type':'object','additionalProperties':False,'required':['confidence','design','photo_window','blocks'],
@@ -35,6 +38,8 @@ CARD_SCHEMA = {
         'confidence':{'enum':['high','uncertain']},
         'design':{'enum':list(DESIGNS)},
         'palette':{'enum':list(read_json(ROOT/'data/design-palettes.json'))},
+        'category_style':{'enum':list(CATEGORY_STYLES)},
+        'heading_tone':{'enum':list(PHOTO_TONES)},
         'photo_window':{'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,
             'required':['y','height','fit'],'properties':{'fit':{'enum':['contain','cover']},'y':{'type':'integer','minimum':250,'maximum':770},
                 'height':{'type':'integer','minimum':240,'maximum':800}}}]},
@@ -70,18 +75,20 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import block_spec, default_plan, heading, roles
+    from .hybrid import fallback_spec, default_plan, heading, roles
     context=[]
     for card in package['cards']:
         blocks=[]
         for role in roles(card):
             variants={}
-            for style in (EXAMPLE_STYLES if role=='example' else BODY_STYLES):
+            for style in (EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES):
                 sizes=[]
                 for width in (300,480,660,952):
-                    try:height=block_spec(card,role,width,style)['height']
-                    except ValueError:height=None
-                    sizes.append({'width':width,'measured_height':height})
+                    try:spec=fallback_spec(card,role,width,style)
+                    except ValueError:spec=None
+                    sizes.append({'width':width,'measured_height':spec['height'] if spec else None,
+                                  'font_size':spec['font_size'] if spec else None,
+                                  'line_spacing':spec['line_spacing'] if spec else None})
                 variants[style]=sizes
             text=(card['body'] if role=='body' else card['example'] if role=='example'
                   else next(option['text'] for option in card['options'] if option['label']==role))
@@ -102,13 +109,27 @@ def review_compositions(package, candidates):
         'is provided. Inspect these actual photos and the exact public text in the context, then '
         'choose your own approved composition for each case. The default_plan is an uncertainty '
         'fallback, not a recommended design or a placement to imitate. '
-        'Choose an approved palette ID independently for each card AFTER assessing the natural colours '
-        'of these actual photos. Complement real materials/light; never recolour the photo. '
+        'Choose an approved palette ID for each card AFTER assessing the natural colours of '
+        'ALL THREE actual photos together. First compare suitable palettes for the batch as a whole. '
+        'When the photographs share similar materials, lighting and dominant colours, prefer the '
+        'same best-fitting palette across all three. Use different palettes ONLY when meaningful '
+        'differences between the photographs justify them; never vary colours for variety alone. '
+        'Do not mechanically copy the quiz palette: choose the shared palette against all photos. '
+        'Complement real materials/light; never recolour the photo. '
         'Choose each block x,y,width freely in the 1080x1350 coordinate system, not from a fixed '
         'top/bottom menu. Category and serif heading stay fixed. Preserve all block roles in the '
         'given array order; no new text. Choose design=hybrid or editorial, and a supported style '
         'for EACH block from the approved Pillow catalogue. These are real rendering choices, '
-        'not metadata: Pillow owns fonts, category/title design, borders and exact drawing. '
+        'not metadata: Pillow owns fonts, category/title anchors, borders and exact drawing. '
+        'Choose category_style from the approved category catalogue independently of body/answer '
+        'styles. The ribbon, underline and pill category designs are fully available. '
+        'Choose heading_tone and example photo_tone only from the approved photo-colour catalogue: '
+        'auto, paper_dark, ink_light, paper_ink, ink_paper or accent_ink. These presets can produce '
+        'light text on a dark fade, dark text on a light fade, or palette-coloured text/fades. '
+        'No custom colour or opacity. Auto lets Pillow select readable approved paper/ink text. '
+        'For a paper-surface heading (any photo_window) and editorial italic_footer use auto. '
+        'For italic_photo there is NO fade even with an explicit tone; contrast must pass as-is. '
+        'Choose colours for readability and harmony, never variety for its own sake. '
         'Before selecting a final treatment for EACH card, actively review all compatible options '
         'from the full approved design catalogue, then compare several materially different '
         'treatments and plausible placements against this actual photograph: its available negative '
@@ -120,7 +141,7 @@ def review_compositions(package, candidates):
         'less often. Do not use quotas, forced rotation, randomness or a requirement that styles '
         'differ for the sake of variety. This comparison does not override style/design compatibility, '
         'the full-photo strong default, the approved middle-photo exception or any safety constraint. '
-        'Hybrid body/answers choose real treatments from the catalogue; plain is editorial only, caption is body only (max3 lines). Bottom_sheet requires width>=660 and y>=700. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (preset neutral contrast fade), or editorial italic_footer. Never box an example. '
+        'Hybrid body/answers choose real treatments from the catalogue; plain is editorial only, caption is body only (max3 lines), pill is answers only (max2 lines). Bottom_sheet requires width>=660 and y>=700. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (approved contrast fade), or editorial italic_footer. Never box an example. '
         'For ordinary lesson/word cards use full-background hybrid as the STRONG DEFAULT. '
         'Choose freely among its approved body treatments, placing body and unboxed italic '
         'example around the important visible subjects. No hybrid body treatment has priority '
@@ -162,7 +183,8 @@ def review_compositions(package, candidates):
         'Visual-identification quizzes require hybrid/contain with the question above the complete photo and every answer below. Their photo may be240px or taller; other photo windows must be>=400px. '
         'Use high confidence only for a considered, readable composition. The wrapper independently '
         'measures fit/overlap/contrast and falls back rather than changing copy. Design catalogue: '
-        +json.dumps(STYLE_CATALOGUE)+' Palette catalogue: '
+        +json.dumps(STYLE_CATALOGUE)+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
+        +' Photo-colour catalogue: '+json.dumps(PHOTO_TONE_CATALOGUE)+' Palette catalogue: '
         +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Context: '+json.dumps(context,ensure_ascii=False))
     try:
         result=json.loads(run_codex(prompt,timeout=120,result_contract=RESULT_SCHEMA,

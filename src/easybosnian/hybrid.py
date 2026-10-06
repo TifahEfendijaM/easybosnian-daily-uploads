@@ -5,9 +5,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .core import ROOT
-from .designs import BODY_STYLES, EXAMPLE_STYLES, PANEL_STYLES, MARKER_STYLES, typography
+from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
+                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
-                     draw_rows, draw_tracked_label, font, measure, wrap)
+                     draw_rows, font, measure, wrap)
 
 
 def serif(size, italic=False):
@@ -42,7 +43,7 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
         extra=measure(['PRIMJER'],font(21,'SemiBold'))[0]+16+(24 if style=='italic_footer' else 0)
         inset=0
     else:
-        if style not in BODY_STYLES or (role!='body' and style in ('plain','caption')):
+        if style not in (BODY_STYLES if role=='body' else ANSWER_STYLES):
             raise ValueError('Unsupported explanation/answer style')
         face=font(size,'SemiBold' if style=='caption' else 'Regular')
         text=card['body'] if role=='body' else next(o['text'] for o in card['options'] if o['label']==role)
@@ -55,6 +56,7 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
         raise ValueError('Actual glyphs exceed block width')
     if max_lines is not None and len(rows)>max_lines:raise ValueError('Exact text exceeds maximum lines; never truncate')
     if style=='caption' and len(rows)>3:raise ValueError('Caption treatment is limited to three measured lines')
+    if style=='pill' and len(rows)>2:raise ValueError('Pill answers are limited to two measured lines')
     text_height,step=measure(rows,face,line_spacing)
     text_offset=0
     if role not in ('body','example'):
@@ -74,11 +76,21 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
             'text_cell_height':text_height,'text_cell_offset':text_offset}
 
 
+def fallback_spec(card,role,width=952,style=None):
+    """Measured safe leading for renderer-owned defaults; never repair model intent."""
+    for leading in (1.30,1.35,1.40,1.45,1.50,1.55):
+        try:return block_spec(card,role,width,style,line_spacing=leading)
+        except ValueError as error:
+            if str(error)!='Requested leading collides with measured glyphs':raise
+    raise ValueError('No approved fallback leading fits measured glyphs')
+
+
 def declared_block(card,role,width=952,style=None,**geometry):
-    spec=block_spec(card,role,width,style)
+    spec=fallback_spec(card,role,width,style)
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
             **({'marker_style':'circle'} if role not in ('body','example') else {}),
-            'line_spacing':1.30,'max_lines':None,'wrapping':'balanced',**geometry}
+            **({'photo_tone':'auto'} if role=='example' else {}),
+            'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
 
 def default_plan(card):
@@ -86,29 +98,34 @@ def default_plan(card):
     y=heading(card)[2]+28;blocks=[];window=None
     if card.get('quiz_format')=='visual_identification':
         y=max(250,y)
-        specs=[block_spec(card,role,952) for role in roles(card)]
+        specs=[fallback_spec(card,role,952) for role in roles(card)]
         height=min(510,1170-y-28-sum(s['height'] for s in specs)-16*(len(specs)-1))
         if height<240:raise ValueError('Visual quiz cannot preserve complete photo and exact copy')
         window={'y':y,'height':height,'fit':'contain'};y+=height+28
     for role in roles(card):
-        spec=block_spec(card,role,952)
+        spec=fallback_spec(card,role,952)
+        if role=='example':
+            # Bottom-biased, measured and logo-safe; never model repair or truncation.
+            y=max(y,1150-spec['height'])
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(28 if role=='body' else 16)
-    return {'confidence':'uncertain','design':'hybrid','photo_window':window,'blocks':blocks}
+    return {'confidence':'uncertain','design':'hybrid','category_style':'rounded',
+            'heading_tone':'auto','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
     if card['kind']=='quiz':raise ValueError('Quiz retains its clear photographic design')
     top=heading(card)[2]+28
     body=declared_block(card,'body',style='plain',x=64,y=top)
-    photo_top=top+block_spec(card,'body',952,'plain')['height']+24
-    footer_height=block_spec(card,'example',800,'italic_footer')['height'] if card.get('example') else 0
+    photo_top=top+fallback_spec(card,'body',952,'plain')['height']+24
+    footer_height=fallback_spec(card,'example',800,'italic_footer')['height'] if card.get('example') else 0
     photo_height=min(560,1170-photo_top,1286-photo_top-footer_height-24)
     if photo_height<400:raise ValueError('Editorial reference cannot fit exact copy')
     blocks=[body]
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
-    return {'confidence':'high','design':'editorial','photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
+    return {'confidence':'high','design':'editorial','category_style':'underlined',
+            'heading_tone':'auto','photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
 def measured_plan(card, plan):
@@ -119,6 +136,8 @@ def measured_plan(card, plan):
         raise ValueError('Invalid hybrid composition contract')
     if [b['role'] for b in plan['blocks']] != roles(card):
         raise ValueError('Composition must preserve every reviewed block and quiz label order')
+    if plan['photo_window'] is not None and plan.get('heading_tone','auto')!='auto':
+        raise ValueError('Paper headings require automatic palette ink')
     header_end = heading(card)[2]
     measured=[]
     for block in plan['blocks']:
@@ -128,6 +147,8 @@ def measured_plan(card, plan):
         if plan['design']=='editorial':
             if card['kind']=='quiz' or style!=('italic_footer' if block['role']=='example' else 'plain'):
                 raise ValueError('Editorial requires plain explanation and italic footer')
+            if block.get('photo_tone','auto')!='auto':
+                raise ValueError('Paper examples require automatic palette ink')
         elif style in ('plain','italic_footer'):
             raise ValueError('Paper styles require the editorial design')
         if style=='bottom_sheet' and (block['width']<660 or block['y']<700):
@@ -176,8 +197,21 @@ def measured_plan(card, plan):
     return measured
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True):
-    """Real glyph contrast, using a smooth neutral fade rather than an example box."""
+def photo_colours(palette, tone='auto'):
+    """Only catalogue colours and fixed fade backgrounds; no model primitives."""
+    if tone not in PHOTO_TONES:raise ValueError('Unsupported photographic colour treatment')
+    paper,ink,accent=palette['panel'],palette['ink'],palette['accent']
+    if tone=='auto':return [paper,ink],None
+    colour,backing={
+        'paper_dark':(paper,'#000000'), 'ink_light':(ink,'#ffffff'),
+        'paper_ink':(paper,ink), 'ink_paper':(ink,paper), 'accent_ink':(accent,ink),
+    }[tone]
+    rgb=tuple(int(backing[i:i+2],16) for i in (1,3,5))
+    return [colour],[(colour,rgb)]
+
+
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None):
+    """Real glyph contrast with approved feathered fades, never an example box."""
     text_height,_=measure(rows,face,line_spacing)
     mask=Image.new('L',image.size)
     draw_rows(ImageDraw.Draw(mask),xy,rows,face,255,line_spacing)
@@ -193,11 +227,11 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     score,colour=max(choices)
     if score>=threshold:return colour,score,0
     if not allow_fade:raise ValueError('Unshaded photo text fails measured contrast')
-    # A neutral black/white feathered gradient protects only this text region.
+    # A fixed neutral/palette feathered gradient protects only this text region.
     # Never recolour the scene to fit the selected accent.
     best=None
     left,top,right,bottom=region_limit or (0,0,WIDTH,HEIGHT)
-    for colour,backing in ((colours[0],(0,0,0)),(colours[-1],(255,255,255))):
+    for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
         for alpha in (90,130,170,210,240):
             overlay=Image.new('RGBA',image.size)
             od=ImageDraw.Draw(overlay)
@@ -215,13 +249,41 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     return colour,score,alpha
 
 
+def category_label(image, label, palette, style='rounded', top=64, paper_surface=False):
+    """Six fixed category treatments, shared anchors/typography and exact accents."""
+    if style not in CATEGORY_STYLES:raise ValueError('Unsupported category treatment')
+    face=font(27,'SemiBold');width=round(face.getlength(label))+46
+    x=64;right=x+width;bottom=top+62
+    ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
+    draw=ImageDraw.Draw(image)
+    if style=='underlined':
+        xy=(x,top+18)
+        if paper_surface:colour=ink;score=contrast(ink,paper);shade=0
+        else:colour,score,shade=protect_text(image,xy,[label],face,[paper,ink],4.5,(0,top-12,WIDTH,bottom+12))
+        draw=ImageDraw.Draw(image)
+        draw_rows(draw,xy,[label],face,colour)
+        draw.line((x,bottom-1,right-46,bottom-1),fill=accent,width=3)
+        return {'style':style,'colour':colour,'contrast':round(score,2),'shading':shade}
+    if style in ('rounded','pill'):
+        draw.rounded_rectangle((x,top,right,bottom),radius=16 if style=='rounded' else 31,fill=accent)
+    elif style=='ribbon':
+        draw.polygon(((x,top),(right,top),(right+18,top+31),(right,bottom),(x,bottom)),fill=accent)
+    elif style=='outlined':draw.rectangle((x,top,right,bottom),fill=paper,outline=accent,width=3)
+    elif style=='tab':
+        draw.rectangle((x,top,right,bottom),fill=accent)
+        draw.line((x+23,bottom-9,right-23,bottom-9),fill=ink,width=2)
+    centered(draw,(x,top,right,bottom),label,face,ink)
+    return {'style':style,'colour':ink,'contrast':round(contrast(ink,paper if style=='outlined' else accent),2),'shading':0}
+
+
 def draw_panel(image, block, palette):
     """Approved panel treatments have distinct geometry/surfaces, never model primitives."""
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
     draw=ImageDraw.Draw(image);colour=ink
-    if style=='rounded':draw.rounded_rectangle((x,y,right,bottom),radius=24,fill=paper)
+    if style in ('rounded','pill'):
+        draw.rounded_rectangle((x,y,right,bottom),radius=24 if style=='rounded' else block['height']/2,fill=paper)
     elif style=='outlined':draw.rectangle((x,y,right,bottom),fill=paper,outline=accent,width=3)
     elif style=='overlay_dark':
         draw.rectangle((x,y,right,bottom),fill=ink);colour=paper
@@ -316,9 +378,11 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     else:
         image=ImageOps.fit(photo,(WIDTH,HEIGHT),method=Image.Resampling.LANCZOS).convert('RGBA')
     title_face,title_rows,header_end=heading(card)
+    heading_tone=plan.get('heading_tone','auto')
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
-        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,[paper,ink],3)
+        colours,backings=photo_colours(palette,heading_tone)
+        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,backings=backings)
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
@@ -327,10 +391,11 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             x,y=block['x'],block['y'];label_face=font(21,'SemiBold')
             example_y=y if block['style']=='caption' else y+measure(['PRIMJER'],label_face)[0]+16
             limit=photo_bounds or [0,header_end+14,WIDTH,1170]
+            colours,backings=photo_colours(palette,block.get('photo_tone','auto'))
             example_colour,example_contrast,example_shading=protect_text(
-                image,(x,example_y),block['rows'],block['face'],[paper,ink],4.5,limit,
+                image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[] if block['style']=='caption' else [((x,y),['PRIMJER'],label_face)],
-                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo')
+                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings)
             block['photo_colour']=example_colour;block['photo_contrast']=example_contrast
             block['photo_shading']=example_shading
             if block['role']!='example':example_contrast=None;example_shading=0
@@ -350,15 +415,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         else:body_contrast=min(body_contrast,score)
     draw=ImageDraw.Draw(image)
     label=LABELS[card['kind']]
-    if plan['design']=='editorial':
-        # Approved editorial header; category and title retain their fixed anchors.
-        label_face=font(22,'SemiBold')
-        draw_tracked_label(draw,(64,82),label,label_face,ink)
-        draw.line((64,120,270,120),fill=accent,width=3)
-    else:
-        label_face=font(27,'SemiBold')
-        label_box=(64,64,64+round(label_face.getlength(label))+46,126)
-        draw.rounded_rectangle(label_box,radius=16,fill=accent);centered(draw,label_box,label,label_face,ink)
+    category=category_label(image,label,palette,plan.get('category_style','underlined' if plan['design']=='editorial' else 'rounded'),paper_surface=bool(window))
+    draw=ImageDraw.Draw(image)
     draw_rows(draw,(64,155),title_rows,title_face,heading_colour)
     for block in blocks:
         x,y=block['x'],block['y'];role=block['role'];face=block['face'];rows=block['rows'];padding=block['padding'];style=block['style']
@@ -401,9 +459,12 @@ def render_hybrid(card, palette_id, background, output, plan=None):
                 'photo_size':[photo_bounds[2]-photo_bounds[0],photo_bounds[3]-photo_bounds[1]]} if card.get('quiz_format')=='visual_identification' else {}),
             'typography':'hybrid','palette':palette_id,'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),
+            'category_style':category['style'],'category_contrast':category['contrast'],
+            'heading_tone':heading_tone,'heading_colour':heading_colour,
+            'example_tone':next((b.get('photo_tone','auto') for b in blocks if b['role']=='example'),None),'example_colour':example_colour,
             'answer_badges':{b['role']:b.get('marker_style','circle') for b in blocks if b['role'] not in ('body','example')},
             'block_typography':{b['role']:{k:b[k] for k in ('font_size','line_spacing','max_lines','wrapping')} for b in blocks},'heading_font':'Lora SemiBold','body_font':'Inter',
-            'example_style':next(({'italic_photo':'Lora Italic over photograph','italic_photo_fade':'Lora Italic over photograph with neutral fade','italic_footer':'Lora Italic on paper footer'}[b['style']] for b in blocks if b['role']=='example'),None),
+            'example_style':next(({'italic_photo':'Lora Italic over photograph','italic_photo_fade':'Lora Italic over photograph with approved fade','italic_footer':'Lora Italic on paper footer'}[b['style']] for b in blocks if b['role']=='example'),None),
             'panel_bounds':[list(map(round,b['bounds'])) for b in blocks if b['style'] in PANEL_STYLES],
             'example_bounds':next((list(map(round,b['bounds'])) for b in blocks if b['role']=='example'),None),
             'photo_bounds':photo_bounds,'photo_cropped':not bool(window) or window['fit']=='cover',

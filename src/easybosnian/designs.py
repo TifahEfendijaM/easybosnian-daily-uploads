@@ -5,13 +5,17 @@ BODY_STYLES = ('rounded', 'outlined', 'plain', 'overlay_dark', 'overlay_light',
                'double_frame', 'notebook_margin', 'top_ribbon', 'corner_brackets')
 EXAMPLE_STYLES = ('italic_photo', 'italic_photo_fade', 'italic_footer')
 PANEL_STYLES = tuple(s for s in BODY_STYLES if s not in ('plain', 'caption'))
+ANSWER_STYLES = (*PANEL_STYLES, 'pill')
+PANEL_STYLES = (*PANEL_STYLES, 'pill')
+CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
+PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink')
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size
 WRAPPING = ('balanced', 'natural')
 STYLE_CATALOGUE = {
-    'hybrid': 'Photographic background or complete contained photo; rounded accent badge and fixed Lora title. Body styles except plain; photo examples italic_photo or italic_photo_fade.',
-    'editorial': 'Lesson/word paper page; tracked category underline and fixed Lora title. Plain explanation above a wide cover photo, italic_footer below. No other styles.',
+    'hybrid': 'Photographic background or complete contained photo; approved category treatment and fixed Lora title. Body styles except plain; photo examples italic_photo or italic_photo_fade.',
+    'editorial': 'Lesson/word paper page; approved category treatment and fixed Lora title. Plain explanation above a wide cover photo, italic_footer below. No other body styles.',
     'rounded': 'Opaque paper panel, 24px rounded corners, inset accent rule; independently chosen approved quiz badge.',
     'outlined': 'Opaque square paper panel with 3px accent outline; inset rule and independently chosen approved quiz badge.',
     'plain': 'Unboxed Inter body on editorial paper only; no background, rule or border. Not valid for answers.',
@@ -26,9 +30,26 @@ STYLE_CATALOGUE = {
     'notebook_margin': 'Paper panel with a thin accent margin and small ruled edge ticks, inspired by the former notebook treatment; decoration stays outside the glyphs and answer badge.',
     'top_ribbon': 'Paper panel with a full-width accent top ribbon and a fine ink bottom rule, inspired by the former ribbon treatment; independent approved answer badge.',
     'corner_brackets': 'Paper panel with four inset accent corner brackets instead of a continuous outline; independent approved answer badge.',
+    'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using only renderer-owned neutral feathered contrast presets when needed.',
+    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using only renderer-owned approved neutral/palette feathered contrast presets when needed.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
+}
+CATEGORY_CATALOGUE = {
+    'rounded': 'Accent chip with moderately rounded corners and ink text.',
+    'pill': 'Accent capsule with fully rounded ends and ink text.',
+    'ribbon': 'Accent ribbon with a pointed right end and ink text.',
+    'underlined': 'Unboxed category text with a thin accent underline; measured photographic contrast or paper ink.',
+    'outlined': 'Paper chip with square corners and an accent outline, ink text.',
+    'tab': 'Square accent tab with a short ink underline, ink text.',
+}
+PHOTO_TONE_CATALOGUE = {
+    'auto': 'Pillow chooses approved paper or ink glyphs and a neutral black/white fade only if required.',
+    'paper_dark': 'Palette paper glyphs; neutral black fade when required.',
+    'ink_light': 'Palette ink glyphs; neutral white fade when required.',
+    'paper_ink': 'Palette paper glyphs; palette ink fade when required.',
+    'ink_paper': 'Palette ink glyphs; palette paper fade when required.',
+    'accent_ink': 'Palette accent glyphs; palette ink fade when required.',
 }
 
 
