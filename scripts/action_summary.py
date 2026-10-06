@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from easybosnian.visual_diagnostics import safe_rejection
 
 text='This workflow has no confirmed publication result. Inspect failed steps and diagnostics.\n'
 results=list(Path('build').glob('*/result.json'))
@@ -27,7 +28,11 @@ if placements:
     placement=json.loads(placements[0].read_text())
     text+='\nFeed text placement: '+placement['status']+'\n'
     for kind,result in placement['cards'].items():
-        text+='- '+kind+': '+result['position']+'\n'
+        text+='- '+kind+': '+result['position']+' ('+result.get('status','not recorded')+')\n'
+        if result.get('rejection'):
+            rejection=safe_rejection(result['rejection'])
+            text+='  Layout fallback: '+rejection['reason']+'\n'
+            text+='\n<details><summary>'+kind+' — rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(rejection['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
 print(text)

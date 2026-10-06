@@ -293,12 +293,16 @@ class PreparedArtworkTests(unittest.TestCase):
             self.assertEqual(result['lesson']['metrics']['block_styles']['body'],'outlined')
             self.assertEqual(result['word']['metrics']['panel_position'],'normal')
             self.assertEqual(result['lesson']['metrics']['palette'],'terracotta-sand')
-            self.assertEqual(result['word']['metrics']['palette'],package['design_palette'])
+            self.assertEqual(result['word']['metrics']['palette'],'terracotta-sand')
             self.assertEqual(artwork_palette(package,result,'lesson'),read_json(ROOT/'data/design-palettes.json')['terracotta-sand'])
             safe=read_json(Path(temp)/'build'/package['batch_id']/'image-placement-result.json')
             self.assertEqual(safe['cards']['lesson']['block_styles']['body'],'outlined')
             self.assertEqual(safe['cards']['word']['block_styles']['body'],'rounded')
             self.assertIn('rejected',safe['cards']['word']['status']);self.assertNotIn('private_review',str(safe))
+            rejection=safe['cards']['word']['rejection']
+            self.assertEqual(rejection['reason'],'Composition intersects the fixed heading, margin or logo strip')
+            self.assertEqual(rejection['proposal'],decisions['cards']['word'])
+            self.assertTrue((Path(temp)/'build'/package['batch_id']/'word-rejection-result.json').is_file())
             self.assertEqual((Path(temp)/'build'/package['batch_id']/'prepared-artwork.secret').stat().st_mode&0o777,0o600)
             store.expose.reset_mock()
             for mismatch in ('input','run','file'):

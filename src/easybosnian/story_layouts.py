@@ -5,9 +5,9 @@ from .core import ROOT
 from .render import LABELS, centered, contrast, density, draw_rows, font, measure, wrap
 
 
-def tall_story_image(card, background, destination, palette):
+def tall_story_image(card, background, destination, palette, category_style='rounded'):
     if card['kind'] == 'quiz':
-        return _quiz_image(card, background, destination, palette, height=1920)
+        return _quiz_image(card, background, destination, palette, height=1920,category_style=category_style)
     if card['kind'] not in ('lesson', 'word'):
         raise ValueError('Tall Story treatment is only for lesson and word cards')
     if not background:
@@ -17,10 +17,9 @@ def tall_story_image(card, background, destination, palette):
         raise ValueError('Tall Story text contrast fails; reject rather than alter text')
     image = Image.new('RGBA', (1080, 1920), paper)
     draw = ImageDraw.Draw(image)
-    label_face = font(27, 'SemiBold'); label = LABELS[card['kind']]
-    label_box = (64, 180, 64 + round(label_face.getlength(label)) + 48, 242)
-    draw.rounded_rectangle(label_box, radius=16, fill=accent)
-    centered(draw, label_box, label, label_face, ink)
+    from .hybrid import category_label
+    category_label(image,LABELS[card['kind']],palette,category_style,top=180,paper_surface=True)
+    draw=ImageDraw.Draw(image)
     title_face = font(80, 'SemiBold')
     title_rows = wrap(card['heading'], title_face, 952)
     if len(title_rows) > 2:
@@ -72,7 +71,7 @@ def tall_story_image(card, background, destination, palette):
         logo.thumbnail((102, 80), Image.Resampling.LANCZOS)
     image.alpha_composite(logo, (1016 - logo.width, 1690))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
-    return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,
+    return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,'category_style':category_style,
             'panel_bounds': bounds, 'example_bounds':example_bounds,'example_rule_bounds':example_rule_bounds,
             'example_style':'Lora Italic on paper footer' if card.get('example') else None,
             'example_contrast':round(contrast(ink,paper),2) if card.get('example') else None, 'photo_size': list(photo.size), 'photo_cropped': False}
@@ -85,7 +84,7 @@ def visual_quiz_image(card, background, destination, palette, height=1920, serif
     return _quiz_image(card, background, destination, palette, height, serif_heading)
 
 
-def _quiz_image(card, background, destination, palette, height, serif_heading=False):
+def _quiz_image(card, background, destination, palette, height, serif_heading=False,category_style='rounded'):
     """All quiz Stories use B; visual naming may also use it in the feed."""
     if card['kind'] != 'quiz':
         raise ValueError('Separate quiz photo requires a quiz card')
@@ -96,10 +95,9 @@ def _quiz_image(card, background, destination, palette, height, serif_heading=Fa
     if body_contrast < 4.5: raise ValueError('Visual quiz text contrast fails')
     image = Image.new('RGBA', (1080, height), paper); draw = ImageDraw.Draw(image)
     top = 180 if height == 1920 else 64
-    label_face = font(27, 'SemiBold'); label = LABELS['quiz']
-    label_box = (64, top, 64 + round(label_face.getlength(label)) + 48, top + 62)
-    draw.rounded_rectangle(label_box, radius=16, fill=accent)
-    centered(draw, label_box, label, label_face, ink)
+    from .hybrid import category_label
+    category_label(image,LABELS['quiz'],palette,category_style,top=top,paper_surface=True)
+    draw=ImageDraw.Draw(image)
     if serif_heading:
         from .hybrid import serif
         question_face=serif(50)
@@ -144,7 +142,7 @@ def _quiz_image(card, background, destination, palette, height, serif_heading=Fa
         logo.thumbnail((102, 80), Image.Resampling.LANCZOS)
     image.alpha_composite(logo, (1016 - logo.width, 1690 if height == 1920 else 1230))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
-    return {'treatment': 'B', 'size': [1080, height], 'body_font_size': body_size,
+    return {'treatment': 'B', 'size': [1080, height], 'body_font_size': body_size,'category_style':category_style,
             'panel_padding': padding, 'panel_bounds': bounds, 'photo_size': list(photo.size),
             'question_bounds': [64, question_top, 1016, question_top + question_height],
             'photo_bounds': [(1080-photo.width)//2, photo_top, (1080+photo.width)//2, photo_top+photo.height],

@@ -24,9 +24,9 @@ def artwork_palette(package,assets,kind=None):
     return catalogue[selected]
 
 
-def story_image(source,destination,palette,background=None,card=None):
+def story_image(source,destination,palette,background=None,card=None,category_style='rounded'):
     if card:
-        return tall_story_image(card,background,destination,palette)
+        return tall_story_image(card,background,destination,palette,category_style=category_style)
     with Image.open(source) as image:
         if image.size!=(1080,1350): raise ValueError('Story source must be the 1080×1350 published card')
         card=image.convert('RGB')
@@ -62,7 +62,9 @@ def publish_stories(store,package,assets,record=None):
         ig=Instagram();ig.refresh_if_needed();ig.verify_account()
         for card in package['cards']:
             kind=card['kind'];palette=artwork_palette(package,assets,kind);stage='Instagram Stories rendering'
-            path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg';story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card)
+            path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
+            story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card,
+                        category_style=assets[kind].get('metrics',{}).get('category_style','rounded'))
             body=path.read_bytes();stage='Instagram Stories storage'
             store.put_file(output_key(package),path.name,body);url=store.expose(output_key(package),path.name,body)
             wait_for_image(url,body,fetch=request)

@@ -7,12 +7,13 @@ from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
 from .hybrid import default_plan, render_hybrid
+from .visual_diagnostics import approved_proposal, rejection_diagnostic
 from .store import wait_for_image
 
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':11, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':12, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -60,18 +61,34 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 plan=proposal['cards'][kind]
                 palette=plan.get('palette',package['design_palette'])
                 if plan['confidence']!='high':plan=default_plan(card)
+                rejection=None
                 stage='Pillow rendering'
                 try:
                     metrics=render_hybrid(card,palette,background,path,plan)
                     decision_status='accepted' if plan['confidence']=='high' else 'default'
-                except ValueError:
+                except ValueError as error:
                     # Bad cosmetic geometry/contrast cannot trigger a second model
                     # call, generation, or publication. The premeasured reference is safe.
-                    metrics=render_hybrid(card,package['design_palette'],background,path,default_plan(card))
+                    rejection=rejection_diagnostic(error,plan)
+                    write_json(output/f'{kind}-rejection-result.json',{'batch':date,'batch_id':package.get('batch_id'),
+                               'card':kind,**rejection})
+                    print(f"::warning::{kind} composition rejected: {rejection['reason']}; using measured fallback without retry")
+                    # A geometry rejection should not undo a valid photo-reviewed palette.
+                    # Invalid colour contracts/contrast retain the preparation-palette fallback.
+                    from .render import contrast
+                    from .hybrid import ROOT as renderer_root
+                    catalogue=read_json(renderer_root/'data/design-palettes.json')
+                    selected=catalogue.get(palette)
+                    keep_palette=(approved_proposal(plan) is not None and selected is not None
+                                  and min(contrast(selected['ink'],selected['panel']),contrast(selected['ink'],selected['accent']))>=4.5)
+                    metrics=render_hybrid(card,palette if keep_palette else package['design_palette'],background,path,default_plan(card))
                     decision_status='rejected; safe hybrid fallback'
-                    print('::warning::Hybrid composition rejected; using measured reference without retry')
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
-                                 'palette':metrics['palette'],'design':metrics['design'],'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],'block_typography':metrics['block_typography'],'composition':metrics.get('composition')}
+                                 'palette':metrics['palette'],'design':metrics['design'],'category_style':metrics['category_style'],
+                                 'heading_tone':metrics['heading_tone'],'example_tone':metrics['example_tone'],
+                                 'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],
+                                 'block_typography':metrics['block_typography'],'composition':metrics.get('composition'),
+                                 **({'rejection':rejection} if rejection is not None else {})}
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id']} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
