@@ -109,6 +109,9 @@ jobs:
         run: |
           python -m pip install -e .
           npm install --global @openai/codex@0.160.0
+      - name: Audit existing Facebook Login poll scopes without publishing
+        if: inputs.mode == 'verify'
+        run: python scripts/check_instagram_poll_authorization.py
       - name: Restore dedicated ChatGPT sign-in privately
         id: auth
         env:
