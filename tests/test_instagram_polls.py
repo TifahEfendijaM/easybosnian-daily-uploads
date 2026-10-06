@@ -107,7 +107,8 @@ class FacebookLoginPollTests(unittest.TestCase):
         with patch.object(client,'call',side_effect=self.authorization(client)) as call:
             self.assertEqual(client.verify_account()['username'],'easy_bosnian')
             self.assertTrue(all(item.args[0]=='GET' for item in call.call_args_list))
-        for params in ({'scopes':['instagram_basic']},{'tasks':['ANALYZE']},{'username':'wrong'},{'page':'999'}):
+        for params in ([{'scopes':['instagram_basic']},{'tasks':['ANALYZE']},{'username':'wrong'},{'page':'999'}]
+                       +[{'scopes':list(client.required_scopes-{scope})} for scope in ('ads_read','business_management')]):
             with self.subTest(params=params),patch.object(client,'call',side_effect=self.authorization(client,**params)),self.assertRaises(ValueError):
                 client.verify_account()
         with patch.dict(os.environ,{'META_GRAPH_VERSION':'v26.0'}),self.assertRaises(ValueError):
