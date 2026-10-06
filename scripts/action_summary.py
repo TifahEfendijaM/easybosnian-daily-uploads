@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from easybosnian.visual_diagnostics import safe_rejection
+from easybosnian.visual_diagnostics import safe_rejection, rendering_outcome
 
 text='This workflow has no confirmed publication result. Inspect failed steps and diagnostics.\n'
 results=list(Path('build').glob('*/result.json'))
@@ -30,7 +30,8 @@ if placements:
     placement=json.loads(placements[0].read_text())
     text+='\nFeed text placement: '+placement['status']+'\n'
     for kind,result in placement['cards'].items():
-        text+='- '+kind+': '+result['position']+' ('+result.get('status','not recorded')+')\n'
+        outcome=rendering_outcome(result,placement['status'])
+        text+='- **'+kind+' — '+('ChatGPT choices used' if outcome['source']=='chatgpt' else 'deterministic fallback' if outcome['source']=='fallback' else 'not recorded')+'**: '+outcome['reason']+'. Placement: '+result['position']+'\n'
         if result.get('rejection'):
             rejection=safe_rejection(result['rejection'])
             text+='  Layout fallback: '+rejection['reason']+'\n'

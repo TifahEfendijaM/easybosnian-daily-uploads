@@ -271,6 +271,9 @@ class HybridCompositionTests(unittest.TestCase):
 
 
 class PreparedArtworkTests(unittest.TestCase):
+    def setUp(self):
+        self.recent=patch('easybosnian.visual_history.recent_choices',return_value=([],'available'))
+        self.recent.start();self.addCleanup(self.recent.stop)
     def test_prepare_then_expose_generates_once_and_reuses_exact_safe_hybrid_artwork(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
         stream=io.BytesIO();Image.new('RGB',(1024,1024),'#728192').save(stream,'JPEG')

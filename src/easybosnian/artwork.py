@@ -8,13 +8,13 @@ from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
 from .hybrid import default_plan, render_hybrid
-from .visual_diagnostics import approved_proposal, rejection_diagnostic
+from .visual_diagnostics import approved_proposal, rejection_diagnostic, rendering_outcome, REVIEW_FAILURES
 from .store import wait_for_image
 
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':12, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':13, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -51,7 +51,9 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 composition_sheet(background,sheet)
                 with Image.open(background) as original:photo_size=list(original.size)
                 candidates[kind]={'baseline':baseline,'metrics':metrics,'sheet':sheet,'photo_size':photo_size}
-            proposal,status=review_compositions(package,candidates)
+            from .visual_history import recent_choices
+            recent,recent_status=recent_choices()
+            proposal,status=review_compositions(package,candidates,recent)
             decisions={}
         for card in package['cards']:
             kind=card['kind']; background=output/f'{kind}-background.jpg'
@@ -63,12 +65,13 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             elif review_images:
                 plan=proposal['cards'][kind]
                 palette=plan.get('palette',package['design_palette'])
-                if plan['confidence']!='high':plan=default_plan(card)
+                model_accepted=status=='reviewed' and plan['confidence']=='high'
+                if not model_accepted:plan=default_plan(card)
                 rejection=None
                 stage='Pillow rendering'
                 try:
                     metrics=render_hybrid(card,palette,background,path,plan)
-                    decision_status='accepted' if plan['confidence']=='high' else 'default'
+                    decision_status='accepted' if model_accepted else 'default'
                 except ValueError as error:
                     # Bad cosmetic geometry/contrast cannot trigger a second model
                     # call, generation, or publication. The premeasured reference is safe.
@@ -92,6 +95,9 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                                  'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],
                                  'block_typography':metrics['block_typography'],'composition':metrics.get('composition'),
                                  **({'rejection':rejection} if rejection is not None else {})}
+                if proposal.get('failure_reason') in REVIEW_FAILURES:
+                    decisions[kind]['review_failure']=proposal['failure_reason']
+                decisions[kind]['outcome']=rendering_outcome(decisions[kind],status)
             else:
                 stage='FLUX generation'
                 Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
@@ -107,7 +113,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             assets[kind]=item
         if review_images:
             write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
-                        'status':status,'cards':decisions})
+                        'status':status,'recent_design_context':recent_status,'cards':decisions})
             write_json(manifest,{'input':render_input(package),'run_url':os.getenv('GITHUB_RUN_URL'),
                                'metrics':{kind:item['metrics'] for kind,item in assets.items()}})
             manifest.chmod(0o600)

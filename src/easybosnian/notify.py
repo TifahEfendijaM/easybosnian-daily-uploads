@@ -15,6 +15,8 @@ NEXT={
 
 
 def next_step(stage,error):
+    if stage.startswith('Facebook '):
+        return 'Check the exact Easy Bosnian Page authorization, pages_show_list/pages_read_engagement/pages_manage_posts and current can_post capability. Renew the separate FACEBOOK_PAGE_TOKEN without removing existing Instagram permissions. No publishing retry is sent.'
     if stage=='FLUX generation':
         code=getattr(error,'provider_code',None)
         if code==3036:

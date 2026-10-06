@@ -3,11 +3,18 @@
   "page_name": "Easy Bosnian",
   "app_id": "1987873818544936",
   "expires_at": 0,
-  "data_access_expires_at": 1798758969,
-  "verified_at": "2026-10-02T23:24:35.181469+00:00",
-  "publication": "no post created during app publication or authorization",
+  "data_access_expires_at": 1799054674,
+  "verified_at": "2026-10-06T09:44:42.051630+00:00",
+  "publication": "read-only Page/token verification; no post created",
   "consent": "only the selected current Page",
   "public_app_checklist": "complete; Meta confirmed Published",
   "publisher_enabled": true,
-  "app_published_at": "2026-10-02T23:34:42.008089+00:00"
+  "app_published_at": "2026-10-02T23:34:42.008089+00:00",
+  "can_post": true,
+  "required_scopes": [
+    "pages_show_list",
+    "pages_read_engagement",
+    "pages_manage_posts"
+  ],
+  "renewal_reason": "pages_manage_posts was absent after later Instagram consent; restored in the shared app authorization and separate Page token renewed"
 }

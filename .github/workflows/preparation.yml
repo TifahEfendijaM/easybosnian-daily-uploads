@@ -50,6 +50,7 @@ on:
         options: [latest, none, all_today]
         default: latest
 permissions:
+  actions: read
   contents: read
   issues: write
 concurrency:
