@@ -22,7 +22,10 @@ def accepted_choices(placement):
                 or any(role not in ('body','example','A','B','C','D') or
                        style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES)
                        for role,style in styles.items())):continue
-        safe={field:card[field] for field in ('palette','design','block_styles')}
+        safe={field:card[field] for field in ('design','block_styles')}
+        # A preserved ChatGPT layout may now use a fallback palette. Do not
+        # attribute that colour choice to the model in its recent-design context.
+        if card.get('palette_outcome',{}).get('source')!='fallback':safe['palette']=card['palette']
         for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
             if card.get(field) in allowed:safe[field]=card.get(field)
         badges=card.get('answer_badges',{})
