@@ -11,6 +11,7 @@ Operate only on private TifahEfendijaM/easybosnian-daily-uploads and its existin
 | GitHub secrets | GH_SECRETS_TOKEN: refresh/persist cloud and Instagram credentials, restricted to this repository |
 | GitHub secrets | INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_USER_ID, INSTAGRAM_TOKEN_ISSUED_AT, META_GRAPH_VERSION: exact professional @easy_bosnian account and supported Graph version |
 | GitHub secrets | INSTAGRAM_DELETE_ACCESS_TOKEN, INSTAGRAM_DELETE_USER_ID: separate Facebook Login authorization for same-date Instagram deletion only |
+| GitHub secrets | INSTAGRAM_FACEBOOK_ACCESS_TOKEN, INSTAGRAM_FACEBOOK_USER_ID, INSTAGRAM_FACEBOOK_EXPIRES_AT: separate Facebook User feed/native poll authorization; Stories keep Instagram Login |
 | GitHub secrets | FACEBOOK_PAGE_ID, FACEBOOK_PAGE_TOKEN: independently authorized Easy Bosnian Page 1284422991426579 |
 | GitHub secrets | BUFFER_API_KEY: Free Buffer account:read/posts:read/posts:write key |
 | Worker secrets | ADMIN_TOKEN: authenticates private history/image operations |
@@ -41,6 +42,12 @@ Instagram deletion uses [Meta Instagram Media deletion](https://developers.faceb
 
 Cleanup is independent of publishing. Instagram deletion credential failure leaves old content and records a warning; it no longer blocks a replacement upload. Facebook uses supported feed-post deletion only; its Story nodes and backing photos are never deleted by this pipeline. No added permission or credential is requested for a speculative Story deletion workaround.
 
+Native Pitanje dana polls require Facebook Login `instagram_content_publish`
+alongside basic/Page read/list permissions, ads_read, business_management and linked Page content tasks. This
+is separate from deletion and the original Instagram Login Story token.
+The runtime verifies finite token/data-access expiry; renew privately before
+expiry. See [instagram-polls.md](instagram-polls.md) for consent, exact limits,
+rollout and attachment-failure reporting. No native Story poll is introduced.
 ## Retaining Facebook access during Instagram consent
 
 Meta consent for this shared app must retain every previously authorized Page/Instagram permission. The October 6 failures were HTTP 403/code 200 at the first photo upload after pages_manage_posts disappeared from the current consent. The exact Page credential was renewed privately with all three Page scopes and verified as a valid Page token with can_post=true. Page connection checks now require that capability before any upload. Provider status/code and failed stage are kept in the platform result and run summary; authorization failure never starts another publish attempt.

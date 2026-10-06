@@ -1,0 +1,19 @@
+{
+  "app_id": "1987873818544936",
+  "page_id": "1284422991426579",
+  "instagram_id": "17841429077454658",
+  "instagram_username": "easy_bosnian",
+  "expires_at": 1799058344,
+  "token_expires_at": 0,
+  "data_access_expires_at": 1799058344,
+  "scopes": [
+    "ads_read",
+    "business_management",
+    "instagram_basic",
+    "instagram_content_publish",
+    "pages_read_engagement",
+    "pages_show_list"
+  ],
+  "verified_at": "2026-10-06T10:28:24.939745+00:00",
+  "publication": "No container, post, poll or Story created during authorization"
+}

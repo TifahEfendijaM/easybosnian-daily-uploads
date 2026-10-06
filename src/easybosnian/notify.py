@@ -8,6 +8,8 @@ NEXT={
     'cloud ChatGPT workspace verification':'Inspect the structured result and workspace probe, then rerun verify mode.',
     'cloud ChatGPT research/review':'Fix source access or incomplete review, then deliberately start daily mode. No automatic retry exists.',
     'validation':'Correct the reviewed content and preserve schema, history, quiz secrecy and measured-fit checks.',
+    'Instagram poll validation':'Review the quiz/caption limits. Oversized answers publish unchanged without a poll; caption overflow requires a reviewed rewrite.',
+    'Instagram poll attachment':'The carousel is already published. Inspect its native poll and the run artifact; do not republish just to repair the poll. Meta add-ons cannot be edited after publication.',
     'Pillow rendering':'Shorten reviewed copy or fix typography; never truncate text or strip diacritics.',
     'FLUX generation':'Check the Cloudflare Free quota and model availability; no paid fallback exists.',
     'storage':'Check this project’s D1/KV access, free quota and image visibility.',

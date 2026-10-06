@@ -101,6 +101,24 @@ Before selecting a final treatment for each card, ChatGPT actively reviews all c
 
 Visual refinements: compare the three actual photographs together and prefer one suitable shared palette when their materials/light/colours are similar; use different per-card palettes only for meaningful differences. The strict visual JSON now permits approved category_style (rounded/pill/ribbon/underlined/outlined/tab), heading_tone and example-only photo_tone (auto/paper_dark/ink_light/paper_ink/ink_paper/accent_ink). Pillow owns anchors/fonts/colours/fade presets and checks actual contrast. Add answer-only pill panels independently of badge shape; body and example roles cannot use pill. PRIMJER remains unboxed Lora Italic; fallback places it near the lower logo-safe edge, preserving exact copy and measured separation. A valid reviewed palette survives a geometry fallback. Record a whitelisted exact rejection reason and only schema-approved rejected parameters in private artifacts and the GitHub summary/report, before fallback. Unknown errors remain classified as unclassified rather than exposing raw prose. No additional model/generation call is made. Stories reuse the final palette/category choice within treatment B. See docs/visual-style-contract.md for the enums and bounds.
 
+## Native Instagram caption poll
+
+Instagram feed carousels now use a separate Facebook User publishing credential
+with verified instagram_basic/instagram_content_publish/Page read/list scopes,
+ads_read and business_management for this business-assigned Page,
+exact linked Page/profile and MANAGE/CREATE_CONTENT tasks. Keep Instagram Login
+Stories/token refresh, deletion/Page credentials and existing cleanup unchanged.
+Read docs/instagram-polls.md. Attach only the quiz's exact ordered 2–4 public
+options to the parent carousel at creation, never its children or Stories.
+Private correct-answer metadata is never transmitted. A clear exact quiz
+question is included in the Instagram caption, preserving difficulty and the
+final website invitation. Native option limits do not change the card schema:
+if reviewed answers/payload exceed Meta's limits, the user chose publishing
+without the poll with a clear omission report, never truncation or a rewrite.
+Record known IDs immediately. Inspect attachment status and read the exact poll
+back; report failure while retaining the confirmed post and letting independent
+platforms/Stories continue. Never retry, republish or test with an extra live post.
+Verify remains read-only; no schedule, Worker, history or visual change is added.
 ## Published-only history lifecycle (October 6 update)
 
 The reviewed candidate lives only in `build/reviewed-content.secret` (0600, ignored, not uploaded as an artifact). Its project, batch ID, content date and GitHub run identity must match the trusted preparation result. Private generation sends that reviewed candidate to the authenticated Worker without inserting a D1 history row. Each artwork attempt uses an independent random run-cache namespace; legacy saved-history generation remains readable.

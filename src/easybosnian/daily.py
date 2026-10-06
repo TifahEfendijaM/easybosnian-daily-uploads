@@ -105,6 +105,10 @@ def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,
             failed.append('facebook_stories');results['facebook_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
     else: results['facebook_stories']={'status':'disabled or Facebook feed publication not confirmed in this run','published':False}
     results['tiktok_stories']={'status':'manual upload required; Buffer integration publishes feed posts only','published':False}
+    # Confirmed feed publication still enables unchanged Stories. Report poll
+    # failure only after all enabled publishers have been attempted.
+    if results['instagram'].get('poll',{}).get('failed'):
+        failed.append('instagram_poll')
     for name,error in cleanup_warnings:
         published = results[name].get('published') is True
         story_result = results.get(name+'_stories', {})

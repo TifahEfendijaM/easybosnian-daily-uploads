@@ -4,14 +4,15 @@ from datetime import datetime, timezone
 
 from .core import REPO, PROJECT, verify_repository, publishing_enabled
 from .http import request
-from .meta import Instagram, Facebook, InstagramDeletion
+from .meta import Instagram, Facebook, InstagramDeletion, InstagramFacebook
 from .buffer import Buffer
 from .store import Store
 
 
 def check_infrastructure():
     required=("EASYBOSNIAN_WORKER_URL", "EASYBOSNIAN_ADMIN_TOKEN", "INSTAGRAM_ACCESS_TOKEN",
-              "INSTAGRAM_USER_ID", "INSTAGRAM_TOKEN_ISSUED_AT", "META_GRAPH_VERSION", "GH_SECRETS_TOKEN")
+              "INSTAGRAM_USER_ID", "INSTAGRAM_TOKEN_ISSUED_AT", "META_GRAPH_VERSION", "GH_SECRETS_TOKEN",
+              "INSTAGRAM_FACEBOOK_ACCESS_TOKEN", "INSTAGRAM_FACEBOOK_USER_ID", "INSTAGRAM_FACEBOOK_EXPIRES_AT")
     missing=[name for name in required if not os.environ.get(name)]
     if missing:
         raise ValueError("Missing protected setup credentials: " + ", ".join(missing))
@@ -21,6 +22,7 @@ def check_infrastructure():
     if store.call("GET", "/health").get("project")!=PROJECT or store.history().get("project")!=PROJECT:
         raise ValueError("Cloudflare health/history does not belong to this project")
     info=Instagram().verify_account()
+    InstagramFacebook().verify_account()
     stories = "native post reshare requires manual action in Instagram; standalone image Stories disabled"
     if os.getenv("INSTAGRAM_STORIES_ENABLED") == "true":
         if not isinstance(Instagram().stories().get("data"), list):
@@ -64,6 +66,7 @@ def check_infrastructure():
     return {"repository":REPO, "daily_posting_enabled":enabled, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",
             "instagram_account_type":info["account_type"], "instagram_stories":stories,
+            "instagram_poll":"separate Facebook User publishing scopes, exact linked profile and Page content tasks verified; no poll created",
             "instagram_deletion":deletion, "facebook":facebook, "facebook_stories":facebook_stories, "tiktok": tiktok,
             "renewal_access":"repository secrets write-back access verified",
             "publication":"nothing published by this read-only check"}

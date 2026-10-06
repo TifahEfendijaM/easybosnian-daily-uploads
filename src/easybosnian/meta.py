@@ -254,6 +254,110 @@ class InstagramDeletion:
             raise ValueError('Instagram did not confirm deletion of the expected media; replacement stopped')
 
 
+class InstagramFacebook(Instagram):
+    """Facebook Login feed/polls only. Instagram Login still owns Stories/refresh."""
+    required_scopes = frozenset(('instagram_basic', 'instagram_content_publish',
+                                 'pages_read_engagement', 'pages_show_list', 'ads_read',
+                                 'business_management'))
+
+    def __init__(self, token=None, user_id=None, expires_at=None):
+        self.token = token or os.getenv('INSTAGRAM_FACEBOOK_ACCESS_TOKEN')
+        self.user_id = user_id or os.getenv('INSTAGRAM_FACEBOOK_USER_ID')
+        expiry = expires_at if expires_at is not None else os.getenv('INSTAGRAM_FACEBOOK_EXPIRES_AT')
+        if not self.token or not self.user_id or not expiry:
+            raise ValueError('Native Instagram polls need separate Facebook Login publishing authorization')
+        if not re.fullmatch(r'\d+', self.user_id) or not str(expiry).isdigit():
+            raise ValueError('Invalid Facebook Login Instagram publishing identity/expiry')
+        self.expires_at = int(expiry)
+        if self.expires_at <= datetime.now(timezone.utc).timestamp():
+            raise ValueError('Facebook Login Instagram publishing access expired; renew it privately before posting')
+        version = os.environ['META_GRAPH_VERSION']
+        if not re.fullmatch(r'v\d+\.0', version):
+            raise ValueError('Invalid supported Graph version')
+        self.base = 'https://graph.facebook.com/' + version
+
+    call = Facebook.call
+
+    def verify_account(self):
+        granted = {item.get('permission') for item in self.call('GET', 'me/permissions')['data']
+                   if item.get('status') == 'granted'}
+        if not self.required_scopes <= granted:
+            raise ValueError('Facebook Login Instagram publishing is missing required poll/feed scopes')
+        page_id = '1284422991426579'
+        page = self.call('GET', page_id, {'fields': 'id,name,instagram_business_account{id,username}'})
+        info = page.get('instagram_business_account') or {}
+        if (page.get('id') != page_id or page.get('name') != 'Easy Bosnian'
+                or str(info.get('id')) != self.user_id or info.get('username', '').casefold() != 'easy_bosnian'):
+            raise ValueError('Facebook Login publishing does not authorize the exact linked Easy Bosnian Page/@easy_bosnian')
+        after = None
+        for _ in range(50):
+            pages = self.call('GET', 'me/accounts', {'fields': 'id,tasks', 'limit': 100,
+                                                   **({'after': after} if after else {})})
+            for item in pages.get('data', []):
+                if item.get('id') == page_id:
+                    if not {'MANAGE', 'CREATE_CONTENT'} & set(item.get('tasks', [])):
+                        raise ValueError('Facebook Login user lacks MANAGE/CREATE_CONTENT on the exact linked Page')
+                    return info
+            if not pages.get('paging', {}).get('next'):
+                break
+            cursor = pages.get('paging', {}).get('cursors', {}).get('after')
+            if not cursor or cursor == after:
+                raise ValueError('Facebook Login Page task pagination is incomplete')
+            after = cursor
+        raise ValueError('Facebook Login did not confirm content tasks on the exact linked Page')
+
+    def carousel(self, children, caption, poll=None):
+        from .instagram_poll import serialize_poll
+        if not caption.strip():
+            raise ValueError('Instagram caption add-ons need a non-empty caption')
+        values = {'media_type': 'CAROUSEL', 'children': ','.join(children), 'caption': caption}
+        if poll is not None:
+            values['poll_attachment'] = serialize_poll(poll)
+        return self.call('POST', self.user_id + '/media', values)['id']
+
+    def publish_with_addon(self, container):
+        # Exactly one publish request; retain the attachment outcome, unlike
+        # the unchanged Instagram Login Story publisher's ID-only return.
+        return self.call('POST', self.user_id + '/media_publish', {'creation_id': container})
+
+    def poll_attachment(self, media_id):
+        return self.call('GET', media_id + '/poll_attachment')
+
+
+def instagram_facebook_token(user_token, app_secret):
+    """Separate long-lived Facebook User publishing credential, never a Page token."""
+    app_id = '1987873818544936'; version = os.environ['META_GRAPH_VERSION']
+    if not re.fullmatch(r'v\d+\.0', version):
+        raise ValueError('Invalid Graph version')
+    base = 'https://graph.facebook.com/' + version
+    exchanged = request('GET', base + '/oauth/access_token?' + urlencode({
+        'grant_type': 'fb_exchange_token', 'client_id': app_id,
+        'client_secret': app_secret, 'fb_exchange_token': user_token}))
+    token = exchanged['access_token']
+    debug = request('GET', base + '/debug_token?' + urlencode({'input_token': token}),
+                    headers={'Authorization': 'Bearer ' + app_id + '|' + app_secret})['data']
+    if (debug.get('is_valid') is not True or debug.get('app_id') != app_id
+            or debug.get('type') != 'USER'
+            or not InstagramFacebook.required_scopes <= set(debug.get('scopes', []))):
+        raise ValueError('Facebook Login publishing token failed app/type/scope validation')
+    expiry_values = [int(debug.get(name) or 0) for name in ('expires_at', 'data_access_expires_at')]
+    expiry = min((value for value in expiry_values if value > 0), default=0)
+    if expiry <= datetime.now(timezone.utc).timestamp() + 40 * 86400:
+        raise ValueError('Facebook Login publishing access is not valid for at least 40 days')
+    page = request('GET', base + '/1284422991426579?' + urlencode({
+        'fields': 'id,name,instagram_business_account{id,username}'}), headers={'Authorization': 'Bearer ' + token})
+    info = page.get('instagram_business_account') or {}
+    client = InstagramFacebook(token, str(info.get('id', '')), expiry)
+    client.verify_account()
+    return token, {'app_id': app_id, 'page_id': '1284422991426579',
+                   'instagram_id': client.user_id, 'instagram_username': 'easy_bosnian',
+                   'expires_at': expiry, 'token_expires_at': expiry_values[0],
+                   'data_access_expires_at': expiry_values[1],
+                   'scopes': sorted(InstagramFacebook.required_scopes),
+                   'verified_at': datetime.now(timezone.utc).isoformat(),
+                   'publication': 'No container, post, poll or Story created during authorization'}
+
+
 def instagram_deletion_token(user_token, app_secret):
     """Long-lived Facebook User token for this app and only the linked target."""
     app_id = '1987873818544936'; version = os.environ['META_GRAPH_VERSION']

@@ -73,3 +73,11 @@ FLUX chooses the photograph’s composition. This overrides the original master 
 
 
 Visual refinements: compare the three actual photographs together and prefer one suitable shared palette when their materials/light/colours are similar; use different per-card palettes only for meaningful differences. The strict visual JSON now permits approved category_style (rounded/pill/ribbon/underlined/outlined/tab), heading_tone and example-only photo_tone (auto/paper_dark/ink_light/paper_ink/ink_paper/accent_ink). Pillow owns anchors/fonts/colours/fade presets and checks actual contrast. Add answer-only pill panels independently of badge shape; body and example roles cannot use pill. PRIMJER remains unboxed Lora Italic; fallback places it near the lower logo-safe edge, preserving exact copy and measured separation. A valid reviewed palette survives a geometry fallback. Record a whitelisted exact rejection reason and only schema-approved rejected parameters in private artifacts and the GitHub summary/report, before fallback. Unknown errors remain classified as unclassified rather than exposing raw prose. No additional model/generation call is made. Stories reuse the final palette/category choice within treatment B. See docs/visual-style-contract.md for the enums and bounds.
+# Native Instagram quiz poll
+
+Pitanje dana's exact ordered 2–4 choices attach as a native caption poll on the
+parent Instagram carousel through separate Facebook Login authorization.
+The caption keeps its difficulty and website invitation. Oversized choices
+publish unchanged without a poll and a clear report; failed attachment/read-back
+never triggers republishing. Stories stay unchanged. See
+[Instagram polls and authorization](docs/instagram-polls.md).

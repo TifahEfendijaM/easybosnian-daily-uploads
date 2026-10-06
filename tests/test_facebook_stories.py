@@ -163,15 +163,19 @@ class FacebookStoryTests(unittest.TestCase):
                 facebook_stories.assert_not_called()
 
     def test_readiness_checks_story_access_without_a_publish_request(self):
-        env = {name:'test-only' for name in ('EASYBOSNIAN_WORKER_URL', 'EASYBOSNIAN_ADMIN_TOKEN', 'INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'META_GRAPH_VERSION', 'GH_SECRETS_TOKEN', 'FACEBOOK_PAGE_TOKEN', 'FACEBOOK_PAGE_ID')}
+        env = {name:'test-only' for name in ('EASYBOSNIAN_WORKER_URL', 'EASYBOSNIAN_ADMIN_TOKEN', 'INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'META_GRAPH_VERSION', 'GH_SECRETS_TOKEN', 'FACEBOOK_PAGE_TOKEN', 'FACEBOOK_PAGE_ID', 'INSTAGRAM_FACEBOOK_ACCESS_TOKEN', 'INSTAGRAM_FACEBOOK_USER_ID', 'INSTAGRAM_FACEBOOK_EXPIRES_AT')}
         env.update(INSTAGRAM_TOKEN_ISSUED_AT=datetime.now(timezone.utc).isoformat(), INSTAGRAM_STORIES_ENABLED='false', FACEBOOK_POSTING_ENABLED='true', FACEBOOK_STORIES_ENABLED='true', TIKTOK_POSTING_ENABLED='false')
         with patch.dict(os.environ, env), patch('easybosnian.readiness.verify_repository'), patch('easybosnian.readiness.publishing_enabled', return_value=True), \
              patch('easybosnian.readiness.Store') as store, patch('easybosnian.readiness.Instagram') as instagram, \
+             patch('easybosnian.readiness.InstagramFacebook') as poll, \
              patch('easybosnian.readiness.Facebook') as facebook, patch('easybosnian.readiness.request', return_value={'full_name': REPO, 'private': True}):
             store.return_value.call.return_value={'project': PROJECT}; store.return_value.history.return_value={'project': PROJECT}
             instagram.return_value.verify_account.return_value={'username': 'easy_bosnian', 'account_type': 'BUSINESS'}
             facebook.return_value.stories.return_value={'data': []}
             result=check_infrastructure(); self.assertIn('read access verified', result['facebook_stories'])
+            poll.return_value.verify_account.assert_called_once()
+            poll.return_value.child.assert_not_called();poll.return_value.carousel.assert_not_called()
+            poll.return_value.publish_with_addon.assert_not_called()
             facebook.return_value.story.assert_not_called(); facebook.return_value.photo.assert_not_called()
             facebook.return_value.stories.return_value={}
             with self.assertRaises(ValueError):check_infrastructure()
