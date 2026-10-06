@@ -199,7 +199,7 @@ def review_compositions(package, candidates):
 
 def main():
     from .artwork import artwork
-    from .cli import prepared_batch
+    from .cli import prepared_batch, prepared_content
     from .core import ROOT, require_publishing, verify_repository, write_json
     from .batches import output_key
     from .notify import failure
@@ -214,7 +214,7 @@ def main():
         if mode == 'daily': require_publishing()
         date, batch_id, _ = prepared_batch(mode)
         store = Store()
-        package = store.content(batch_id)
+        package = prepared_content(mode)
         if package.get('batch_id') != batch_id or package['date'] != date:
             raise ValueError('Artwork input differs from the prepared batch identity/date')
         validate(package)

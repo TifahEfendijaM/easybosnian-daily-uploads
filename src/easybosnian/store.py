@@ -46,9 +46,18 @@ class Store:
     def call(self,method,path,data=None,raw=False,headers=None):
         return request(method,self.url+path,data,{**self.headers,**(headers or {})},raw=raw)
 
+    def use_content(self,package):
+        # Admin-authenticated ephemeral assets/known IDs need a reporting date,
+        # even before a confirmed feed creates the durable history row.
+        if not BATCH_ID.fullmatch(package.get('batch_id','')):
+            raise ValueError('Explicit staged batch identity required')
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',package['date']):
+            raise ValueError('Invalid staged content date')
+        self.headers['X-EasyBosnian-Content-Date']=package['date']
+
     def history(self): return self.call('GET','/v1/history')
     def content(self,key): return self.call('GET',f'/v1/history/{scope_path(key)}')
-    def save_content(self,package): return self.call('PUT',f'/v1/history/{scope_path(package.get("batch_id") or package["date"])}',package)
+    def save_content(self,package,*,preserve_artwork=False): return self.call('PUT',f'/v1/history/{scope_path(package.get("batch_id") or package["date"])}',package,headers={'X-EasyBosnian-Preserve-Artwork':'true'} if preserve_artwork else None)
     def delete_content(self,key,date):
         if not BATCH_ID.fullmatch(key) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',date):raise ValueError('Explicit batch/date required for history removal')
         return self.call('DELETE',f'/v1/history/batches/{key}',{'date':date})

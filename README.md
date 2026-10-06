@@ -2,11 +2,11 @@
 
 Private TifahEfendijaM/easybosnian-daily-uploads only. The existing Cloudflare Worker starts one GitHub Actions job at **05:00 Europe/Sarajevo**. It checks controller.scheduledTime against cron `0 3,4 * * *`, selecting the correct DST hour, then dispatches preparation.yml with mode=daily and batch_target=none. No GitHub schedule, automatic retry, catch-up, watchdog or Healthchecks.
 
-A GPT agent through the existing ChatGPT subscription researches content against full private history → the trusted wrapper saves a reviewed batch → Free Cloudflare FLUX backgrounds, a short visual placement review and Pillow produce three private cards → refreshed dedicated cloud credentials are persisted → Instagram, Facebook and Buffer TikTok publish independently → IG/FB image Stories follow their respective confirmed feed posts. No awake Mac or paid API.
+A GPT agent through the existing ChatGPT subscription researches content against full private history → the trusted wrapper stages a reviewed candidate privately → Free Cloudflare FLUX backgrounds, a short visual placement review and Pillow produce three private cards → refreshed dedicated cloud credentials are persisted → Instagram, Facebook and Buffer TikTok publish independently → history is saved after the first confirmed feed → IG/FB image Stories follow their respective confirmed feed posts. No awake Mac or paid API.
 
 ## History and manual targets
 
-Each history row has batch_id, date, created_at, theme, words/equivalents and reviewed content. Several batches may share a date. Latest is the newest complete saved batch by creation time/insertion order, including previews; editing it preserves that order. Legacy imported creation times are estimated from the available review timestamp or midnight UTC.
+Each history row has batch_id, date, created_at, theme, words/equivalents and reviewed content. Several batches may share a date. Latest is the newest complete saved batch by creation time/insertion order, with new previews excluded; editing it preserves that order. Legacy imported creation times are estimated from the available review timestamp or midnight UTC.
 
 | batch_target | Behavior |
 |---|---|
@@ -16,7 +16,7 @@ Each history row has batch_id, date, created_at, theme, words/equivalents and re
 
 For any target choose same_words (same theme/words, fresh copy/design/images), same_theme (same theme, different words), new (new theme/words), or custom (entered theme/word/comparison/topic, or keep/delegate individual choices). none may use the latest batch as its selection source, including yesterday’s batch after midnight. Entered custom themes/words and retained choices may repeat any history, including researched corrections of manual spelling. ChatGPT-selected terms and genuinely different fallback choices must still be new against every history batch. latest overwrites only its selected content; none retains its source. The 05:00 run uses none/new and always creates that morning’s batch.
 
-Modes remain exactly verify, preview and daily. verify checks connections/workspace without preparing/rendering/publishing. latest preview reuses exact saved content; none/all_today preview researches/saves another independent private batch without cleanup. daily always researches fresh copy according to selection and publishes after persistence succeeds. Previewed content counts in history. Read [manual controls](docs/manual-reruns.md), [the brief Bosnian guide](docs/boss-guide-bs.md) and [migration/rollout](docs/multiple-batches.md).
+Modes remain exactly verify, preview and daily. verify checks connections/workspace without preparing/rendering/publishing. latest preview reuses exact saved content; none/all_today preview researches/renders another independent private batch without history writes or cleanup. daily always researches fresh copy according to selection and publishes after cloud-credential persistence succeeds; history is saved only after a feed publication is confirmed. New previewed content does not count in history. Read [manual controls](docs/manual-reruns.md), [the brief Bosnian guide](docs/boss-guide-bs.md) and [migration/rollout](docs/multiple-batches.md).
 
 ## Publishing and limits
 

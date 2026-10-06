@@ -30,16 +30,21 @@ class FluxErrorTests(unittest.TestCase):
 
     def test_unknown_or_non_numeric_diagnostics_are_never_echoed(self):
         for code,status,reason in [('3040',429,'private-token'),('private-token','private-token',{'private':'token'}),
-                                   (9999,999,None),(True,True,[]),(None,None,'ai_call_failed')]:
+                                   (100000,999,None),(True,True,[]),(None,None,'ai_call_failed')]:
             with self.subTest(code=code,status=status):
                 result=safe_response_error({'stage':'FLUX generation','code':code,'provider_http_status':status,
                                             'reason':reason,'error':'private provider prose'},409)
                 self.assertIsNone(result.provider_code)
                 self.assertEqual(result.provider_http_status,429 if type(status) is int and status==429 else None)
                 self.assertNotIn('private',str(result))
-                self.assertNotIn('9999',str(result))
+                self.assertNotIn('100000',str(result))
         for value in (None,[],{'stage':{'private':'token'},'reason':[],'error':'private'}):
             self.assertNotIn('private',str(safe_response_error(value,503)))
+
+    def test_unknown_bounded_numeric_provider_codes_remain_diagnostic(self):
+        result=safe_response_error({'stage':'FLUX generation','reason':'ai_call_failed','code':9999,'provider_http_status':409},409)
+        self.assertEqual(result.provider_code,9999)
+        self.assertIn('provider code 9999; provider HTTP 409',str(result))
 
     def test_meta_codes_keep_existing_nested_format_and_privacy(self):
         result=safe_response_error({'error':{'code':9007,'error_subcode':2207027,'message':'private-token'}},400)
@@ -89,3 +94,16 @@ class FluxErrorTests(unittest.TestCase):
             with self.assertRaisesRegex(SafeError,'returned no image') as caught:request('POST','https://example.test')
         send.assert_called_once();self.assertEqual(caught.exception.provider_http_status,200)
         self.assertNotIn('private-token',str(caught.exception))
+
+class PrivateFluxDiagnosticTests(unittest.TestCase):
+    def test_error_body_is_read_once_privately_without_a_second_inference(self):
+        batch='b-'+'a'*32;run='r-'+'b'*32
+        error=SafeError('safe status only','FLUX generation',409,diagnostic_saved=True)
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.providers.ROOT',Path(temp)),patch('easybosnian.providers.Store') as factory:
+            factory.return_value.call.side_effect=[error,b'private upstream diagnostic']
+            with self.assertRaises(SafeError):CloudflareFlux().generate('prompt','2026-10-06','quiz',batch,reviewed_content={},artwork_id=run)
+            calls=factory.return_value.call.call_args_list
+            self.assertEqual([c.args[0] for c in calls],['POST','GET'])
+            self.assertEqual(calls[1].args[1],f'/v1/generation-errors/batches/{batch}/{run}/quiz')
+            path=Path(temp)/'build'/batch/'quiz-provider-error.secret'
+            self.assertEqual(path.read_bytes(),b'private upstream diagnostic');self.assertEqual(path.stat().st_mode & 0o777,0o600)
