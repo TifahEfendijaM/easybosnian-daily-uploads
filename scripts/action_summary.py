@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 from easybosnian.visual_diagnostics import safe_rejection, rendering_outcome
+from easybosnian.success_report import visual_summary
+from easybosnian.batches import output_key
 
 text='This workflow has no confirmed publication result. Inspect failed steps and diagnostics.\n'
 results=list(Path('build').glob('*/result.json'))
@@ -38,6 +40,19 @@ if placements:
             rejection=safe_rejection(result['rejection'])
             text+='  Layout fallback: '+rejection['reason']+'\n'
             text+='\n<details><summary>'+kind+' — rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(rejection['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
+console_text=text  # Keep reviewed prompts/design detail in the private Summary, not step logs.
+sources=list(Path('build').glob('*/report-source.json'))
+if sources:
+    source=json.loads(sources[0].read_text())
+    try:
+        matching=Path('build')/output_key(source)/'image-placement-result.json'
+        placement=json.loads(matching.read_text()) if matching.is_file() else None
+        text+=visual_summary(source,placement)
+    except (ValueError,KeyError,TypeError):
+        text+='\nImage design details unavailable: report identity or approved metadata validation failed.\n'
+        try:text+=visual_summary(source)
+        except (ValueError,KeyError,TypeError):
+            text+='\nExact prompt details unavailable: report identity validation failed.\n'
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
-print(text)
+print(console_text)

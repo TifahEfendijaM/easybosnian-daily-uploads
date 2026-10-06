@@ -113,7 +113,7 @@ class VisualRefinementTests(unittest.TestCase):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card);plan['blocks'][0]['style']='pill'
         with self.assertRaises(ValueError):measured_plan(card,plan)
 
-    def test_schema_rejects_custom_colours_and_body_tones_and_prompt_prefers_coherent_batch_palette(self):
+    def test_schema_rejects_custom_colours_and_body_tones_and_prompt_chooses_per_image_palette(self):
         package=reviewed_fixture()
         proposal={'cards':{c['kind']:dict(default_plan(c),palette='terracotta-sand') for c in package['cards']}}
         validator=Draft202012Validator(RESULT_SCHEMA)
@@ -127,9 +127,9 @@ class VisualRefinementTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             review_compositions(package,{k:{'sheet':Path(k+'.jpg')} for k in proposal['cards']})
         prompt=child.call_args.args[0]
-        self.assertIn('ALL THREE actual photos together',prompt)
-        self.assertIn('same best-fitting palette across all three',prompt)
-        self.assertIn('differences between the photographs justify',prompt)
+        self.assertIn('each actual photograph independently',prompt)
+        self.assertIn('no preference for one shared batch palette',prompt)
+        self.assertIn('never sacrifice a better per-image match',prompt)
         self.assertIn('Category catalogue:',prompt);self.assertIn('Photo-colour catalogue:',prompt)
         self.assertNotIn('private_review',prompt)
 

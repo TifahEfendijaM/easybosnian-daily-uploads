@@ -1,7 +1,9 @@
 import copy
 import io
+import json
 import os
 import tempfile
+import runpy
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -10,7 +12,8 @@ from unittest.mock import patch
 import yaml
 
 from easybosnian.core import REPO,ROOT
-from easybosnian.success_report import content_data, main, render_report, report_data, saved_report_data, with_rendering, write_report
+from easybosnian.success_report import content_data, main, render_report, report_data, saved_report_data, with_rendering, write_report, visual_summary, markdown_text
+from easybosnian.hybrid import default_plan
 from test_project import reviewed_fixture
 
 RUN='https://github.com/'+REPO+'/actions/runs/123'
@@ -24,6 +27,68 @@ def results():
 
 
 class SuccessReportTests(unittest.TestCase):
+    def rendering(self,package):
+        placement={'batch':package['date'],'batch_id':package['date'],'status':'reviewed','cards':{}}
+        for card,palette in zip(package['cards'],('terracotta-sand','blue-ice','forest-cream')):
+            plan=default_plan(card);plan.update(palette=palette,confidence='high',category_style='ribbon',heading_tone='paper_dark')
+            placement['cards'][card['kind']]={
+                'position':'free','status':'accepted','palette':palette,'design':plan['design'],
+                'category_style':'ribbon','heading_tone':'paper_dark','example_tone':'paper_dark' if card.get('example') else None,
+                'block_styles':{b['role']:b['style'] for b in plan['blocks']},
+                'answer_badges':{b['role']:'circle' for b in plan['blocks'] if b['role'] in ('A','B','C','D')},
+                'composition':plan,'untrusted':'private-model-prose'}
+        return placement
+
+    def test_per_image_decisions_and_exact_prompts_reach_both_report_formats(self):
+        package=reviewed_fixture();placement=self.rendering(package)
+        data=with_rendering(report_data(package,results(),RUN),placement)
+        self.assertEqual(data['final_palette'],'per card')
+        text,markup=render_report(data)
+        for content in (text,markup):
+            for palette in ('terracotta-sand','blue-ice','forest-cream'):
+                self.assertIn(markdown_text(palette) if content is text else palette,content)
+            self.assertIn('pointed right end',content)
+            self.assertIn('neutral black fade',content)
+            self.assertIn('Explanation placement',content)
+            self.assertIn('Answer A badge',content)
+            self.assertNotIn('private-model-prose',content)
+        for card in package['cards']:self.assertIn(card['background_prompt'],text)
+        for mutation in ('unknown','mismatch','text'):
+            bad=copy.deepcopy(placement)
+            if mutation=='unknown':bad['cards']['word']['composition']['custom_colour']='#123456'
+            elif mutation=='mismatch':bad['cards']['word']['composition']['design']='editorial'
+            else:bad['cards']['word']['composition']['blocks'][0]['text']='private-model-prose'
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):with_rendering(report_data(package,results(),RUN),bad)
+
+    def test_partial_run_summary_keeps_prompts_and_describes_applied_fallback(self):
+        package=reviewed_fixture();source=content_data(package,RUN);placement=self.rendering(package)
+        placement['cards']['lesson']['status']='default'
+        text=visual_summary(source,placement)
+        self.assertIn('fallback',text);self.assertIn('Applied design',text)
+        for card in package['cards']:self.assertIn(card['background_prompt'],text)
+        unavailable=visual_summary(source)
+        self.assertIn('Visual decisions not available',unavailable)
+        self.assertNotIn('Applied design',unavailable)
+        self.assertEqual(unavailable.count('```text'),3)
+        bad=copy.deepcopy(source);bad['run_url']='https://github.com/elsewhere/other/actions/runs/123'
+        with self.assertRaises(ValueError):visual_summary(bad,placement)
+
+    def test_action_summary_includes_exact_prompts_after_publication_failure(self):
+        package=reviewed_fixture();source=content_data(package,RUN)
+        old_cwd=Path.cwd()
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_RUN_URL':RUN,'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}),redirect_stdout(io.StringIO()):
+            try:
+                os.chdir(temp)
+                directory=Path('build')/package['date'];directory.mkdir(parents=True)
+                (directory/'report-source.json').write_text(json.dumps(source))
+                (directory/'image-placement-result.json').write_text(json.dumps(self.rendering(package)))
+                (directory/'platforms-result.json').write_text(json.dumps({'batch':package['date'],'batch_id':package['date'],'platforms':{'facebook':{'status':'failed','error':'safe provider failure'}}}))
+                runpy.run_path(str(ROOT/'scripts/action_summary.py'))
+                text=(Path(temp)/'summary.md').read_text()
+                self.assertIn('safe provider failure',text);self.assertIn('Applied design',text)
+                for card in package['cards']:self.assertIn(card['background_prompt'],text)
+            finally:os.chdir(old_cwd)
+
     def test_final_photo_palette_and_composition_are_reported_without_model_prose(self):
         package=reviewed_fixture();data=report_data(package,results(),RUN)
         placement={'batch':package['date'],'batch_id':package['date'],'cards':{
