@@ -72,6 +72,9 @@ jobs:
       CUSTOM_WORD_3_ACTION: ${{ inputs.custom_word_3_action }}
       INSTAGRAM_DELETE_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_DELETE_ACCESS_TOKEN }}
       INSTAGRAM_DELETE_USER_ID: ${{ secrets.INSTAGRAM_DELETE_USER_ID }}
+      INSTAGRAM_FACEBOOK_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_FACEBOOK_ACCESS_TOKEN }}
+      INSTAGRAM_FACEBOOK_USER_ID: ${{ secrets.INSTAGRAM_FACEBOOK_USER_ID }}
+      INSTAGRAM_FACEBOOK_EXPIRES_AT: ${{ secrets.INSTAGRAM_FACEBOOK_EXPIRES_AT }}
       DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
       GH_TOKEN: ${{ github.token }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -109,9 +112,6 @@ jobs:
         run: |
           python -m pip install -e .
           npm install --global @openai/codex@0.160.0
-      - name: Audit existing Facebook Login poll scopes without publishing
-        if: inputs.mode == 'verify'
-        run: python scripts/check_instagram_poll_authorization.py
       - name: Restore dedicated ChatGPT sign-in privately
         id: auth
         env:

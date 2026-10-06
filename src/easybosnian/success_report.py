@@ -26,6 +26,8 @@ def content_data(package,run_url):
 def publication_data(results):
     if results.get('instagram',{}).get('published') is not True or any('error' in result for result in results.values()):
         raise ValueError('Only successful publication results can create a success report')
+    if results['instagram'].get('poll',{}).get('failed'):
+        raise ValueError('Native poll failed; do not claim a fully successful run')
     platforms=[]
     for key,label in PLATFORMS.items():
         result=results.get(key,{})
@@ -36,6 +38,11 @@ def publication_data(results):
         links=[link for link in links if isinstance(link,str) and urlparse(link).scheme=='https' and urlparse(link).hostname in allowed]
         cleanup=result.get('replacement_cleanup',{}).get('status','')
         platforms.append({'name':label,'status':result.get('status','disabled'),'links':links,'cleanup_warning':cleanup.startswith('failed')})
+        if key=='instagram' and result.get('poll'):
+            from .instagram_poll import POLL_MESSAGES
+            reason=result['poll'].get('reason')
+            if reason not in POLL_MESSAGES:raise ValueError('Invalid safe native poll report status')
+            platforms[-1]['poll_status']=POLL_MESSAGES[reason]
     return platforms
 
 
@@ -115,6 +122,7 @@ def render_report(data):
     text+='### Publication results\n\n'
     for platform in data['platforms']:
         text+=f"**{markdown_text(platform['name'])}:** {markdown_text(platform['status'])}\n\n"
+        if platform.get('poll_status'):text+='Native Pitanje dana poll: '+markdown_text(platform['poll_status'])+'\n\n'
         for link in platform['links']:
             target=link.replace('<','%3C').replace('>','%3E')
             text+=f'- [Open published content](<{target}>)\n'
@@ -141,6 +149,7 @@ def render_report(data):
         markup+='<p><strong>'+html.escape(platform['name'])+':</strong> '+html.escape(platform['status'])+'</p><ul>'
         for link in platform['links']:markup+='<li><a href="'+html.escape(link,quote=True)+'">Open published content</a></li>'
         markup+='</ul>'
+        if platform.get('poll_status'):markup+='<p>Native Pitanje dana poll: '+html.escape(platform['poll_status'])+'</p>'
         if platform['cleanup_warning']:markup+='<p>Replacement cleanup warning: earlier content may remain.</p>'
     if data.get('history_cleanup_warning'):markup+='<p>Earlier current-date history could not be fully removed; some entries may remain.</p>'
     markup+='<p>Results describe this run at completion. Later replacements or expired Stories may change link availability.</p></main></body></html>'

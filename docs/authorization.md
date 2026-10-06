@@ -11,6 +11,7 @@ Operate only on private TifahEfendijaM/easybosnian-daily-uploads and its existin
 | GitHub secrets | GH_SECRETS_TOKEN: refresh/persist cloud and Instagram credentials, restricted to this repository |
 | GitHub secrets | INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_USER_ID, INSTAGRAM_TOKEN_ISSUED_AT, META_GRAPH_VERSION: exact professional @easy_bosnian account and supported Graph version |
 | GitHub secrets | INSTAGRAM_DELETE_ACCESS_TOKEN, INSTAGRAM_DELETE_USER_ID: separate Facebook Login authorization for same-date Instagram deletion only |
+| GitHub secrets | INSTAGRAM_FACEBOOK_ACCESS_TOKEN, INSTAGRAM_FACEBOOK_USER_ID, INSTAGRAM_FACEBOOK_EXPIRES_AT: separate Facebook User feed/native poll authorization; Stories keep Instagram Login |
 | GitHub secrets | FACEBOOK_PAGE_ID, FACEBOOK_PAGE_TOKEN: independently authorized Easy Bosnian Page 1284422991426579 |
 | GitHub secrets | BUFFER_API_KEY: Free Buffer account:read/posts:read/posts:write key |
 | Worker secrets | ADMIN_TOKEN: authenticates private history/image operations |
@@ -40,3 +41,10 @@ Remove obsolete secrets/variables and revoke the old notification PAT only after
 Instagram deletion uses [Meta Instagram Media deletion](https://developers.facebook.com/documentation/instagram-platform/reference/instagram-media), which currently supports Facebook Login only and requires instagram_basic + instagram_manage_contents. It needs the exact Page/profile link and a separate long-lived Facebook User token; publishing tokens remain unchanged. Renew this finite-lived deletion credential through explicit Facebook Login before its documented expiry. [Facebook Page post deletion](https://developers.facebook.com/documentation/pages-api/posts) uses the existing Page token. See manual-reruns.md for scope and safeguards.
 
 Cleanup is independent of publishing. Instagram deletion credential failure leaves old content and records a warning; it no longer blocks a replacement upload. Facebook uses supported feed-post deletion only; its Story nodes and backing photos are never deleted by this pipeline. No added permission or credential is requested for a speculative Story deletion workaround.
+
+Native Pitanje dana polls require Facebook Login `instagram_content_publish`
+alongside basic/Page read/list permissions and linked Page content tasks. This
+is separate from deletion and the original Instagram Login Story token.
+The runtime verifies finite token/data-access expiry; renew privately before
+expiry. See [instagram-polls.md](instagram-polls.md) for consent, exact limits,
+rollout and attachment-failure reporting. No native Story poll is introduced.

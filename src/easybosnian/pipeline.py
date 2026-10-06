@@ -4,13 +4,14 @@ import os
 from urllib.parse import urlparse
 from .core import ROOT, require_publishing, write_json
 from .http import SafeError
-from .meta import Instagram
+from .meta import Instagram, InstagramFacebook
+from .instagram_poll import instagram_caption, quiz_poll, poll_readback, POLL_MESSAGES
 from .notify import failure
 
 
-def verify_media(ig, package, media_id):
+def verify_media(ig, package, media_id, caption=None):
     actual=ig.media(media_id)
-    expected=package['caption']+'\n\n'+' '.join(package['hashtags'])
+    expected=caption if caption is not None else package['caption']+'\n\n'+' '.join(package['hashtags'])
     if actual.get('id')!=media_id or actual.get('caption','')!=expected or actual.get('media_type')!='CAROUSEL_ALBUM':
         raise ValueError('Instagram post identity, caption or carousel type differs from reviewed content')
     children=actual.get('children',{}).get('data',[])
@@ -27,18 +28,48 @@ def publish_instagram(package, assets, record=None):
     publication='nothing published to Instagram'
     try:
         require_publishing()
-        ig=Instagram(); ig.refresh_if_needed(); ig.verify_account()
+        # Preserve the independently managed Instagram Login/Story credential.
+        stories_account=Instagram(); stories_account.refresh_if_needed(); stories_account.verify_account()
+        ig=InstagramFacebook(); ig.verify_account()
+        stage='Instagram poll validation'
+        caption=instagram_caption(package); poll, poll_result=quiz_poll(package)
+        result['poll']=poll_result
         stage='publishing'; children=[]
         for card in package['cards']:
             child=ig.child(assets[card['kind']]['url'],card['alt_text']);children.append(child);ig.ready(child)
-        carousel=ig.carousel(children,package['caption']+'\n\n'+' '.join(package['hashtags']))
+        carousel=ig.carousel(children,caption,poll=poll)
         result.update(child_ids=children,container_id=carousel);ig.ready(carousel)
         require_publishing()
         publication='Instagram publish request outcome uncertain'
-        media_id=ig.publish(carousel);result['media_id']=media_id
+        response=ig.publish_with_addon(carousel)
+        media_id=response['id'];result['media_id']=media_id
         if record: record('feed',media_id,ig.user_id)
+        status=response.get('caption_add_on_attachment_status')
+        if status not in (None,'POLL_CREATION_FAILURE','PROMPT_CREATION_FAILURE'):
+            status='UNRECOGNIZED'
+        result['caption_add_on_attachment_status']=status
         publication='published to Instagram; content read-back pending';stage='publication verification'
-        result.update(permalink=verify_media(ig,package,media_id),published=True,status='confirmed Instagram publication')
+        if poll is not None:
+            # Status omission is documented success, but still confirm exact
+            # ordered options via the separate edge. Never retry or republish.
+            try:
+                result['poll']=poll_readback(ig.poll_attachment(media_id),poll,status)
+                result['poll']['readback']='completed'
+            except Exception:
+                reason=('creation_failure' if status=='POLL_CREATION_FAILURE' else
+                        'unexpected_status' if status is not None else 'read_failed')
+                result['poll']={'requested':True,'attached':False,'failed':True,
+                                'reason':reason,'status':POLL_MESSAGES[reason],'readback':'failed'}
+        # Keep the poll outcome even if independent feed read-back fails.
+        result.update(permalink=verify_media(ig,package,media_id,caption),published=True,status='confirmed Instagram publication')
+        if poll is not None:
+            if result['poll']['failed']:
+                result['status']='confirmed Instagram publication; native poll failed or unconfirmed; no republish'
+                print(failure(date,'Instagram poll attachment',ValueError(result['poll']['status']),
+                              'carousel published at '+result['permalink']+'; no automatic retry or republish',os.getenv('GITHUB_RUN_URL')))
+        else:
+            result['status']='confirmed Instagram publication; native poll omitted under approved limit policy'
+            print('::warning::'+result['poll']['status'])
         write_json(ROOT/'build'/output_key(package)/'instagram-result.json',result)
         return result
     except Exception as error:

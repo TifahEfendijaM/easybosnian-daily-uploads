@@ -100,3 +100,21 @@ The visual reviewer receives only the complete generated photographs and exact f
 Before selecting a final treatment for each card, ChatGPT actively reviews all compatible options from the full approved design catalogue, then compares several materially different treatments and plausible placements against the actual photograph, its negative space, exact text length, visual hierarchy, subject visibility and overall balance. Familiarity or previous success gives no preference. Repetition is acceptable when independently justified by that image; diversity itself is not a goal. Rare or unusual styles have no preference because they have been used less often. No quotas, forced rotation, randomness or requirement to vary styles is introduced. This comparison preserves compatibility constraints, the strong full-photo default, the available middle-photo exception, photo-only review inputs, fallback-only default_plan and all Pillow validation/rendering rules. After inspecting each actual photo, compare suitable upper, middle and lower regions and left/right or split block placements within the protected header/logo bounds. The upper area has no automatic preference. Judge subject visibility, negative space, exact copy, hierarchy and balance, rather than assuming a text-at-top photograph. Top placement remains valid when independently best for that image. No quotas, rotation, randomness or forced positional variety.
 
 Visual refinements: compare the three actual photographs together and prefer one suitable shared palette when their materials/light/colours are similar; use different per-card palettes only for meaningful differences. The strict visual JSON now permits approved category_style (rounded/pill/ribbon/underlined/outlined/tab), heading_tone and example-only photo_tone (auto/paper_dark/ink_light/paper_ink/ink_paper/accent_ink). Pillow owns anchors/fonts/colours/fade presets and checks actual contrast. Add answer-only pill panels independently of badge shape; body and example roles cannot use pill. PRIMJER remains unboxed Lora Italic; fallback places it near the lower logo-safe edge, preserving exact copy and measured separation. A valid reviewed palette survives a geometry fallback. Record a whitelisted exact rejection reason and only schema-approved rejected parameters in private artifacts and the GitHub summary/report, before fallback. Unknown errors remain classified as unclassified rather than exposing raw prose. No additional model/generation call is made. Stories reuse the final palette/category choice within treatment B. See docs/visual-style-contract.md for the enums and bounds.
+
+## Native Instagram caption poll
+
+Instagram feed carousels now use a separate Facebook User publishing credential
+with verified instagram_basic/instagram_content_publish/Page read/list scopes,
+exact linked Page/profile and MANAGE/CREATE_CONTENT tasks. Keep Instagram Login
+Stories/token refresh, deletion/Page credentials and existing cleanup unchanged.
+Read docs/instagram-polls.md. Attach only the quiz's exact ordered 2–4 public
+options to the parent carousel at creation, never its children or Stories.
+Private correct-answer metadata is never transmitted. A clear exact quiz
+question is included in the Instagram caption, preserving difficulty and the
+final website invitation. Native option limits do not change the card schema:
+if reviewed answers/payload exceed Meta's limits, the user chose publishing
+without the poll with a clear omission report, never truncation or a rewrite.
+Record known IDs immediately. Inspect attachment status and read the exact poll
+back; report failure while retaining the confirmed post and letting independent
+platforms/Stories continue. Never retry, republish or test with an extra live post.
+Verify remains read-only; no schedule, Worker, history or visual change is added.

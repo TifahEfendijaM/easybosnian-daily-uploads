@@ -83,11 +83,13 @@ class ModeTests(unittest.TestCase):
     def test_instagram_repeated_invocations_publish_again_without_a_state_gate(self):
         package=reviewed_fixture();assets={c['kind']:{'url':c['kind']} for c in package['cards']}
         from unittest.mock import MagicMock
-        ig=MagicMock();ig.publish.return_value='new-post'
-        ig.media.return_value={'id':'new-post','caption':package['caption']+'\n\n'+' '.join(package['hashtags']),'media_type':'CAROUSEL_ALBUM','children':{'data':[{'media_type':'IMAGE'}]*3},'permalink':'https://www.instagram.com/p/new/'}
-        with patch('easybosnian.pipeline.require_publishing'),patch('easybosnian.pipeline.Instagram',return_value=ig),patch('easybosnian.pipeline.write_json'):
+        from easybosnian.instagram_poll import instagram_caption,quiz_poll
+        ig=MagicMock();ig.publish_with_addon.return_value={'id':'new-post'}
+        ig.poll_attachment.return_value={'poll_attachment':quiz_poll(package)[0]}
+        ig.media.return_value={'id':'new-post','caption':instagram_caption(package),'media_type':'CAROUSEL_ALBUM','children':{'data':[{'media_type':'IMAGE'}]*3},'permalink':'https://www.instagram.com/p/new/'}
+        with patch('easybosnian.pipeline.require_publishing'),patch('easybosnian.pipeline.Instagram'),patch('easybosnian.pipeline.InstagramFacebook',return_value=ig),patch('easybosnian.pipeline.write_json'):
             for _ in range(2):self.assertTrue(publish_instagram(package,assets)['published'])
-            self.assertEqual(ig.publish.call_count,2)
+            self.assertEqual(ig.publish_with_addon.call_count,2)
 
     def test_facebook_checks_page_caption_and_ordered_photo_ids(self):
         package=reviewed_fixture()

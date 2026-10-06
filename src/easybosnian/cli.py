@@ -12,7 +12,7 @@ from PIL import Image
 
 from .core import ROOT, REPO, PROJECT, gh, read_json, today, verify_repository, write_json
 from .http import redact
-from .meta import Instagram, Facebook, facebook_page_token, instagram_deletion_token
+from .meta import Instagram, Facebook, facebook_page_token, instagram_deletion_token, instagram_facebook_token
 from .daily import daily
 from .buffer import Buffer
 from .notify import failure
@@ -215,6 +215,19 @@ def authorize_instagram_deletion(token=None,secret=None):
     print('Separate Instagram deletion authorization verified and saved privately. Existing publishing credentials unchanged; no social content deleted.')
 
 
+def authorize_instagram_polls(token=None,secret=None):
+    verify_repository(remote=True)
+    token=token or getpass.getpass('Facebook User token with Instagram publishing permission (hidden): ').strip()
+    secret=secret or getpass.getpass('EasyBosnian Daily Uploads app secret for long-lived exchange (hidden): ').strip()
+    value,info=instagram_facebook_token(token,secret)
+    for name,content in [('INSTAGRAM_FACEBOOK_ACCESS_TOKEN',value),
+                         ('INSTAGRAM_FACEBOOK_USER_ID',info['instagram_id']),
+                         ('INSTAGRAM_FACEBOOK_EXPIRES_AT',str(info['expires_at']))]:
+        gh('secret','set',name,'--repo',REPO,input_text=content)
+    write_json(ROOT/'docs/instagram-poll-authorization.json',info)
+    print('Separate Facebook Login poll/feed authorization verified and stored privately; no social content created.')
+
+
 def activate(action):
     if action not in ('enable-daily','disable-daily'): raise ValueError('Unknown activation action')
     gh('variable','set','DAILY_POSTING_ENABLED','--repo',REPO,'--body','true' if action=='enable-daily' else 'false')
@@ -237,6 +250,7 @@ def main():
     subs.add_parser("authorize-instagram")
     subs.add_parser("authorize-facebook")
     subs.add_parser("authorize-instagram-deletion")
+    subs.add_parser("authorize-instagram-polls")
     subs.add_parser("authorize-buffer")
     subs.add_parser("verify-facebook")
     p=subs.add_parser("activation"); p.add_argument("action",choices=["enable-daily","disable-daily"])
@@ -262,6 +276,7 @@ def main():
     elif args.command=="authorize-instagram": authorize_instagram()
     elif args.command=="authorize-facebook": authorize_facebook()
     elif args.command=="authorize-instagram-deletion": authorize_instagram_deletion()
+    elif args.command=="authorize-instagram-polls": authorize_instagram_polls()
     elif args.command=="authorize-buffer": authorize_buffer()
     elif args.command=="verify-facebook": print(Facebook().verify_page())
     elif args.command=="activation": activate(args.action)
