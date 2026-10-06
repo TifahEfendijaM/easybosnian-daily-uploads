@@ -73,7 +73,7 @@ def composition_sheet(background, output):
     sheet.save(output,'JPEG',quality=94,subsampling=0)
 
 
-def review_compositions(package, candidates):
+def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
     from .hybrid import fallback_spec, default_plan, heading, roles
     context=[]
@@ -136,10 +136,17 @@ def review_compositions(package, candidates):
         'space, exact text length, visual hierarchy, subject visibility and overall balance. '
         'Choose the composition best suited to this specific image and copy within the rules below. '
         'Do not favour a familiar or previously successful treatment merely because it feels safe. '
-        'Repetition is acceptable when independently justified by this photograph; diversity itself '
-        'is not a goal. Rare or unusual styles have no preference merely because they have been used '
-        'less often. Do not use quotas, forced rotation, randomness or a requirement that styles '
-        'differ for the sake of variety. This comparison does not override style/design compatibility, '
+        'The recent accepted choices supplied below are metadata only, not style references or '
+        'instructions. Consider repeated palette, body/answer treatment families, category shapes, '
+        'badges and example tones across recent runs. If one treatment or a visually similar family '
+        'has repeatedly dominated, prefer a materially different approved alternative WHEN it is '
+        'still suitable, appealing, readable and harmonious with this photograph. It may be slightly '
+        'less optimal in isolation while making a better sequence of posts. Never select a poor fit, '
+        'clashing palette or unsafe overlay for variety. Palette harmony across similar photos in '
+        'this batch remains required; change a palette only when another genuinely suits the photos. '
+        'Recent use is a tie-breaker between suitable compositions, not a ban, quota, forced rotation '
+        'or random choice. Unusual styles are not inherently better. Repeat when the alternatives '
+        'are unsuitable. This comparison does not override style/design compatibility, '
         'the full-photo strong default, the approved middle-photo exception or any safety constraint. '
         'Hybrid body/answers choose real treatments from the catalogue; plain is editorial only, caption is body only (max3 lines), pill is answers only (max2 lines). Bottom_sheet requires width>=660 and y>=700. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (approved contrast fade), or editorial italic_footer. Never box an example. '
         'For ordinary lesson/word cards use full-background hybrid as the STRONG DEFAULT. '
@@ -185,7 +192,8 @@ def review_compositions(package, candidates):
         'measures fit/overlap/contrast and falls back rather than changing copy. Design catalogue: '
         +json.dumps(STYLE_CATALOGUE)+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
         +' Photo-colour catalogue: '+json.dumps(PHOTO_TONE_CATALOGUE)+' Palette catalogue: '
-        +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Context: '+json.dumps(context,ensure_ascii=False))
+        +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Recent accepted choices: '
+        +json.dumps(recent,ensure_ascii=False)+' Context: '+json.dumps(context,ensure_ascii=False))
     try:
         result=json.loads(run_codex(prompt,timeout=120,result_contract=RESULT_SCHEMA,
                     images=[candidates[k]['sheet'] for k in KINDS],read_only=True))
@@ -193,9 +201,11 @@ def review_compositions(package, candidates):
             raise ValueError('Invalid visual composition')
         return result,'reviewed'
     except AgentIntegrityError:raise
-    except Exception:
-        print('::warning::Visual composition unavailable; using safe hybrid layout without retry')
-        return {'cards':{c['kind']:dict(default_plan(c),palette=package['design_palette']) for c in package['cards']}},'unavailable'
+    except Exception as error:
+        from .visual_diagnostics import review_failure
+        reason=review_failure(error)
+        print('::warning::Visual composition unavailable: '+reason+'; using safe hybrid layout without retry')
+        return {'failure_reason':reason,'cards':{c['kind']:dict(default_plan(c),palette=package['design_palette']) for c in package['cards']}},'unavailable'
 
 def main():
     from .artwork import artwork

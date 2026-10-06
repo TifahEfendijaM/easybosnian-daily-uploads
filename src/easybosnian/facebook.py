@@ -3,7 +3,7 @@ from .batches import output_key
 import os
 from urllib.parse import urlparse
 from .core import ROOT, require_publishing, write_json
-from .http import SafeError
+from .http import SafeError, redact
 from .meta import Facebook
 from .notify import failure
 
@@ -46,6 +46,7 @@ def publish_facebook(package, assets, record=None):
         result.update(permalink=verify_post(facebook,package,post_id,photo_ids),published=True,status='confirmed Facebook publication')
         write_json(ROOT/'build'/output_key(package)/'facebook-result.json',result);return result
     except Exception as error:
-        result.update(status=publication,failed_stage=stage);write_json(ROOT/'build'/output_key(package)/'facebook-result.json',result)
+        detail=redact(error)
+        result.update(status=publication,failed_stage=stage,error=detail);write_json(ROOT/'build'/output_key(package)/'facebook-result.json',result)
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
-        raise SafeError('Facebook failed at '+stage,stage) from None
+        raise SafeError('Facebook failed at '+stage+(': '+detail if isinstance(error,SafeError) else ''),stage,getattr(error,'http_status',None)) from None

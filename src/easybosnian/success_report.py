@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from .batches import output_key
 from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES
-from .visual_diagnostics import safe_rejection
+from .visual_diagnostics import safe_rejection, rendering_outcome
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
@@ -81,7 +81,8 @@ def with_rendering(data,placement):
             typography(role,values['font_size'],values['line_spacing'],values['max_lines'],values['wrapping'])
             safe_typography[role]=dict(values)
         rendered[LABELS[kind]]={'palette':result['palette'],'position':result['position'],'design':design,
-                               'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography}
+                               'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography,
+                               'outcome':rendering_outcome(result,placement.get('status'))}
         for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
@@ -106,6 +107,8 @@ def render_report(data):
         fence='`'*max(3,1+max((len(run) for run in re.findall(r'`+',card['prompt'])),default=0))
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
         if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['palette'])} / {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"
+        outcome=card.get('rendering',{}).get('outcome')
+        if outcome:text+='**Visual decision — '+markdown_text(outcome['source'])+':** '+markdown_text(outcome['reason'])+'\n\n'
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
@@ -131,6 +134,8 @@ def render_report(data):
     for card in data['cards']:
         markup+='<section><h3>'+html.escape(card['category'])+'</h3><p>'+html.escape(card['heading'])+'</p>'
         if card.get('rendering'):markup+='<p>Final rendering: '+html.escape(card['rendering']['palette'])+' / '+html.escape(card['rendering']['design'])+' / '+html.escape(card['rendering']['position'])+'; '+html.escape(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))+'. Lora headings, Inter body.</p>'
+        outcome=card.get('rendering',{}).get('outcome')
+        if outcome:markup+='<p><strong>Visual decision — '+html.escape(outcome['source'])+':</strong> '+html.escape(outcome['reason'])+'</p>'
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)

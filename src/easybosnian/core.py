@@ -45,6 +45,15 @@ def gh(*args, input_text=None):
     return result.stdout
 
 
+def gh_binary(*args):
+    """Protected artifact reads; never decode or print an archive/provider response."""
+    verify_repository(remote=True)
+    result = subprocess.run(["gh", *args], capture_output=True)
+    if result.returncode:
+        raise RuntimeError("GitHub artifact read failed; check repository access")
+    return result.stdout
+
+
 def publishing_enabled():
     if os.getenv('GITHUB_ACTIONS') == 'true':
         return os.getenv('DAILY_POSTING_ENABLED') == 'true'
