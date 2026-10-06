@@ -129,10 +129,10 @@ class CustomHistoryReuseTests(unittest.TestCase):
                     store.return_value.publications_for_date.return_value = []
                     result = cloud_run('daily', 'custom', self.package['theme']['name'],
                         [w['lemma'] for w in self.package['words']], ['entered'] * 3, batch_target=target)
-                    self.assertEqual(result['status'], 'reviewed content available in private history')
+                    self.assertEqual(result['status'], 'reviewed content staged privately')
                     child.assert_called_once()
                     save.assert_called_once()
-                    store.return_value.save_content.assert_called_once()
+                    store.return_value.save_content.assert_not_called()
                     store.return_value.remove_content.assert_not_called()
 
 

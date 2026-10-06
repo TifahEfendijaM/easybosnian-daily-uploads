@@ -128,9 +128,11 @@ class Facebook:
         return request(method, url, headers=headers, form=values or {})
 
     def verify_page(self):
-        page = self.call("GET", "me", {"fields": "id,name"})
+        page = self.call("GET", "me", {"fields": "id,name,can_post"})
         if page["id"] != self.page_id or page["name"] != "Easy Bosnian":
             raise ValueError("Facebook token does not authorize the exact selected EasyBosnian Page")
+        if page.get('can_post') is not True:
+            raise ValueError('Facebook Page posting capability is unavailable; renew the existing Page publishing authorization')
         return page
 
     def photo(self, url, alt):
@@ -255,7 +257,8 @@ class InstagramDeletion:
 class InstagramFacebook(Instagram):
     """Facebook Login feed/polls only. Instagram Login still owns Stories/refresh."""
     required_scopes = frozenset(('instagram_basic', 'instagram_content_publish',
-                                 'pages_read_engagement', 'pages_show_list'))
+                                 'pages_read_engagement', 'pages_show_list', 'ads_read',
+                                 'business_management'))
 
     def __init__(self, token=None, user_id=None, expires_at=None):
         self.token = token or os.getenv('INSTAGRAM_FACEBOOK_ACCESS_TOKEN')

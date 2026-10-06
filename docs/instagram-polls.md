@@ -16,10 +16,15 @@ Facebook Page token: the poll read edge requires a **Facebook User token**.
 Authorize the existing EasyBosnian Daily Uploads app (1987873818544936) for only
 Easy Bosnian Page 1284422991426579 and its linked professional @easy_bosnian:
 `instagram_basic`, `instagram_content_publish`, `pages_read_engagement` and
-`pages_show_list`. Confirm MANAGE or CREATE_CONTENT Page tasks. If access is
-assigned solely through Business Manager, Meta documents an additional
-`ads_read` or `ads_management` requirement; request no advertising scope without
-an actual need and explicit consent.
+`pages_show_list`, plus `ads_read` for this Business-Manager-assigned Page.
+Business Suite confirms the user already has full access to the exact Page;
+`business_management` is additionally requested for business-owned asset
+discovery/task verification. Retain the previously authorized
+`pages_manage_posts` and `instagram_manage_contents` when renewing consent;
+dropping them breaks the independent Facebook/deletion credentials. Verify
+MANAGE or CREATE_CONTENT on the exact Page from the authenticated accounts edge.
+No assignment is changed and no broader permission is silently substituted.
+Both additional scopes require explicit user consent before token storage/merge.
 
 Use `easybosnian authorize-instagram-polls` with its hidden prompts, never token
 arguments. It exchanges once, checks app ID, USER token type, scopes, expiry,

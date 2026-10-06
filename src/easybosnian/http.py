@@ -9,13 +9,14 @@ from urllib.request import Request, urlopen
 
 
 class SafeError(RuntimeError):
-    def __init__(self,message,stage=None,http_status=None,*,reason=None,provider_code=None,provider_http_status=None):
+    def __init__(self,message,stage=None,http_status=None,*,reason=None,provider_code=None,provider_http_status=None,diagnostic_saved=False):
         super().__init__(message)
         self.stage=stage
         self.http_status=http_status
         self.reason=reason
         self.provider_code=provider_code
         self.provider_http_status=provider_http_status
+        self.diagnostic_saved=diagnostic_saved is True
 
 
 STORAGE_REASONS={
@@ -34,7 +35,7 @@ FLUX_REASONS={
     'ai_image_missing':'Cloudflare Workers AI returned no image',
     'cache_write_failed':'private background cache write failed',
 }
-# Workers AI's documented codes only; never provider prose or arbitrary fields.
+# Documented classifications; unknown bounded numeric codes remain visible, never prose.
 FLUX_CODES=frozenset((5007,5004,3039,3003,5018,5016,3023,3041,5035,5019,5005,3042,3006,3007,3008,3036,3040))
 
 
@@ -48,7 +49,7 @@ def safe_response_error(payload,http_status=None):
     code=status=None
     if stage=='FLUX generation':
         value=payload.get('code')
-        code=value if type(value) is int and value in FLUX_CODES else None
+        code=value if type(value) is int and 0<value<=99999 else None
         value=payload.get('provider_http_status')
         status=value if type(value) is int and 100<=value<=599 else None
         codes=f"provider code {code if code is not None else 'unavailable'}; provider HTTP {status if status is not None else 'unavailable'}"
@@ -60,7 +61,7 @@ def safe_response_error(payload,http_status=None):
     else: reason=None
     prefix=f'HTTP {http_status}' if http_status is not None else 'Provider rejected the request'
     return SafeError(f'{prefix}; {codes}; {detail}',stage,http_status,
-                     reason=reason,provider_code=code,provider_http_status=status)
+                     reason=reason,provider_code=code,provider_http_status=status,diagnostic_saved=stage=='FLUX generation' and payload.get('diagnostic_saved') is True)
 
 
 def provider_codes(payload):

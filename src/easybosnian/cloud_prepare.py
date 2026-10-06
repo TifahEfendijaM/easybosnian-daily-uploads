@@ -199,7 +199,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         else:
             existing=next((x for x in history['days'] if identity(x)==plan['batch_id']),None)
             if mode=='preview' and existing and existing['content'].get('schema_version')==1:
-                # User chose saved previews; no claim that this content was published.
+                # Reuse published content privately; preview never writes history.
                 package=dict(existing['content'],batch_id=plan['batch_id']);validate(package);fit_check(package)
             else:
                 stage='cloud ChatGPT research/review';draft=ROOT/f'build/preparation/{date}.json';draft.unlink(missing_ok=True)
@@ -212,8 +212,10 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 package['batch_id']=plan['batch_id'];write_json(draft,package)
                 stage='validation';check_selection(package,chosen)
                 validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
-                stage='preparation/history save';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
-            result={'date':date,'status':'reviewed content available in private history','mode':mode,
+                stage='private content staging';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
+            from .cli import stage_content
+            stage_content(package,root=ROOT)
+            result={'date':date,'status':'reviewed content staged privately','mode':mode,
                     'publication':'nothing published by preparation'}
         result.update(project=PROJECT,mode=mode,run_date=run_date,batch_target=batch_target)
         if plan:result.update(batch_id=plan['batch_id'],cleanup_batch_id=plan['cleanup_batch_id'])

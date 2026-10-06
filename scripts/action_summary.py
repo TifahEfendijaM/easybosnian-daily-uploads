@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from easybosnian.visual_diagnostics import safe_rejection
+from easybosnian.visual_diagnostics import safe_rejection, rendering_outcome
 
 text='This workflow has no confirmed publication result. Inspect failed steps and diagnostics.\n'
 results=list(Path('build').glob('*/result.json'))
@@ -22,6 +22,8 @@ if platforms:
             text+='  Native Pitanje dana poll: '+result['poll']['status']+'\n'
         cleanup=result.get('replacement_cleanup',{})
         if cleanup.get('scope')=='all_today':text+=f"  All-today cleanup: {cleanup['status']}; {cleanup['removed']} removed, {cleanup['already_absent']} already absent\n"
+    if 'history_saved' in all_results:
+        text+='\nPublished content history: '+('saved after confirmed feed publication' if all_results['history_saved'] else 'not saved; inspect publication/history failures')+'\n'
     if all_results.get('history_cleanup'):
         history=all_results['history_cleanup']
         text+=f"\nAll-today history: {history['status']}; {history['removed']} batches removed\n"
@@ -30,7 +32,8 @@ if placements:
     placement=json.loads(placements[0].read_text())
     text+='\nFeed text placement: '+placement['status']+'\n'
     for kind,result in placement['cards'].items():
-        text+='- '+kind+': '+result['position']+' ('+result.get('status','not recorded')+')\n'
+        outcome=rendering_outcome(result,placement['status'])
+        text+='- **'+kind+' — '+('ChatGPT choices used' if outcome['source']=='chatgpt' else 'deterministic fallback' if outcome['source']=='fallback' else 'not recorded')+'**: '+outcome['reason']+'. Placement: '+result['position']+'\n'
         if result.get('rejection'):
             rejection=safe_rejection(result['rejection'])
             text+='  Layout fallback: '+rejection['reason']+'\n'

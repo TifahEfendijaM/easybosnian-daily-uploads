@@ -51,7 +51,7 @@ class AllTodayTests(unittest.TestCase):
 
     def test_trusted_result_rejects_changed_date_new_batch_deletion_and_scope_injection(self):
         result={'project':PROJECT,'date':self.date,'run_date':self.date,'batch_id':D,'mode':'daily',
-                'status':'reviewed content available in private history','batch_target':'all_today',
+                'status':'reviewed content staged privately','batch_target':'all_today',
                 'cleanup_batch_id':None,'cleanup_batch_ids':[B,C],'prune_history_ids':[B,C]}
         with tempfile.TemporaryDirectory() as temp,patch('easybosnian.cli.ROOT',Path(temp)),patch('easybosnian.cli.today',return_value=self.date):
             path=Path(temp)/'build/preparation-result.json';write_json(path,result)
@@ -141,7 +141,8 @@ class AllTodayTests(unittest.TestCase):
         for prune_error in (False,True):
             with self.subTest(prune_error=prune_error):
                 store,sequence,clean,publishers,notice=self.run_daily(prune_error=prune_error)
-                self.assertEqual(sequence[:3],['render','erase '+B,'erase '+C])
+                self.assertEqual(sequence[:5],['render','cleanup instagram','publish','erase '+B,'erase '+C])
+                store.save_content.assert_called_once_with(self.package,preserve_artwork=True)
                 self.assertEqual(store.delete_content.call_args_list[0].args,(B,self.date))
                 self.assertEqual(clean.call_count,3)
                 for fn in publishers.values():fn.assert_called_once()

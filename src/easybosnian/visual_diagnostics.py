@@ -3,6 +3,34 @@ import copy
 import json
 from jsonschema import Draft202012Validator
 
+REVIEW_FAILURES = frozenset(('review timed out', 'ChatGPT execution failed; check sign-in and usage',
+    'review returned no result', 'invalid review JSON', 'review violated the declarative schema',
+    'review unavailable; exact cause not recorded'))
+
+
+def review_failure(error):
+    if isinstance(error,json.JSONDecodeError):return 'invalid review JSON'
+    return {
+        'ChatGPT review exceeded its time allowance; inspect the run and reviewed content; no retry was dispatched':'review timed out',
+        'Cloud ChatGPT execution failed: verify the dedicated sign-in and ChatGPT usage limits; no paid fallback':'ChatGPT execution failed; check sign-in and usage',
+        'Cloud ChatGPT ended without its required completion result; no batch was approved':'review returned no result',
+        'Invalid visual composition':'review violated the declarative schema',
+    }.get(str(error),'review unavailable; exact cause not recorded')
+
+
+def rendering_outcome(card, review_status=None):
+    """Only trusted classifications can reach the summary or recent-design context."""
+    status=card.get('status')
+    if status=='accepted':return {'source':'chatgpt','reason':'Pillow validated and used ChatGPT’s choices'}
+    if card.get('rejection'):
+        return {'source':'fallback','reason':'Pillow rejected the proposal: '+safe_rejection(card['rejection'])['reason']}
+    reason=card.get('review_failure')
+    if reason in REVIEW_FAILURES:return {'source':'fallback','reason':reason}
+    if status=='default' and review_status=='reviewed':return {'source':'fallback','reason':'ChatGPT marked the proposal uncertain'}
+    if status=='rejected; safe hybrid fallback':return {'source':'fallback','reason':'Pillow rejected the proposal; exact cause not recorded in this older run'}
+    if review_status=='unavailable':return {'source':'fallback','reason':'review unavailable; exact cause not recorded'}
+    return {'source':'unknown','reason':'rendering decision not recorded in this older run'}
+
 TRUSTED_REJECTION_MESSAGES = frozenset((
     'Actual glyphs exceed block width',
     'Actual photographic text contrast fails; never publish unreadable copy',

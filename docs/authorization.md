@@ -43,8 +43,11 @@ Instagram deletion uses [Meta Instagram Media deletion](https://developers.faceb
 Cleanup is independent of publishing. Instagram deletion credential failure leaves old content and records a warning; it no longer blocks a replacement upload. Facebook uses supported feed-post deletion only; its Story nodes and backing photos are never deleted by this pipeline. No added permission or credential is requested for a speculative Story deletion workaround.
 
 Native Pitanje dana polls require Facebook Login `instagram_content_publish`
-alongside basic/Page read/list permissions and linked Page content tasks. This
+alongside basic/Page read/list permissions, ads_read, business_management and linked Page content tasks. This
 is separate from deletion and the original Instagram Login Story token.
 The runtime verifies finite token/data-access expiry; renew privately before
 expiry. See [instagram-polls.md](instagram-polls.md) for consent, exact limits,
 rollout and attachment-failure reporting. No native Story poll is introduced.
+## Retaining Facebook access during Instagram consent
+
+Meta consent for this shared app must retain every previously authorized Page/Instagram permission. The October 6 failures were HTTP 403/code 200 at the first photo upload after pages_manage_posts disappeared from the current consent. The exact Page credential was renewed privately with all three Page scopes and verified as a valid Page token with can_post=true. Page connection checks now require that capability before any upload. Provider status/code and failed stage are kept in the platform result and run summary; authorization failure never starts another publish attempt.

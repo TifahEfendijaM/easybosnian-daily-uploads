@@ -4,7 +4,7 @@ import os
 
 from easybosnian.cli import load_env
 from easybosnian.core import verify_repository
-from easybosnian.meta import InstagramDeletion
+from easybosnian.meta import InstagramDeletion, InstagramFacebook
 
 
 def audit():
@@ -13,7 +13,7 @@ def audit():
     client.verify_account()
     granted = {item.get('permission') for item in client.call('GET', 'me/permissions')['data']
                if item.get('status') == 'granted'}
-    required = {'instagram_basic', 'instagram_content_publish', 'pages_read_engagement', 'pages_show_list'}
+    required = InstagramFacebook.required_scopes
     return {'account': '@easy_bosnian', 'linked_page_verified': True,
             'granted_poll_scopes': sorted(required & granted),
             'missing_poll_scopes': sorted(required - granted),
