@@ -47,17 +47,16 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
     else:
         if style not in (BODY_STYLES if role=='body' else ANSWER_STYLES):
             raise ValueError('Unsupported explanation/answer style')
-        face=font(size,'SemiBold' if style=='caption' else 'Regular')
+        face=font(size,'Regular')
         text=card['body'] if role=='body' else next(o['text'] for o in card['options'] if o['label']==role)
-        inset=(0 if style in ('plain','caption') else
+        inset=(0 if style=='plain' else
                (106 if style=='split_panel' else padding+24 if role=='body' else 94))
-        text_width=width-inset-(0 if style in ('plain','caption') else padding)
-        extra=0 if style=='plain' else 20 if style=='caption' else 2*padding
+        text_width=width-inset-(0 if style=='plain' else padding)
+        extra=0 if style=='plain' else 2*padding
     rows=wrap(text,face,text_width,wrapping)
     if any(face.getbbox(row)[2]-face.getbbox(row)[0]>text_width for row in rows):
         raise ValueError('Actual glyphs exceed block width')
     if max_lines is not None and len(rows)>max_lines:raise ValueError('Exact text exceeds maximum lines; never truncate')
-    if style=='caption' and len(rows)>3:raise ValueError('Caption treatment is limited to three measured lines')
     if style=='pill' and len(rows)>2:raise ValueError('Pill answers are limited to two measured lines')
     text_height,step=measure(rows,face,line_spacing)
     text_offset=0
@@ -143,7 +142,6 @@ def occupied_width(spec):
     if style in ('italic_photo','italic_photo_fade'):
         label=font(21,'SemiBold').getbbox('PRIMJER')
         width=max(width,label[2]-label[0])
-    if style=='caption':width=max(width,160)
     return width
 
 
@@ -198,8 +196,6 @@ def measured_plan(card, plan):
     if plan['design']=='hybrid' and window is not None and window['fit']!='contain':
         raise ValueError('Hybrid separate photograph must remain complete')
     if window is not None:
-        if any(b['style']=='caption' for b in measured):
-            raise ValueError('Photographic caption requires a full-background hybrid card')
         if window['y']<header_end+24 or window['y']+window['height']>1170:
             raise ValueError('Photo window intersects heading or logo strip')
         if window['height']<400 and card.get('quiz_format')!='visual_identification':
@@ -409,18 +405,17 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
     for block in blocks:
-        if block['style'] in ('italic_photo','italic_photo_fade','caption'):
+        if block['style'] in ('italic_photo','italic_photo_fade'):
             x,y=block['x'],block['y'];label_face=font(21,'SemiBold')
-            example_y=y if block['style']=='caption' else y+measure(['PRIMJER'],label_face)[0]+16
+            example_y=y+measure(['PRIMJER'],label_face)[0]+16
             limit=photo_bounds or [0,header_end+14,WIDTH,1170]
             colours,backings=photo_colours(palette,block.get('photo_tone','auto'))
             example_colour,example_contrast,example_shading=protect_text(
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
-                extra=[] if block['style']=='caption' else [((x,y),['PRIMJER'],label_face)],
+                extra=[((x,y),['PRIMJER'],label_face)],
                 line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings)
             block['photo_colour']=example_colour;block['photo_contrast']=example_contrast
             block['photo_shading']=example_shading
-            if block['role']!='example':example_contrast=None;example_shading=0
     # Another block's preset fade must not invalidate already-chosen glyph
     # colours. Validate the final photographic surface before drawing anything.
     if not window:
@@ -451,12 +446,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
                 example_contrast=contrast(ink,paper)
             draw_rows(draw,(x,y),['PRIMJER'],label_face,colour)
             draw_rows(draw,(x,y+label_height+16),rows,face,colour,leading)
-        elif style in ('plain','caption'):
-            colour=block.get('photo_colour',ink)
-            draw_rows(draw,(x,y),rows,face,colour,leading)
-            if style=='caption':
-                rule_y=y+measure(rows,face,leading)[0]+12
-                draw.line((x,rule_y,x+min(160,block['width']),rule_y),fill=colour,width=3)
+        elif style=='plain':
+            draw_rows(draw,(x,y),rows,face,ink,leading)
         else:
             colour=draw_panel(image,block,palette)
             draw=ImageDraw.Draw(image)

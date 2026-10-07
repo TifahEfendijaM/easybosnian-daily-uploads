@@ -146,7 +146,7 @@ def review_compositions(package, candidates, recent=()):
         'or random choice. Unusual styles are not inherently better. Repeat when the alternatives '
         'are unsuitable. This comparison does not override style/design compatibility, '
         'the full-photo strong default, the approved middle-photo exception or any safety constraint. '
-        'Hybrid body/answers choose real treatments from the catalogue; plain is editorial only, caption is body only (max3 lines), pill is answers only (max2 lines). Bottom_sheet requires width>=660 and y>=700. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (approved contrast fade), or editorial italic_footer. Never box an example. '
+        'Hybrid explanations and answers MUST use one of the approved bounded text-card panels, never unboxed text over a photograph or fade. Plain body text is editorial paper only; pill is answers only (max2 lines). Bottom_sheet requires width>=660 and y>=700. Only titles and examples may use unboxed photographic text with approved contrast fades. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (approved contrast fade), or editorial italic_footer. Never box an example. '
         'For ordinary lesson/word cards use full-background hybrid as the STRONG DEFAULT. '
         'Choose freely among its approved body treatments, placing body and unboxed italic '
         'example around the important visible subjects. No hybrid body treatment has priority '

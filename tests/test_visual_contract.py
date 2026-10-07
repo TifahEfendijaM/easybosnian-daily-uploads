@@ -20,6 +20,37 @@ from test_success_report import RUN, results
 
 
 class DeclarativeVisualContractTests(unittest.TestCase):
+    def test_photographic_body_and_answers_require_panels_but_title_example_fades_remain(self):
+        card=reviewed_fixture()['cards'][2]
+        plan=default_plan(card)
+        plan['blocks'][0]['style']='caption'
+        with self.assertRaisesRegex(ValueError,'Invalid hybrid composition contract'):
+            measured_plan(card,plan)
+        with self.assertRaisesRegex(ValueError,'Unsupported explanation/answer style'):
+            block_spec(card,'body',952,'caption')
+        self.assertNotIn('caption',BODY_STYLES)
+        self.assertEqual(set(BODY_STYLES)-{'plain'},set(PANEL_STYLES)-{'pill'})
+        plan['blocks'][0]['style']='plain'
+        with self.assertRaisesRegex(ValueError,'Paper styles require the editorial design'):
+            measured_plan(card,plan)
+        for role in ('A','B'):
+            quiz=reviewed_fixture()['cards'][0]
+            with self.assertRaisesRegex(ValueError,'Unsupported explanation/answer style'):
+                block_spec(quiz,role,952,'caption')
+        # Both requested title/example colour directions still render; all
+        # original body-panel treatments remain distinct in the pixel test.
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);photo=root/'photo.jpg'
+            Image.new('RGB',(1080,1350),'#828282').save(photo)
+            for tone in ('paper_dark','ink_light'):
+                plan=default_plan(card);plan['heading_tone']=tone
+                plan['blocks'][-1]['photo_tone']=tone
+                metrics=render_hybrid(card,'terracotta-sand',photo,root/f'{tone}.jpg',plan)
+                self.assertEqual(metrics['heading_tone'],tone)
+                self.assertEqual(metrics['example_tone'],tone)
+                self.assertGreaterEqual(metrics['heading_contrast'],3)
+                self.assertGreaterEqual(metrics['example_contrast'],4.5)
+
     def test_tracked_bosnian_category_accents_share_capital_baseline(self):
         face=font(50,'SemiBold')
         image=Image.new('L',(360,120))
@@ -117,7 +148,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['body_contrast'],4.5)
                 self.assertEqual(metrics['block_styles']['body'],style)
                 outputs[style]=(root/'card.jpg').read_bytes()
-            self.assertEqual(len(set(outputs.values())),14)
+            self.assertEqual(len(set(outputs.values())),13)
             for style in EXAMPLE_STYLES:
                 plan=editorial_plan(card) if style=='italic_footer' else default_plan(card)
                 plan['blocks'][-1]['style']=style
@@ -252,7 +283,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],15)
+        self.assertEqual(expected['rendering_version'],16)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

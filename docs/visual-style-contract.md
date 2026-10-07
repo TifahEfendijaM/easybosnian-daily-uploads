@@ -10,13 +10,13 @@ Each block allows only `role`, `style`, `x`, `y`, `width`, `font_size`, `line_sp
 
 | Role | Font targets | Face | Leading |
 |---|---|---|---|
-| body | 32–48px | bundled Inter Regular (SemiBold for caption) | 1.20–1.55 × font size |
+| body | 32–48px | bundled Inter Regular | 1.20–1.55 × font size |
 | answers A–D | 32–46px | bundled Inter Regular | 1.20–1.55 × font size |
 | PRIMJER/example | 28–40px | bundled Lora Italic | 1.20–1.55 × font size |
 
 Leading must additionally leave at least4px between measured full accented glyph bounds. Pillow computes height; the model cannot specify height or replace text with manually line-broken copy. `max_lines` rejects overlong exact text rather than truncating it. Natural wrapping is greedy; balanced wrapping distributes the minimum number of lines without tiny orphan lines. Unicode spaces preserve exact reconstruction; NBSP, narrow NBSP and word joiners remain unbreakable. Diacritics and combining characters are never stripped or normalised for drawing.
 
-## Fourteen real body treatments
+## Thirteen real body treatments
 
 | ID | Trusted renderer | Restriction |
 |---|---|---|
@@ -26,7 +26,6 @@ Leading must additionally leave at least4px between measured full accented glyph
 | overlay_dark | opaque ink panel, paper text and paper-filled approved answer badge | hybrid |
 | overlay_light | fixed translucent paper preset, accent underline; glyph contrast tested on actual composited photo | hybrid |
 | side_rule | square paper with full-height left accent bar, independently chosen answer badge | hybrid |
-| caption | unboxed SemiBold photo copy with separator and trusted neutral contrast fade | full-background hybrid body only, max3 measured lines |
 | bottom_sheet | wide paper sheet, rounded top/square bottom, centered accent handle | hybrid, y>=700, width>=660 |
 | split_panel | square paper, wide accent rail, separate text column | hybrid |
 | minimal_rule | square paper, bottom accent rule, independently chosen answer badge | hybrid |
@@ -34,6 +33,8 @@ Leading must additionally leave at least4px between measured full accented glyph
 | notebook_margin | paper, accent margin and short ruled edge ticks outside text/badge | hybrid |
 | top_ribbon | paper, full-width top accent ribbon and fine inset ink bottom rule | hybrid |
 | corner_brackets | paper, four inset accent corner brackets without a continuous frame | hybrid |
+
+Hybrid explanations and answers must use approved bounded text-card panels, never unboxed copy over a photograph or fade. The former unboxed `caption` style is no longer approved: both schema and renderer reject it. Editorial `plain` remains valid only on the paper surface. Title and PRIMJER fade choices remain unchanged, including dark text over a light fade when independently better suited to the photo.
 
 All twelve body-panel treatments and the answer-only `pill` capsule combine independently with all four answer badge shapes. `pill` has fully rounded ends and permits at most two measured answer lines; it is never valid for body/PRIMJER. Frame, notebook-margin and ribbon decorations bring back details from the earlier catalogue as trusted presets; they do not revive preparation-time design_template selection or boxed PRIMJER. Every ID reaches distinct Pillow drawing behavior. None is a metadata alias. Editorial supports only plain body and italic_footer example around its separate photograph. Quiz cards remain hybrid with clear panel answers; visual identification requires every answer below the complete photo.
 

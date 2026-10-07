@@ -1,10 +1,10 @@
 """Trusted declarative catalogue. Every treatment has a real Pillow renderer."""
 DESIGNS = ('hybrid', 'editorial')
 BODY_STYLES = ('rounded', 'outlined', 'plain', 'overlay_dark', 'overlay_light',
-               'side_rule', 'caption', 'bottom_sheet', 'split_panel', 'minimal_rule',
+               'side_rule', 'bottom_sheet', 'split_panel', 'minimal_rule',
                'double_frame', 'notebook_margin', 'top_ribbon', 'corner_brackets')
 EXAMPLE_STYLES = ('italic_photo', 'italic_photo_fade', 'italic_footer')
-PANEL_STYLES = tuple(s for s in BODY_STYLES if s not in ('plain', 'caption'))
+PANEL_STYLES = tuple(s for s in BODY_STYLES if s != 'plain')
 ANSWER_STYLES = (*PANEL_STYLES, 'pill')
 PANEL_STYLES = (*PANEL_STYLES, 'pill')
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
@@ -22,7 +22,6 @@ STYLE_CATALOGUE = {
     'overlay_dark': 'Opaque approved ink panel with paper text and paper-filled approved answer badge. No custom colours or alpha.',
     'overlay_light': 'Approved paper translucent panel (fixed alpha 235), square corners, accent underline. Actual glyph contrast must pass after compositing.',
     'side_rule': 'Square paper panel with full-height 12px left accent bar; approved answer badge.',
-    'caption': 'Unboxed Inter SemiBold body directly on photograph with a contrast-safe separator and preset neutral contrast fade. Full-background body only, at most three lines.',
     'bottom_sheet': 'Wide paper sheet with 54px rounded top corners and square bottom; centered accent handle. Must start at y700 or lower and be at least 660px wide.',
     'split_panel': 'Square paper panel with a full-height 82px accent rail; answer label in rail, body text in its own column.',
     'minimal_rule': 'Square paper panel with just a 5px bottom accent rule; approved answer badge.',
