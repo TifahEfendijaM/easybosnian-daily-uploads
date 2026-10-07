@@ -11,6 +11,7 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE)
 
 KINDS = ('quiz', 'lesson', 'word')
+VISUAL_REVIEW_TIMEOUT = 300
 def block_schema(role, styles):
     low,high=FONT_RANGES[role]
     return {'type':'object','additionalProperties':False,
@@ -75,24 +76,15 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import fallback_spec, default_plan, heading, roles
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP
+    from .visual_measurements import block_measurements, PROFILE_COLUMNS
     context=[]
     for card in package['cards']:
         blocks=[]
         for role in roles(card):
-            variants={}
-            for style in (EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES):
-                sizes=[]
-                for width in (300,480,660,952):
-                    try:spec=fallback_spec(card,role,width,style)
-                    except ValueError:spec=None
-                    sizes.append({'width':width,'measured_height':spec['height'] if spec else None,
-                                  'font_size':spec['font_size'] if spec else None,
-                                  'line_spacing':spec['line_spacing'] if spec else None})
-                variants[style]=sizes
             text=(card['body'] if role=='body' else card['example'] if role=='example'
                   else next(option['text'] for option in card['options'] if option['label']==role))
-            blocks.append({'role':role,'text':text,'measurements_by_style':variants})
+            blocks.append({'role':role,'text':text,**block_measurements(card,role)})
         context.append({'kind':card['kind'],'heading':card.get('heading',card.get('question')),
                         'background_prompt':card['background_prompt'],
                         'separate_visual_quiz':card.get('quiz_format')=='visual_identification',
@@ -184,7 +176,25 @@ def review_compositions(package, candidates, recent=()):
         'panel heights and text baselines despite accents or descenders. Allow enough width for '
         'the exact copy; different line counts may need different heights. Intentional staggered '
         'placements remain allowed, with clear spacing and preserved label reading order. '
-        'Choose font_size in pixels: body32..48, answers32..46, examples28..40. Choose line_spacing as a font-size multiplier1.20..1.55; actual glyphs must not collide. Optional max_lines1..12 and wrapping=balanced or natural NEVER permit truncation. Supplied heights are reference measurements at default size/leading; Pillow recomputes exact heights for your choices. Allow at least14px between blocks. '
+        'Choose font_size in pixels: body32..48, answers32..46, examples28..40. Choose line_spacing as a font-size multiplier1.20..1.55; actual glyphs must not collide. Optional max_lines1..12 and wrapping=balanced or natural NEVER permit truncation. '
+        'Do a final geometry check before returning. The compact fit_profiles rows use columns '
+        +json.dumps(PROFILE_COLUMNS)+'. Each measurements_by_style entry points to a measurement_family, '
+        'not a recommended style: distinct style IDs still have distinct renderers. Each row is an '
+        'EXACT measured height for this source text, width, font_size and line_spacing, with balanced '
+        'wrapping, all panel padding, the PRIMJER label and any separator already included. No row '
+        'means that sampled combination cannot fit that treatment. Prefer a matching measured profile '
+        'when it suits your composition. Every other approved width, font size, leading and natural '
+        'wrapping remains allowed; samples are not a geometry or creativity menu. Never assume that '
+        'narrower widths or larger fonts scale height linearly: wrapping can add whole lines. If '
+        'changing only leading, height changes by (line_count-1) times the change in rounded '
+        'font_size*line_spacing; tighter leading still needs safe glyph separation. For every block '
+        'check y+height against its allowed bottom, its neighbours and any photo window. Do not '
+        'place an example using an estimated body height from another width/font. Allow at least '
+        f'{MIN_BLOCK_GAP}px between visible blocks; prefer 14..24px for breathing room and leave '
+        'a little extra when estimating. Full panel surfaces '
+        'count as occupied. Unboxed text occupies its measured glyphs/label/rule, not blank trailing '
+        'wrapping space. Keep your selected style, palette and photographic composition; solve fit '
+        'through your free placement/width/approved typography choices before returning the one proposal. '
         'Everything stays inside x64..1016, below header_end+24, ending by y1170 above the logo. '
         'Only editorial italic_footer may extend to y1286, with its right edge at most x880 '
         'to avoid the logo. Its separator is included in the measured height. '
@@ -201,21 +211,27 @@ def review_compositions(package, candidates, recent=()):
         +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Recent accepted choices: '
         +json.dumps(recent,ensure_ascii=False)+' Context: '+json.dumps(context,ensure_ascii=False))
     try:
-        result=json.loads(run_codex(prompt,timeout=120,result_contract=RESULT_SCHEMA,
+        result=json.loads(run_codex(prompt,timeout=VISUAL_REVIEW_TIMEOUT,result_contract=RESULT_SCHEMA,
                     images=[candidates[k]['sheet'] for k in KINDS],read_only=True))
         # The model contract remains strict. Only palette failures are isolated
         # by the trusted wrapper; every other field still validates unchanged.
         from .visual_diagnostics import select_palette
-        palette_decisions={}
-        if isinstance(result,dict) and isinstance(result.get('cards'),dict):
-            for kind in KINDS:
-                plan=result['cards'].get(kind)
-                if isinstance(plan,dict):
-                    palette,palette_decisions[kind]=select_palette(plan,package['design_palette'])
-                    plan['palette']=palette
-        if list(Draft202012Validator(RESULT_SCHEMA).iter_errors(result)):
+        if (not isinstance(result,dict) or set(result)!={'cards'} or
+                not isinstance(result['cards'],dict) or set(result['cards'])!=set(KINDS)):
             raise ValueError('Invalid visual composition')
+        palette_decisions={};card_failures={}
+        cards={card['kind']:card for card in package['cards']}
+        for kind in KINDS:
+            plan=result['cards'][kind]
+            palette,palette_decisions[kind]=select_palette(plan if isinstance(plan,dict) else {},package['design_palette'])
+            if isinstance(plan,dict):plan['palette']=palette
+            if list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)):
+                # Reject this entire layout, never arbitrary field repairs or
+                # valid sibling layouts. Independently approved palette survives.
+                card_failures[kind]='review violated the declarative schema'
+                result['cards'][kind]=dict(default_plan(cards[kind]),palette=palette)
         result['palette_decisions']=palette_decisions
+        if card_failures:result['card_failures']=card_failures
         return result,'reviewed'
     except AgentIntegrityError:raise
     except Exception as error:

@@ -10,6 +10,8 @@ from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
+MIN_BLOCK_GAP = 8
+
 
 def serif(size, italic=False):
     face = ImageFont.truetype(str(ROOT/'assets/fonts'/('Lora-Italic.ttf' if italic else 'Lora.ttf')), size)
@@ -128,6 +130,23 @@ def editorial_plan(card):
             'heading_tone':'auto','photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
+def occupied_width(spec):
+    """Visible unboxed copy/rules, rather than unused wrapping width.
+
+    Opaque/translucent panels and footer rules occupy their full declared
+    width. Fades remain renderer-owned and receive final-pixel contrast checks.
+    """
+    style=spec['style']
+    if style in PANEL_STYLES or style=='italic_footer':return None
+    width=max(spec['face'].getbbox(row)[2]-spec['face'].getbbox(row)[0]
+              for row in spec['rows'])
+    if style in ('italic_photo','italic_photo_fade'):
+        label=font(21,'SemiBold').getbbox('PRIMJER')
+        width=max(width,label[2]-label[0])
+    if style=='caption':width=max(width,160)
+    return width
+
+
 def measured_plan(card, plan):
     """Reject off-canvas, overlapping, unreadable, or mismatched proposals."""
     from .visual_placement import CARD_SCHEMA
@@ -154,14 +173,17 @@ def measured_plan(card, plan):
         if style=='bottom_sheet' and (block['width']<660 or block['y']<700):
             raise ValueError('Bottom sheet requires a wide lower placement')
         box=[block['x'],block['y'],block['x']+block['width'],block['y']+spec['height']]
+        visible_width=occupied_width(spec)
+        occupied=[*box[:2],box[0]+min(block['width'],visible_width) if visible_width is not None else box[2],box[3]]
         footer=style=='italic_footer'
         if box[0]<64 or box[2]>(880 if footer else 1016) or box[1]<header_end+24 or box[3]>(1286 if footer else 1170):
             raise ValueError('Composition intersects the fixed heading, margin or logo strip')
         for previous in measured:
-            a=previous['bounds']
-            if box[0]<a[2]+14 and box[2]>a[0]-14 and box[1]<a[3]+14 and box[3]>a[1]-14:
+            a=previous['occupied_bounds']
+            if (occupied[0]<a[2]+MIN_BLOCK_GAP and occupied[2]>a[0]-MIN_BLOCK_GAP
+                    and occupied[1]<a[3]+MIN_BLOCK_GAP and occupied[3]>a[1]-MIN_BLOCK_GAP):
                 raise ValueError('Composition text blocks overlap or have no breathing room')
-        measured.append({**block,**spec,'bounds':box})
+        measured.append({**block,**spec,'bounds':box,'occupied_bounds':occupied})
     if card['kind']=='quiz':
         if plan['design']!='hybrid' or (plan['photo_window'] is not None and card.get('quiz_format')!='visual_identification'):
             raise ValueError('Quiz photo treatment is fixed by its reviewed task type')

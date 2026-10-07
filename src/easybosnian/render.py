@@ -74,12 +74,21 @@ def wrap(text, face, width, preference='balanced'):
 def measure(rows, face, line_spacing=None):
     if not rows:raise ValueError('Cannot measure empty copy')
     boxes=[face.getbbox(row) for row in rows]
-    glyph_height=max(b[3] for b in boxes)-min(b[1] for b in boxes)
+    top=min(b[1] for b in boxes)
+    glyph_height=max(b[3] for b in boxes)-top
     if line_spacing is None:step=max(round(face.size*1.30),glyph_height+6)
     else:
         step=round(face.size*line_spacing)
-        if step<glyph_height+4:raise ValueError('Requested leading collides with measured glyphs')
-    return glyph_height+(len(rows)-1)*step,step
+        # Check actual adjacent baselines, not the union of glyphs that may
+        # occur on different rows. A single line cannot collide with a next
+        # line. Keep the existing four-pixel minimum visible separation.
+        if any(step+following[1]-previous[3]<4
+               for previous,following in zip(boxes,boxes[1:])):
+            raise ValueError('Requested leading collides with measured glyphs')
+    # This is exactly draw_rows' baseline origin. The lowest descender need
+    # not occur on the final row, so adding a pooled glyph height overstates
+    # the rendered bottom and can reject an otherwise safe composition.
+    return max(i*step+box[3] for i,box in enumerate(boxes))-top,step
 
 
 def luminance(colour):

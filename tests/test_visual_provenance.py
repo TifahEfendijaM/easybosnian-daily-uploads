@@ -89,8 +89,12 @@ class VisualProvenanceTests(unittest.TestCase):
             bad=copy.deepcopy(base);del bad['cards']['word'][field]
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(bad)) as child,contextlib.redirect_stdout(io.StringIO()):
                 reviewed,status=review_compositions(package,candidates)
-            self.assertEqual(status,'unavailable');child.assert_called_once()
-            self.assertTrue(all(p['source']=='fallback' for p in reviewed['palette_decisions'].values()))
+            self.assertEqual(status,'reviewed');child.assert_called_once()
+            self.assertEqual(reviewed['cards']['quiz'],base['cards']['quiz'])
+            self.assertEqual(reviewed['cards']['lesson'],base['cards']['lesson'])
+            self.assertEqual(reviewed['cards']['word']['confidence'],'uncertain')
+            self.assertEqual(reviewed['card_failures'],{'word':'review violated the declarative schema'})
+            self.assertTrue(all(p['source']=='chatgpt' for p in reviewed['palette_decisions'].values()))
 
     def test_photographic_palette_rejection_preserves_every_layout_parameter(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)

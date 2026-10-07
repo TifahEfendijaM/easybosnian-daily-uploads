@@ -15,7 +15,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':14, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':15, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -121,6 +121,9 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                                  **({'palette_rejection':palette_rejection} if palette_rejection is not None else {})}
                 if proposal.get('failure_reason') in REVIEW_FAILURES:
                     decisions[kind]['review_failure']=proposal['failure_reason']
+                card_failure=proposal.get('card_failures',{}).get(kind)
+                if card_failure in REVIEW_FAILURES:
+                    decisions[kind]['review_failure']=card_failure
                 decisions[kind]['outcome']=rendering_outcome(decisions[kind],status)
                 decisions[kind]['provenance']=rendering_provenance(decisions[kind],status)
             else:

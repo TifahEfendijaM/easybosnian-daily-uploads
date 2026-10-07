@@ -37,7 +37,7 @@ class HybridCompositionTests(unittest.TestCase):
             decisions,status=review_compositions(reviewed_fixture(),self.candidates())
         self.assertEqual(decisions['cards'],result['cards']);self.assertEqual(status,'reviewed');child.assert_called_once()
         self.assertTrue(all(p['source']=='chatgpt' for p in decisions['palette_decisions'].values()))
-        self.assertTrue(child.call_args.kwargs['read_only']);self.assertEqual(child.call_args.kwargs['timeout'],120)
+        self.assertTrue(child.call_args.kwargs['read_only']);self.assertEqual(child.call_args.kwargs['timeout'],300)
         self.assertEqual(child.call_args.kwargs['result_contract'],RESULT_SCHEMA)
         self.assertEqual(child.call_args.kwargs['images'],[self.candidates()[k]['sheet'] for k in KINDS])
         prompt=child.call_args.args[0]
@@ -46,7 +46,7 @@ class HybridCompositionTests(unittest.TestCase):
 
     def test_invalid_unavailable_review_never_retries_or_logs_freeform_text(self):
         bad=self.decision();bad['cards']['word']['private']='private-provider-text'
-        for response in ('private-provider-text',json.dumps(bad)):
+        for response in ('private-provider-text',json.dumps({'cards':bad['cards'],'private':'untrusted'})):
             output=io.StringIO()
             with patch('easybosnian.cloud_prepare.run_codex',return_value=response) as child,contextlib.redirect_stdout(output):
                 result,status=review_compositions(reviewed_fixture(),self.candidates())

@@ -100,7 +100,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertTrue(all(font(32).getlength(row)<=430 for row in rows))
         with self.assertRaises(ValueError):wrap('Bosna\u00a0i\u00a0Hercegovina',font(48),120)
         with self.assertRaises(ValueError):wrap('Nova\nlinija',font(32),500)
-        face=font(48);rows=wrap('ČĆŠŽĐ\u0301',face,500)
+        face=font(48);rows=['ČĆŠŽĐ\u0301','ČĆŠŽĐ\u0301']
         with self.assertRaises(ValueError):measure(rows,face,1.0)
 
     def test_body_styles_are_real_distinct_pixels_and_examples_remain_unboxed_italic(self):
@@ -216,9 +216,10 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         proposal['cards']['word']['blocks'][0]['font_size']=100
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             selected,status=review_compositions(package,{k:{'sheet':Path(k+'.jpg')} for k in ('quiz','lesson','word')})
-        child.assert_called_once();self.assertEqual(status,'unavailable')
+        child.assert_called_once();self.assertEqual(status,'reviewed')
         for card in package['cards']:
-            self.assertEqual(selected['cards'][card['kind']],dict(default_plan(card),palette=package['design_palette']))
+            self.assertEqual(selected['cards'][card['kind']],dict(default_plan(card),palette='blue-ice'))
+        self.assertEqual(selected['card_failures'],{'word':'review violated the declarative schema'})
 
     def test_quiz_options_have_independent_styles_badges_typography_and_geometry(self):
         quiz=copy.deepcopy(reviewed_fixture()['cards'][0]);quiz['options'].append({'label':'D','text':'Glas'})
@@ -251,7 +252,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],14)
+        self.assertEqual(expected['rendering_version'],15)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw
