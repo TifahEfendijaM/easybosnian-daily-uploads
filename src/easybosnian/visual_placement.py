@@ -11,7 +11,7 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE)
 
 KINDS = ('quiz', 'lesson', 'word')
-VISUAL_REVIEW_TIMEOUT = 300
+VISUAL_REVIEW_TIMEOUT = 600
 def block_schema(role, styles):
     low,high=FONT_RANGES[role]
     return {'type':'object','additionalProperties':False,

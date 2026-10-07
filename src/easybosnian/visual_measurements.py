@@ -3,7 +3,7 @@ import copy
 import json
 from functools import lru_cache
 
-from .designs import BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, FONT_RANGES, role_type
+from .designs import BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES, FONT_RANGES, role_type
 from .hybrid import block_spec
 from .render import density
 
@@ -32,7 +32,7 @@ def _measurements(source, role):
     profiles={};by_style={}
     for style in styles:
         # Shared measurement only: all style IDs still draw distinct pixels.
-        family=('rounded' if style in ANSWER_STYLES and style not in ('split_panel','pill')
+        family=('rounded' if style in PANEL_STYLES and style not in ('split_panel','pill')
                 else 'italic_photo' if style=='italic_photo_fade' else style)
         if family not in profiles:
             rows=[]

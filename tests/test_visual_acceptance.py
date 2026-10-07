@@ -94,6 +94,26 @@ class GlyphAcceptanceTests(unittest.TestCase):
 
 
 class ReviewerFitDataTests(unittest.TestCase):
+    def test_body_fit_profiles_share_measurements_without_removing_real_styles(self):
+        from easybosnian.designs import BODY_STYLES,PANEL_STYLES
+        card=reviewed_fixture()['cards'][2]
+        data=block_measurements(card,'body')
+        self.assertEqual(set(data['measurements_by_style']),set(BODY_STYLES))
+        self.assertEqual(set(data['fit_profiles']),{'rounded','split_panel','plain'})
+        for style in set(PANEL_STYLES)-{'split_panel','pill'}:
+            self.assertEqual(data['measurements_by_style'][style]['measurement_family'],'rounded')
+        # Body and answer insets differ; each role still has its own exact
+        # profiles. No drawing renderer or allowed geometry is aliased.
+        for role in ('body','A'):
+            current=card if role=='body' else reviewed_fixture()['cards'][0]
+            measured=block_measurements(current,role)
+            for style in measured['measurements_by_style']:
+                family=measured['measurements_by_style'][style]['measurement_family']
+                for row in measured['fit_profiles'][family]:
+                    width,size,leading,lines,height=row
+                    spec=block_spec(current,role,width,style,size,leading)
+                    self.assertEqual((len(spec['rows']),spec['height']),(lines,height))
+
     def test_every_profile_is_an_exact_renderer_measurement_and_catalogue_is_complete(self):
         from easybosnian.designs import BODY_STYLES,ANSWER_STYLES,EXAMPLE_STYLES
         package=reviewed_fixture()
@@ -116,7 +136,7 @@ class ReviewerFitDataTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(decisions)) as child:
             result,status=review_compositions(package,candidates)
         child.assert_called_once();self.assertEqual(status,'reviewed')
-        self.assertEqual(child.call_args.kwargs['timeout'],300)
+        self.assertEqual(child.call_args.kwargs['timeout'],600)
         prompt=child.call_args.args[0]
         self.assertIn('samples are not a geometry or creativity menu',prompt)
         self.assertIn('Do not place an example using an estimated body height',prompt)

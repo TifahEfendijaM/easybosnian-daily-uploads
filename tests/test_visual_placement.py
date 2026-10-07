@@ -37,7 +37,7 @@ class HybridCompositionTests(unittest.TestCase):
             decisions,status=review_compositions(reviewed_fixture(),self.candidates())
         self.assertEqual(decisions['cards'],result['cards']);self.assertEqual(status,'reviewed');child.assert_called_once()
         self.assertTrue(all(p['source']=='chatgpt' for p in decisions['palette_decisions'].values()))
-        self.assertTrue(child.call_args.kwargs['read_only']);self.assertEqual(child.call_args.kwargs['timeout'],300)
+        self.assertTrue(child.call_args.kwargs['read_only']);self.assertEqual(child.call_args.kwargs['timeout'],600)
         self.assertEqual(child.call_args.kwargs['result_contract'],RESULT_SCHEMA)
         self.assertEqual(child.call_args.kwargs['images'],[self.candidates()[k]['sheet'] for k in KINDS])
         prompt=child.call_args.args[0]
