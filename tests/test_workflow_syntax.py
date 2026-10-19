@@ -19,7 +19,7 @@ class WorkflowSyntaxTests(unittest.TestCase):
         self.assertNotIn('tiktok_previous_removed',inputs)
         self.assertNotIn('TIKTOK_PREVIOUS_REMOVED',document['jobs']['run']['env'])
         self.assertEqual(inputs['mode']['options'],['verify','preview','daily'])
-        self.assertEqual(inputs['content_selection']['options'],['same_words','same_theme','new','custom'])
+        self.assertEqual(inputs['content_selection']['options'],['same_words','same_images','same_theme','new','custom'])
         self.assertEqual(inputs['batch_target']['options'],['latest','none','all_today'])
         self.assertEqual(inputs['batch_target']['default'],'latest')
         self.assertLessEqual(len(inputs),10)

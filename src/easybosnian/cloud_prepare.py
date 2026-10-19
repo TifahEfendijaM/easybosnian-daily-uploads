@@ -179,6 +179,11 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         plan=plan_batch(history,run_date,batch_target,publication_batch_ids=[item['batch_id'] for item in publication_ids]) if mode!='verify' else None
         if plan:date=plan['date']
         chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
+        reused=None
+        if mode=='daily' and selection=='same_images':
+            from .photo_reuse import prepare_photos
+            stage='saved background retrieval'
+            reused=prepare_photos(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date)
         level=load_level()
         write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
                                                        'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan})
@@ -204,9 +209,13 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
             else:
                 stage='cloud ChatGPT research/review';draft=ROOT/f'build/preparation/{date}.json';draft.unlink(missing_ok=True)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)
-                require_agent_ready(run_codex(prompt))
+                require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
+                if 'background_source' in package:raise ValueError('Photo provenance must be assigned by the trusted wrapper')
+                if reused:
+                    from .photo_reuse import seal_photos
+                    package['background_source']=seal_photos(reused)
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 if package.get('batch_id',plan['batch_id'])!=plan['batch_id']:raise ValueError('Draft has the wrong batch identity')
                 package['batch_id']=plan['batch_id'];write_json(draft,package)

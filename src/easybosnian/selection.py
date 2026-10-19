@@ -4,7 +4,7 @@ from datetime import date as calendar_date
 from .validate import instructional, normalise
 from .batches import identity, latest_record
 
-CHOICES = ('new', 'same_theme', 'same_words', 'custom')
+CHOICES = ('new', 'same_theme', 'same_words', 'same_images', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
 WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
 
@@ -23,7 +23,7 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
     if choice not in CHOICES: raise ValueError('Unknown content selection')
     previous = next((d['content'] for d in history['days'] if identity(d)==source_batch_id),None) if source_batch_id else next((d['content'] for d in history['days'] if d['date'] == date), None)
     if previous and previous.get('schema_version') != 1: previous = None
-    if choice in ('same_theme', 'same_words') and not previous:
+    if choice in ('same_theme', 'same_words', 'same_images') and not previous:
         raise ValueError('Reuse requires a complete saved batch; choose new instead')
     result = {'choice': choice, 'previous': previous}
     if source_batch_id:result['source_batch_id']=source_batch_id
@@ -86,19 +86,21 @@ def check_selection(package, selection):
         return
     if package['theme'] != previous['theme']:
         raise ValueError('The selected theme and equivalence metadata must remain unchanged')
-    if choice == 'same_words':
+    if choice in ('same_words','same_images'):
         if len(package['words']) != len(previous['words']) or any(not retained_metadata(word,pinned,previous) for word,pinned in zip(package['words'],previous['words'])):
             raise ValueError('The selected words, order and equivalence metadata must remain unchanged')
-        check_fresh_copy(package,previous)
+        check_fresh_copy(package,previous,preserve_images=choice=='same_images')
 
 
-def check_fresh_copy(package, previous):
+def check_fresh_copy(package, previous, preserve_images=False):
     if package['caption'] == previous['caption']:
         raise ValueError('Reusing words requires a fresh caption')
     for new in package['cards']:
         old = next((c for c in previous['cards'] if normalise(c['word']) == normalise(new['word'])), None)
-        if old and (instructional(old) == instructional(new) or old['background_prompt'] == new['background_prompt']):
-            raise ValueError('Reusing words requires fresh text and background prompts')
+        if old and (instructional(old) == instructional(new) or (not preserve_images and old['background_prompt'] == new['background_prompt'])):
+            raise ValueError('Reusing words requires fresh text and background prompts unless photos are explicitly reused')
+        if old and preserve_images and old['background_prompt'] != new['background_prompt']:
+            raise ValueError('Reusing photos must preserve their original background prompts')
 
 
 def retained_metadata(word, pinned, previous):
@@ -139,7 +141,7 @@ def retained_level(word, pinned, previous):
 
 
 def word_levels(package, selection, global_level):
-    if selection['choice']=='same_words':
+    if selection['choice'] in ('same_words','same_images'):
         return [retained_level(word,pinned,selection['previous']) for word,pinned in zip(package['words'],selection['previous']['words'])]
     if selection['choice']!='custom': return [global_level]*3
     changes=replacement_review(package,selection);targets=[]
@@ -184,7 +186,7 @@ def novelty_history(history, date, selection, package=None):
                          {'lemma': requested, 'equivalence_keys': []}))
     else:
         theme = selection['previous']['theme']
-        words = selection['previous']['words'] if selection['choice'] == 'same_words' else []
+        words = selection['previous']['words'] if selection['choice'] in ('same_words','same_images') else []
     result['reused_theme_keys'] = [normalise(k) for k in [theme['name'], *theme['equivalence_keys']]]
     result['reused_word_keys'] = [normalise(k) for word in words for k in [word['lemma'], *word['equivalence_keys']]]
     return result

@@ -441,3 +441,39 @@ test('failed provider bodies remain private and redacted without history inserti
   assert.equal((await f.send('GET','/v1/generation-errors/batches/'+B+'/'+run+'/quiz')).status,404);
   assert.equal(inference.mock.callCount(),1);
 });
+
+test('saved original photos are private, exact, read-only and independent of later failed artwork',async()=>{
+  const f=batchFixture(),run='r-'+'1'.repeat(32),failed='r-'+'2'.repeat(32);
+  const p=content(A);p.background_source={batch_id:A,artwork_id:run};await f.save(p);
+  for(const kind of ['quiz','lesson','word'])f.kv.set(`private-ai:${A}:${run}:${kind}`,'saved-'+kind);
+  f.kv.set(`private-ai:${A}:${failed}:quiz`,'failed-later-image');
+  f.deleted.length=0;
+  const path=`/v1/backgrounds/batches/${A}/quiz`;
+  assert.equal((await worker.fetch(new Request('https://example.test'+path),f.env)).status,401);
+  const read=await f.send('GET',path);assert.equal(read.status,200);
+  assert.deepEqual(await read.json(),{image:'saved-quiz',source:p.background_source,prompt:'reviewed prompt'});
+  assert.equal(f.generated,0);assert.equal(f.deleted.length,0);
+  f.kv.delete(`private-ai:${A}:${run}:quiz`);
+  assert.equal((await f.send('GET',path)).status,404);assert.equal(f.generated,0);
+  assert.equal((await f.send('GET',`/v1/backgrounds/batches/${B}/quiz`)).status,404);
+  const inherited=content(B);inherited.background_source=p.background_source;await f.save(inherited);
+  f.kv.set(`private-ai:${A}:${run}:quiz`,'saved-quiz');f.history.delete(A);
+  assert.equal((await f.send('GET',`/v1/backgrounds/batches/${B}/quiz`)).status,200);
+  for(const source of [{batch_id:'../elsewhere',artwork_id:run},{batch_id:A,artwork_id:'../file'},{batch_id:A,artwork_id:run,extra:'x'}]) {
+    const invalid=content(C);invalid.background_source=source;assert.equal((await f.save(invalid)).status,409);
+  }
+});
+
+test('legacy photo reuse requires one complete unambiguous cache namespace without inference',async()=>{
+  const f=batchFixture(),run='r-'+'1'.repeat(32);await f.save(content(A));
+  f.env.IMAGES.list=async({prefix})=>({list_complete:true,keys:[...f.kv.keys()].filter(name=>name.startsWith(prefix)).map(name=>({name}))});
+  f.deleted.length=0;
+  const path=`/v1/backgrounds/batches/${A}/word`;
+  assert.equal((await f.send('GET',path)).status,409);
+  for(const kind of ['quiz','lesson','word'])f.kv.set(`private-ai:${A}:${run}:${kind}`,'original-'+kind);
+  let r=await f.send('GET',path);assert.equal(r.status,200);assert.equal((await r.json()).source.artwork_id,run);
+  f.kv.set(`private-ai:${A}:r-${'2'.repeat(32)}:quiz`,'ambiguous');
+  assert.equal((await f.send('GET',path)).status,409);
+  f.env.IMAGES.list=async()=>({list_complete:false,keys:[]});assert.equal((await f.send('GET',path)).status,409);
+  assert.equal(f.generated,0);assert.equal(f.deleted.length,0);
+});

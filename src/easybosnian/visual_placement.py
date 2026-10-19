@@ -110,7 +110,7 @@ def review_compositions(package, candidates, recent=()):
         'Complement real materials/light; never recolour the photo. '
         'Choose each block x,y,width freely in the 1080x1350 coordinate system, not from a fixed '
         'top/bottom menu. Category and serif heading stay fixed. Preserve all block roles in the '
-        'given array order; no new text. Choose design=hybrid or editorial, and a supported style '
+        'given array order; no new text. A rectangular two-by-two answer grid is appropriate only with four existing options: align A/B on one row and C/D on another, with matching column anchors. With three options, choose an intentional three-card arrangement (for example centre C beneath A/B) rather than an accidental incomplete grid. Never invent a fourth option during visual review. Choose design=hybrid or editorial, and a supported style '
         'for EACH block from the approved Pillow catalogue. These are real rendering choices, '
         'not metadata: Pillow owns fonts, category/title anchors, borders and exact drawing. '
         'Choose category_style from the approved category catalogue independently of body/answer '
@@ -244,7 +244,7 @@ def review_compositions(package, candidates, recent=()):
 
 def main():
     from .artwork import artwork
-    from .cli import prepared_batch, prepared_content
+    from .cli import prepared_batch, prepared_content, stage_content
     from .core import ROOT, require_publishing, verify_repository, write_json
     from .batches import output_key
     from .notify import failure
@@ -270,7 +270,10 @@ def main():
                            content_data(package,os.environ['GITHUB_RUN_URL']))
             except Exception:
                 print('::warning::Report metadata could not be captured; artwork preparation continues')
-        artwork(store, package, review_images=True)
+        from .photo_reuse import loaded_photos
+        reused=loaded_photos(package) if os.getenv('CONTENT_SELECTION')=='same_images' and mode=='daily' else None
+        artwork(store, package, review_images=True,reused_backgrounds=reused)
+        stage_content(package)
         print('Private feed artwork prepared; no images exposed or content published')
     except Exception as error:
         print(failure(date or 'unknown', getattr(error, 'stage', None) or 'private artwork preparation',

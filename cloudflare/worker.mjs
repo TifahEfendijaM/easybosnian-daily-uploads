@@ -60,6 +60,31 @@ function safePackage(p,date) {
   if(p.cards.map(c=>c.kind).join(',')!=='quiz,lesson,word') throw Error('Invalid cards');
   for(const flag of ['standard_bosnian_checked','sources_checked','semantic_history_checked','no_answer_leak_checked']) if(p.private_review?.[flag]!==true) throw Error('Editorial checks incomplete');
   if(!p.theme.equivalence_keys?.length || !p.words.every(w=>w.equivalence_keys?.length)) throw Error('Equivalence metadata missing');
+  if(p.background_source!==undefined && !validPhotoSource(p.background_source)) throw Error('Invalid photograph provenance');
+}
+function validPhotoSource(source) {
+  return source && Object.keys(source).sort().join(',')==='artwork_id,batch_id' && BATCH.test(source.batch_id) &&
+    (source.artwork_id===null || /^r-[a-f0-9]{32}$/.test(source.artwork_id));
+}
+async function savedBackground(env,id,kind) {
+  const record=await row(env,id);if(!record) return response({error:'No saved batch'},404);
+  const p=JSON.parse(record.content_json);let source=p.background_source;
+  if(source===undefined) {
+    // Older rows have no pointer. Accept only one unambiguous complete set;
+    // never select the newest cache, which might belong to a failed rerun.
+    const listing=await env.IMAGES.list({prefix:`private-ai:${id}:`,limit:1000});
+    if(!listing.list_complete) return response({error:'Saved photograph source is ambiguous'},409);
+    const names=listing.keys.map(k=>k.name),prefix=`private-ai:${id}:`;
+    const groups=new Set(names.map(name=>name.slice(prefix.length).split(':').slice(0,-1).join(':')));
+    if(groups.size!==1 || names.length!==3) return response({error:'Saved photographs expired or source is ambiguous'},409);
+    const artwork=[...groups][0];source={batch_id:id,artwork_id:artwork || null};
+    if(!validPhotoSource(source) || !KINDS.every(k=>names.includes(prefix+(artwork?artwork+':':'')+k)))
+      return response({error:'Saved photograph source is ambiguous'},409);
+  }
+  if(!validPhotoSource(source)) throw Error('Invalid saved photograph source');
+  const key=`private-ai:${source.batch_id}:${source.artwork_id?source.artwork_id+':':''}${kind}`;
+  const image=await imageValue(env,key,source.batch_id,record.date);
+  return image?response({image,source,prompt:p.cards.find(c=>c.kind===kind).background_prompt}):response({error:'Saved original photograph expired'},404);
 }
 async function equalToken(a,b) {
   if(!a || !b) return false;
@@ -185,6 +210,8 @@ export default {
           await saveHistory(env,p,id,req.headers.get('X-EasyBosnian-Preserve-Artwork')==='true');return response({batch_id:id,date:p.date,status:'reviewed content saved'});
         }
       }
+      const background=path.match(/^\/v1\/backgrounds\/batches\/(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})\/(quiz|lesson|word)$/);
+      if(background && req.method==='GET') return await savedBackground(env,background[1],background[2]);
       const diagnostic=path.match(/^\/v1\/generation-errors\/batches\/(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})\/(r-[a-f0-9]{32})\/(quiz|lesson|word)$/);
       if(diagnostic && req.method==='GET') {
         const body=await env.IMAGES.get(`private-error:${diagnostic[1]}:${diagnostic[2]}:${diagnostic[3]}`);
