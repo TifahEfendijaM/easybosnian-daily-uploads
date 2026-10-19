@@ -5,6 +5,7 @@
   "properties":{
     "schema_version":{"const":1},
     "batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},
+    "background_source":{"description":"Trusted wrapper provenance for the exact cached original photographs, not a model design choice.","type":"object","additionalProperties":false,"required":["batch_id","artwork_id"],"properties":{"batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},"artwork_id":{"anyOf":[{"type":"null"},{"type":"string","pattern":"^r-[a-f0-9]{32}$"}]}}},
     "bosnian_level":{"enum":["A1","A2","B1","B2","C1","C2"]},
     "project":{"const":"tifahefendijam-easybosnian-daily-uploads-v1"},
     "date":{"type":"string","format":"date"},

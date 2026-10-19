@@ -36,9 +36,10 @@ def publish_instagram(package, assets, record=None):
         result['poll']=poll_result
         stage='publishing'; children=[]
         for card in package['cards']:
-            child=ig.child(assets[card['kind']]['url'],card['alt_text']);children.append(child);ig.ready(child)
+            child=ig.child(assets[card['kind']]['url'],card['alt_text']);children.append(child);ig.ready(child,stable=True)
         carousel=ig.carousel(children,caption,poll=poll)
-        result.update(child_ids=children,container_id=carousel);ig.ready(carousel)
+        result.update(child_ids=children,container_id=carousel)
+        ig.ready(carousel,stable=True);result['ready_status']='FINISHED'
         require_publishing()
         publication='Instagram publish request outcome uncertain'
         response=ig.publish_with_addon(carousel)
@@ -73,6 +74,13 @@ def publish_instagram(package, assets, record=None):
         write_json(ROOT/'build'/output_key(package)/'instagram-result.json',result)
         return result
     except Exception as error:
+        if stage=='publishing' and result.get('container_id'):
+            try:
+                state=ig.call('GET',result['container_id'],{'fields':'status_code'}).get('status_code')
+                if state in ('IN_PROGRESS','FINISHED','PUBLISHED','ERROR','EXPIRED'):
+                    result['container_status_after_failure']=state
+            except Exception:
+                result['container_status_after_failure']='unavailable'
         result.update(status=publication,failed_stage=stage)
         write_json(ROOT/'build'/output_key(package)/'instagram-result.json',result)
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))

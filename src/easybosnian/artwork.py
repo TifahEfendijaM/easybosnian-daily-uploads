@@ -15,11 +15,11 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':16, **{key:package.get(key) for key in ('batch_id','date','design_palette')},
+    return {'rendering_version':16, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
-def artwork(store, package, expose=False, review_images=False, require_prepared=False):
+def artwork(store, package, expose=False, review_images=False, require_prepared=False, reused_backgrounds=None):
     date=package['date']; output=ROOT/'build'/output_key(package); output.mkdir(parents=True,exist_ok=True)
     assets={}; stage='FLUX generation'
     if package.get('batch_id'):store.use_content(package)
@@ -38,12 +38,21 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     for kind in saved['metrics'] for suffix in ('background','card')):
                 raise ValueError('Prepared artwork is incomplete; no generation or publication retry')
         candidates={}
+        if not require_prepared:
+            if reused_backgrounds is not None:
+                if not review_images or set(reused_backgrounds)!={'quiz','lesson','word'} or not package.get('background_source'):
+                    raise ValueError('Photo reuse requires all three trusted photos and a fresh private review')
+            else:
+                package['background_source']={'batch_id':package.get('batch_id') or 'legacy-'+date,'artwork_id':artwork_id if package.get('batch_id') else None}
+        def photo_bytes(card):
+            if reused_backgrounds is not None:return reused_backgrounds[card['kind']].read_bytes()
+            return provider().generate(card['background_prompt'],date,card['kind'],**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {}))
         if review_images:
             from .visual_placement import composition_sheet, review_compositions
             for card in package['cards']:
                 kind=card['kind']; background=output/f'{kind}-background.jpg'
                 stage='FLUX generation'
-                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
+                Image.open(io.BytesIO(photo_bytes(card))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
                 baseline=output/f'{kind}-hybrid-reference.jpg'
                 metrics=render_hybrid(card,package['design_palette'],background,baseline)
@@ -128,7 +137,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 decisions[kind]['provenance']=rendering_provenance(decisions[kind],status)
             else:
                 stage='FLUX generation'
-                Image.open(io.BytesIO(provider().generate(card['background_prompt'],date,kind,**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {})))).convert('RGB').save(background,'JPEG',quality=95)
+                Image.open(io.BytesIO(photo_bytes(card))).convert('RGB').save(background,'JPEG',quality=95)
                 stage='Pillow rendering'
                 metrics=render_hybrid(card,package['design_palette'],background,path)
             body=path.read_bytes()
@@ -141,7 +150,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             assets[kind]=item
         if review_images:
             write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
-                        'status':status,'recent_design_context':recent_status,'cards':decisions})
+                        'status':status,'recent_design_context':recent_status,'recent_design_runs':len(recent),'cards':decisions})
             write_json(manifest,{'input':render_input(package),'run_url':os.getenv('GITHUB_RUN_URL'),
                                'metrics':{kind:item['metrics'] for kind,item in assets.items()}})
             manifest.chmod(0o600)

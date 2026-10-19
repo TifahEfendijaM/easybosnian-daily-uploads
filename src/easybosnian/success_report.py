@@ -22,6 +22,7 @@ def content_data(package,run_url):
         raise ValueError('Report belongs to another project/run')
     return {'project':PROJECT,'date':package['date'],'batch_id':output_key(package),'theme':package['theme']['name'],
             'difficulty':package.get('bosnian_level','not recorded'),'palette':package['design_palette'],'run_url':run_url,
+            'backgrounds_reused':os.getenv('CONTENT_SELECTION')=='same_images',
             'cards':[{'category':LABELS[c['kind']],'heading':c.get('heading',c.get('question')),'prompt':c['background_prompt']} for c in package['cards']]}
 
 
@@ -164,6 +165,7 @@ def visual_summary(source,placement=None):
         raise ValueError('Visual summary belongs to another project/run')
     data=with_rendering(source,placement) if placement else source
     text='\n### Image design decisions and exact FLUX prompts\n\n'
+    if data.get('backgrounds_reused'):text+='Original photographs reused; these are their original FLUX prompts. No new inference was sent.\n\n'
     for card in data['cards']:
         text+='#### '+markdown_text(card['category'])+'\n\n'
         rendering=card.get('rendering')
@@ -181,6 +183,7 @@ def render_report(data):
         text+=f"- **{label}:** {markdown_text(data[key])}\n"
     if data.get('final_palette'):text+=f"- **Final rendered palette:** {markdown_text(data['final_palette'])}\n"
     text+=f"\n[Open this run]({data['run_url']})\n\n### Exact FLUX prompts\n\n"
+    if data.get('backgrounds_reused'):text+='Original photographs reused; these are their original FLUX prompts. No new inference was sent.\n\n'
     for card in data['cards']:
         text+=f"#### {markdown_text(card['category'])}\n\n**Card:** {markdown_text(card['heading'])}\n\n"
         if card.get('rendering'):text+=f"**Final rendering:** {markdown_text(card['rendering']['palette'])} / {markdown_text(card['rendering']['design'])} / {markdown_text(card['rendering']['position'])}; {markdown_text(', '.join(role+': '+style for role,style in card['rendering']['block_styles'].items()))}. Lora headings, Inter body.\n\n"

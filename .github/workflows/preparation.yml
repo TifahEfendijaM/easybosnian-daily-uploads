@@ -9,9 +9,9 @@ on:
         options: [verify, preview, daily]
         default: verify
       content_selection:
-        description: 'Daily choice: same_words = redo content for same words; same_theme = new words; new = all new; custom = edit fields below'
+        description: 'Daily: same_words = new text/images; same_images = keep words/photos, new text/design; same_theme = new words; new/custom'
         type: choice
-        options: [same_words, same_theme, new, custom]
+        options: [same_words, same_images, same_theme, new, custom]
         default: new
       custom_theme:
         description: 'Custom only: if left empty, the theme from the selected saved batch remains'

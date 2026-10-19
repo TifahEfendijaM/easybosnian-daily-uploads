@@ -173,6 +173,8 @@ class PollPublishingTests(unittest.TestCase):
         self.assertEqual(events,['record','read']);failure.assert_not_called()
         original.return_value.refresh_if_needed.assert_called_once()
         ig.publish_with_addon.assert_called_once();self.assertEqual(ig.child.call_count,3)
+        self.assertEqual(len(ig.ready.call_args_list),4)
+        self.assertTrue(all(c.kwargs=={'stable':True} for c in ig.ready.call_args_list))
         self.assertEqual(ig.carousel.call_args.kwargs['poll'],{'option_a':'torba','option_b':'kišobran','option_c':'knjiga'})
 
     def test_failure_status_missing_mismatch_or_read_error_never_republishes(self):
@@ -199,6 +201,12 @@ class PollPublishingTests(unittest.TestCase):
         result,ig,_,_,failure,_=self.publish(error=SafeError('ambiguous timeout'))
         self.assertIsNone(result);ig.publish_with_addon.assert_called_once();ig.poll_attachment.assert_not_called()
         self.assertEqual(failure.call_args.args[3],'Instagram publish request outcome uncertain')
+
+    def test_media_not_ready_rejection_is_not_automatically_republished(self):
+        result,ig,_,_,failure,_=self.publish(error=SafeError('HTTP 400; provider code 9007; provider subcode 2207027'))
+        self.assertIsNone(result);ig.publish_with_addon.assert_called_once();ig.carousel.assert_called_once()
+        ig.call.assert_called_once_with('GET',ig.carousel.return_value,{'fields':'status_code'})
+        failure.assert_called_once()
 
     def test_poll_failure_still_attempts_stories_and_other_platforms_then_fails_run(self):
         from easybosnian.daily import daily

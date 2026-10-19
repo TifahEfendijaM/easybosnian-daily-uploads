@@ -33,6 +33,7 @@ placements=list(Path('build').glob('*/image-placement-result.json'))
 if placements:
     placement=json.loads(placements[0].read_text())
     text+='\nFeed text placement: '+placement['status']+'\n'
+    text+='Recent design history: '+placement.get('recent_design_context','unknown')+'; accepted runs supplied: '+str(placement.get('recent_design_runs','unknown'))+'\n'
     for kind,result in placement['cards'].items():
         provenance=rendering_provenance(result,placement['status'])
         text+='- **'+kind+'**. Placement: '+result['position']+'\n'
