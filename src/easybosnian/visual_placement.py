@@ -8,7 +8,7 @@ from PIL import Image, ImageOps
 from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
-                     CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE)
+                     CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES)
 
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
@@ -26,6 +26,7 @@ def block_schema(role, styles):
                 'line_spacing':{'type':'number','minimum':LEADING_RANGE[0],'maximum':LEADING_RANGE[1]},
                 'max_lines':{'anyOf':[{'type':'null'},{'type':'integer','minimum':1,'maximum':12}]},
                 'wrapping':{'enum':list(WRAPPING)},
+                **({'panel_opacity':{'enum':list(PANEL_OPACITIES)}} if role!='example' else {}),
                 **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {}),
                 **({'photo_tone':{'enum':list(PHOTO_TONES)}} if role=='example' else {})}}
 
@@ -115,6 +116,11 @@ def review_compositions(package, candidates, recent=()):
         'not metadata: Pillow owns fonts, category/title anchors, borders and exact drawing. '
         'Choose category_style from the approved category catalogue independently of body/answer '
         'styles. The ribbon, underline and pill category designs are fully available. '
+        'For each body/answer panel choose panel_opacity=solid (100%), soft (about 90%) or '
+        'translucent (80%) to suit the actual photo. A softer surface can integrate the box '
+        'with the photograph, but text must remain clearly readable; busy or strongly contrasting '
+        'areas may need solid. Text, badges and decorative rules stay opaque. Plain editorial '
+        'body must use solid; examples have no panel_opacity. No arbitrary alpha. '
         'Choose heading_tone and example photo_tone only from the approved photo-colour catalogue: '
         'auto, paper_dark, ink_light, paper_ink, ink_paper or accent_ink. These presets can produce '
         'light text on a dark fade, dark text on a light fade, or palette-coloured text/fades. '

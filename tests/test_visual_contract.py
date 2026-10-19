@@ -205,7 +205,8 @@ class DeclarativeVisualContractTests(unittest.TestCase):
             with patch('easybosnian.hybrid.draw_rows',wraps=draw_rows) as drawing:
                 metrics=render_hybrid(quiz,'charcoal-lemon',root/'photo.jpg',root/'quiz.jpg',plan)
             calls=[c for c in drawing.call_args_list if hasattr(c.args[2],'source')
-                   and c.args[2].source in [o['text'] for o in quiz['options']]]
+                   and c.args[2].source in [o['text'] for o in quiz['options']]
+                   and isinstance(c.args[4],str)]  # Exclude glyph masks used for contrast checks.
             self.assertEqual(len(calls),3)
             # draw_rows subtracts actual glyph top; compare the common origin,
             # rather than demanding accent pixels begin at the same height.
@@ -283,7 +284,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],16)
+        self.assertEqual(expected['rendering_version'],17)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

@@ -5,7 +5,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, PHOTO_TONES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, PHOTO_TONES, PANEL_OPACITIES, PANEL_STYLES
 
 
 def accepted_choices(placement):
@@ -31,6 +31,13 @@ def accepted_choices(placement):
         badges=card.get('answer_badges',{})
         if isinstance(badges,dict) and all(r in ('A','B','C','D') and s in MARKER_STYLES for r,s in badges.items()):
             safe['answer_badges']=badges
+        composition=card.get('composition',{})
+        blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
+        if isinstance(blocks,list):
+            opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
+                       and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
+                       and isinstance(b.get('panel_opacity'),str) and b['panel_opacity'] in PANEL_OPACITIES}
+            if opacities:safe['panel_opacities']=opacities
         choices[kind]=safe
     return choices
 

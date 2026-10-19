@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .core import ROOT
 from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
-                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES, typography)
+                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES, PANEL_OPACITIES, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -89,6 +89,7 @@ def fallback_spec(card,role,width=952,style=None):
 def declared_block(card,role,width=952,style=None,**geometry):
     spec=fallback_spec(card,role,width,style)
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
+            **({'panel_opacity':'solid'} if role!='example' else {}),
             **({'marker_style':'circle'} if role not in ('body','example') else {}),
             **({'photo_tone':'auto'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
@@ -161,6 +162,8 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
+        if style=='plain' and block.get('panel_opacity','solid')!='solid':
+            raise ValueError('Unboxed editorial body cannot set panel opacity')
         if plan['design']=='editorial':
             if card['kind']=='quiz' or style!=('italic_footer' if block['role']=='example' else 'plain'):
                 raise ValueError('Editorial requires plain explanation and italic footer')
@@ -299,53 +302,51 @@ def draw_panel(image, block, palette):
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
-    draw=ImageDraw.Draw(image);colour=ink
+    colour=paper if style=='overlay_dark' else ink
+    # Composite only the bounded surface. Glyphs, decorations and answer badges
+    # remain opaque; geometry and renderer-owned drawing presets do not change.
+    alpha=PANEL_OPACITIES[block['panel_opacity']] if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)
+    surface=Image.new('RGBA',image.size)
+    paint=ImageDraw.Draw(surface)
+    fill=(*tuple(int((ink if style=='overlay_dark' else paper)[i:i+2],16) for i in (1,3,5)),alpha)
     if style in ('rounded','pill'):
-        draw.rounded_rectangle((x,y,right,bottom),radius=24 if style=='rounded' else block['height']/2,fill=paper)
-    elif style=='outlined':draw.rectangle((x,y,right,bottom),fill=paper,outline=accent,width=3)
-    elif style=='overlay_dark':
-        draw.rectangle((x,y,right,bottom),fill=ink);colour=paper
+        paint.rounded_rectangle((x,y,right,bottom),radius=24 if style=='rounded' else block['height']/2,fill=fill)
+    elif style=='bottom_sheet':
+        paint.rounded_rectangle((x,y,right,bottom),radius=54,fill=fill)
+        paint.rectangle((x,y+54,right,bottom),fill=fill)
+    elif style in PANEL_STYLES:paint.rectangle((x,y,right,bottom),fill=fill)
+    else:raise ValueError('Unsupported trusted panel renderer')
+    image.paste(Image.alpha_composite(image,surface))
+    draw=ImageDraw.Draw(image)
+    if style=='outlined':draw.rectangle((x,y,right,bottom),outline=accent,width=3)
     elif style=='overlay_light':
-        overlay=Image.new('RGBA',image.size)
-        rgb=tuple(int(paper[i:i+2],16) for i in (1,3,5))
-        ImageDraw.Draw(overlay).rectangle((x,y,right,bottom),fill=(*rgb,235))
-        image.paste(Image.alpha_composite(image,overlay));draw=ImageDraw.Draw(image)
         draw.line((x+padding,bottom-12,right-padding,bottom-12),fill=accent,width=2)
     elif style=='side_rule':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         draw.rectangle((x,y,x+12,bottom),fill=accent)
     elif style=='bottom_sheet':
-        draw.rounded_rectangle((x,y,right,bottom),radius=54,fill=paper)
-        draw.rectangle((x,y+54,right,bottom),fill=paper)
         mid=(x+right)/2;draw.rounded_rectangle((mid-32,y+10,mid+32,y+15),radius=2,fill=accent)
     elif style=='split_panel':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         draw.rectangle((x,y,x+82,bottom),fill=accent)
         if role=='body':
             draw.line((x+28,y+padding,x+54,y+padding),fill=ink,width=4)
             draw.line((x+28,y+padding+14,x+54,y+padding+14),fill=ink,width=4)
     elif style=='minimal_rule':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         draw.line((x,bottom-2,right,bottom-2),fill=accent,width=5)
     elif style=='double_frame':
-        draw.rectangle((x,y,right,bottom),fill=paper,outline=accent,width=4)
+        draw.rectangle((x,y,right,bottom),outline=accent,width=4)
         draw.rectangle((x+10,y+10,right-10,bottom-10),outline=ink,width=1)
     elif style=='notebook_margin':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         draw.line((x+12,y+12,x+12,bottom-12),fill=accent,width=3)
         for tick_y in range(round(y+18),round(bottom-12),16):
             draw.line((x+3,tick_y,x+8,tick_y),fill=accent,width=2)
     elif style=='top_ribbon':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         draw.rectangle((x,y,right,y+8),fill=accent)
         draw.line((x+padding,bottom-10,right-padding,bottom-10),fill=ink,width=1)
     elif style=='corner_brackets':
-        draw.rectangle((x,y,right,bottom),fill=paper)
         for corner_x,direction_x in ((x+8,1),(right-8,-1)):
             for corner_y,direction_y in ((y+8,1),(bottom-8,-1)):
                 draw.line((corner_x+32*direction_x,corner_y,corner_x,corner_y,
                            corner_x,corner_y+24*direction_y),fill=accent,width=3)
-    else:raise ValueError('Unsupported trusted panel renderer')
     if role=='body' and style in ('rounded','outlined'):
         draw.rounded_rectangle((x+18,y+padding,x+23,bottom-padding),radius=2,fill=accent)
     if role!='body':
@@ -454,11 +455,13 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             text_y=(y+padding if role=='body' else
                     y+(block['height']-block['text_cell_height'])/2+block['text_cell_offset'])
             text_x=x+block['text_inset']
-            if style=='overlay_light':
-                # Glyph-level verification against the actual composited photograph;
-                # do not silently add another preset/opacity to repair the proposal.
-                protect_text(image,(text_x,text_y),rows,face,[colour],4.5,
-                             line_spacing=leading,allow_fade=False)
+            # Actual composited glyph contrast, without repairing opacity or fades.
+            try:
+                _,score,_=protect_text(image,(text_x,text_y),rows,face,[colour],4.5,
+                                      line_spacing=leading,allow_fade=False)
+            except ValueError as error:
+                raise ValueError('Actual panel text contrast fails; never publish unreadable copy') from error
+            body_contrast=min(body_contrast,score)
             draw_rows(draw,(text_x,text_y),rows,face,colour,leading)
     with Image.open(ROOT/'assets/watermark.png') as source:
         if source.mode!='RGBA' or source.getextrema()[3][0]!=0 or source.getextrema()[3][1]==0:

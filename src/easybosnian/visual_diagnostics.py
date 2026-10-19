@@ -79,6 +79,8 @@ def rendering_outcome(card, review_status=None):
     return {'source':'unknown','reason':'rendering decision not recorded in this older run'}
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Actual panel text contrast fails; never publish unreadable copy',
+    'Unboxed editorial body cannot set panel opacity',
     'Actual glyphs exceed block width',
     'Actual photographic text contrast fails; never publish unreadable copy',
     'An unbreakable word exceeds the available width',

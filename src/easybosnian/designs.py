@@ -9,6 +9,7 @@ ANSWER_STYLES = (*PANEL_STYLES, 'pill')
 PANEL_STYLES = (*PANEL_STYLES, 'pill')
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink')
+PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 204}
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size
@@ -16,11 +17,11 @@ WRAPPING = ('balanced', 'natural')
 STYLE_CATALOGUE = {
     'hybrid': 'Photographic background or complete contained photo; approved category treatment and fixed Lora title. Body styles except plain; photo examples italic_photo or italic_photo_fade.',
     'editorial': 'Lesson/word paper page; approved category treatment and fixed Lora title. Plain explanation above a wide cover photo, italic_footer below. No other body styles.',
-    'rounded': 'Opaque paper panel, 24px rounded corners, inset accent rule; independently chosen approved quiz badge.',
-    'outlined': 'Opaque square paper panel with 3px accent outline; inset rule and independently chosen approved quiz badge.',
+    'rounded': 'Paper panel, 24px rounded corners, inset accent rule; independently chosen approved quiz badge.',
+    'outlined': 'Square paper panel with 3px accent outline; inset rule and independently chosen approved quiz badge.',
     'plain': 'Unboxed Inter body on editorial paper only; no background, rule or border. Not valid for answers.',
-    'overlay_dark': 'Opaque approved ink panel with paper text and paper-filled approved answer badge. No custom colours or alpha.',
-    'overlay_light': 'Approved paper translucent panel (fixed alpha 235), square corners, accent underline. Actual glyph contrast must pass after compositing.',
+    'overlay_dark': 'Approved ink panel with paper text and paper-filled approved answer badge. Surface opacity uses only approved panel_opacity presets.',
+    'overlay_light': 'Approved paper panel, square corners, accent underline. Legacy omitted opacity retains alpha 235; new choices use panel_opacity presets. Actual glyph contrast must pass after compositing.',
     'side_rule': 'Square paper panel with full-height 12px left accent bar; approved answer badge.',
     'bottom_sheet': 'Wide paper sheet with 54px rounded top corners and square bottom; centered accent handle. Must start at y700 or lower and be at least 660px wide.',
     'split_panel': 'Square paper panel with a full-height 82px accent rail; answer label in rail, body text in its own column.',
