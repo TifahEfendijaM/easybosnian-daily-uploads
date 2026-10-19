@@ -464,16 +464,17 @@ test('saved original photos are private, exact, read-only and independent of lat
   }
 });
 
-test('legacy photo reuse requires one complete unambiguous cache namespace without inference',async()=>{
+test('legacy caches are never guessed even when one complete namespace survives',async()=>{
   const f=batchFixture(),run='r-'+'1'.repeat(32);await f.save(content(A));
-  f.env.IMAGES.list=async({prefix})=>({list_complete:true,keys:[...f.kv.keys()].filter(name=>name.startsWith(prefix)).map(name=>({name}))});
   f.deleted.length=0;
+  for(const kind of ['quiz','lesson','word'])f.kv.set(`private-ai:${A}:${run}:${kind}`,'original-'+kind);
   const path=`/v1/backgrounds/batches/${A}/word`;
   assert.equal((await f.send('GET',path)).status,409);
-  for(const kind of ['quiz','lesson','word'])f.kv.set(`private-ai:${A}:${run}:${kind}`,'original-'+kind);
-  let r=await f.send('GET',path);assert.equal(r.status,200);assert.equal((await r.json()).source.artwork_id,run);
-  f.kv.set(`private-ai:${A}:r-${'2'.repeat(32)}:quiz`,'ambiguous');
-  assert.equal((await f.send('GET',path)).status,409);
-  f.env.IMAGES.list=async()=>({list_complete:false,keys:[]});assert.equal((await f.send('GET',path)).status,409);
-  assert.equal(f.generated,0);assert.equal(f.deleted.length,0);
+  // Only an explicitly verified annotation makes a legacy row reusable.
+  const annotated=content(A);annotated.background_source={batch_id:A,artwork_id:run};
+  await f.send('PUT','/v1/history/batches/'+A,annotated);
+  // PUT without preserve-artwork clears legacy stable keys only, not this run namespace.
+  assert.equal((await f.send('GET',path)).status,200);
+  f.kv.delete(`private-ai:${A}:${run}:word`);
+  assert.equal((await f.send('GET',path)).status,404);assert.equal(f.generated,0);
 });

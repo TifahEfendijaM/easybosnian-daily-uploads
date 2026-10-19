@@ -69,18 +69,9 @@ function validPhotoSource(source) {
 async function savedBackground(env,id,kind) {
   const record=await row(env,id);if(!record) return response({error:'No saved batch'},404);
   const p=JSON.parse(record.content_json);let source=p.background_source;
-  if(source===undefined) {
-    // Older rows have no pointer. Accept only one unambiguous complete set;
-    // never select the newest cache, which might belong to a failed rerun.
-    const listing=await env.IMAGES.list({prefix:`private-ai:${id}:`,limit:1000});
-    if(!listing.list_complete) return response({error:'Saved photograph source is ambiguous'},409);
-    const names=listing.keys.map(k=>k.name),prefix=`private-ai:${id}:`;
-    const groups=new Set(names.map(name=>name.slice(prefix.length).split(':').slice(0,-1).join(':')));
-    if(groups.size!==1 || names.length!==3) return response({error:'Saved photographs expired or source is ambiguous'},409);
-    const artwork=[...groups][0];source={batch_id:id,artwork_id:artwork || null};
-    if(!validPhotoSource(source) || !KINDS.every(k=>names.includes(prefix+(artwork?artwork+':':'')+k)))
-      return response({error:'Saved photograph source is ambiguous'},409);
-  }
+  // A cache listing cannot prove publication provenance: a lone surviving
+  // namespace may belong to a failed rerun after the published originals expired.
+  if(source===undefined) return response({error:'Legacy photograph source was not recorded; verified source annotation required'},409);
   if(!validPhotoSource(source)) throw Error('Invalid saved photograph source');
   const key=`private-ai:${source.batch_id}:${source.artwork_id?source.artwork_id+':':''}${kind}`;
   const image=await imageValue(env,key,source.batch_id,record.date);
