@@ -47,6 +47,7 @@ class FixedFadeTests(unittest.TestCase):
         for scope,key,value in [('card','fade_opacity',50),('example','fade_width',400),
                                 ('card','heading_feather',100),('example','fade_padding',100),
                                 ('card','shade_levels',[54,78]),('card','feather_power',1.75),
+                                ('card','surround_opacity',.35),
                                 ('example','photo_tone','#559966')]:
             plan=copy.deepcopy(base['cards']['word'])
             (plan if scope=='card' else plan['blocks'][-1])[key]=value
@@ -88,8 +89,9 @@ class FixedFadeTests(unittest.TestCase):
                      'For the TITLE specifically, keep a softly shaded appearance',
                      'Favour a gentle fade over a pronounced dark band',
                      'Do not select a worse-fitting colour pair simply to avoid shading',
-                     'Pillow first tries lighter title strengths and a softer outer fade',
-                     'Stronger shading remains available where necessary',
+                     'Pillow first tries very light title strengths and a more transparent outer fade',
+                     'stronger protection is reserved for the actual glyph area',
+                     'Pillow lightens the surrounding photograph',
                      'Pillow alone controls strength',
                      'This title preference does not change PRIMJER treatment',
                      'Choose heading_fade for photographic titles and example fade_style',
