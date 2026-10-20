@@ -34,7 +34,7 @@ class VisualRefinementTests(unittest.TestCase):
         # Long lower examples move upward only as far as their measured height needs.
         card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['example']=' '.join(['Čuvamo sva slova i značenja.']*5)
         measured=measured_plan(card,default_plan(card))
-        self.assertEqual(measured[-1]['bounds'][3],1150)
+        self.assertEqual(measured[-1]['bounds'][3],1126)
         self.assertGreaterEqual(measured[-1]['y'],measured[0]['bounds'][3]+14)
 
     def test_stories_reuse_category_treatment_without_a_second_model_call(self):

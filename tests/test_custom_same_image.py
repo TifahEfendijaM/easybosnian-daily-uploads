@@ -140,7 +140,7 @@ class CustomSameImageTests(unittest.TestCase):
                     stack.enter_context(patch('easybosnian.'+module+'.ROOT',root))
                 stack.enter_context(patch('easybosnian.cloud_prepare.Store',return_value=self.store()))
                 stack.enter_context(patch('easybosnian.cloud_prepare.today',return_value='2026-10-03'))
-                stack.enter_context(patch('easybosnian.cloud_prepare.load_level',return_value='A2'))
+                stack.enter_context(patch('easybosnian.cloud_prepare.select_run_level',return_value='A2'))
                 draw=stack.enter_context(patch('easybosnian.cloud_prepare.secrets.choice',return_value=3))
                 child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',side_effect=agent))
                 for name in ('check_infrastructure','require_publishing','validate','fit_check','prepare'):

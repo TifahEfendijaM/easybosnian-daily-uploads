@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
-from easybosnian.hybrid import block_spec, default_plan, measured_plan, render_hybrid, serif, roles, MIN_BLOCK_GAP
+from easybosnian.hybrid import block_spec, default_plan, measured_plan, render_hybrid, serif, roles, MIN_BLOCK_GAP, EXAMPLE_BLOCK_GAP
 from easybosnian.render import draw_rows, font, measure
 from easybosnian.visual_measurements import block_measurements, PROFILE_COLUMNS
 from easybosnian.visual_placement import KINDS, review_compositions
@@ -17,7 +17,7 @@ import test_visual_provenance as provenance_tests
 
 
 class GlyphAcceptanceTests(unittest.TestCase):
-    def test_observed_ten_and_twelve_pixel_gaps_are_valid_without_moving_anything(self):
+    def test_examples_now_require_breathing_room_while_preserving_other_geometry(self):
         cases=[
             ({'kind':'lesson','heading':'Kuda treba skrenuti?',
               'body':'Kad pitaš za put, traži i mjesto skretanja. „Skreni desno” govori o pravcu, ali „Skreni desno na sljedećoj raskrsnici” govori i gdje. Ako ti uputa nije jasna, pitaj na kojoj raskrsnici treba skrenuti.',
@@ -30,12 +30,16 @@ class GlyphAcceptanceTests(unittest.TestCase):
             plan=default_plan(card);plan['confidence']='high'
             plan['blocks'][0].update(style=style,y=body_y,font_size=34,line_spacing=1.25,max_lines=6)
             plan['blocks'][1].update(y=example_y,font_size=example_size,line_spacing=1.30,max_lines=2)
+            with self.assertRaisesRegex(ValueError,'breathing room'):measured_plan(card,plan)
+            plan['blocks'][0]['y']-=24
+            plan['blocks'][1]['y']-=24
+            plan['blocks'][1]['y']+=EXAMPLE_BLOCK_GAP-gap
             before=copy.deepcopy(plan)
             measured=measured_plan(card,plan)
-            self.assertEqual(measured[1]['y']-measured[0]['bounds'][3],gap)
+            self.assertEqual(measured[1]['y']-measured[0]['bounds'][3],EXAMPLE_BLOCK_GAP)
             self.assertEqual(plan,before)
             # Preserve a real positive minimum gap and reject any overlap.
-            for clearance in (MIN_BLOCK_GAP-1,0,-1):
+            for clearance in (EXAMPLE_BLOCK_GAP-1,0,-1):
                 bad=copy.deepcopy(plan);bad['blocks'][1]['y']=measured[0]['bounds'][3]+clearance
                 with self.assertRaisesRegex(ValueError,'overlap'):measured_plan(card,bad)
 

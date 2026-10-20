@@ -99,7 +99,7 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
     window=palette_window(recent)
@@ -169,6 +169,10 @@ def review_compositions(package, candidates, recent=()):
         'randomly or by rotating values. A softer surface can integrate the box '
         'with the photograph, but text must remain clearly readable; busy or strongly contrasting '
         'areas may need a higher value or 100. Text, badges and decorative rules stay opaque. '
+        'Actively compare a translucent 70..85 percent surface with 90..100 percent for each photo. '
+        'Prefer the lower suitable opacity when it reveals useful photographic detail and remains harmonious/readable; '
+        'do not habitually choose 100 merely because it feels safe. Busy areas may still need opaque panels. '
+        'Never lower opacity randomly or sacrifice final measured glyph contrast. '
         'Plain editorial body must use 100; examples have no panel_opacity. '
         'This controls bounded panels only, never fade strength or category opacity. '
         'Also choose panel_tone and category_tone: auto preserves the style default; ink_paper '
@@ -186,7 +190,7 @@ def review_compositions(package, candidates, recent=()):
         'for actual photo fit, harmony and readability. Light text on a dark fade remains the '
         'usual direction; use dark text on a light fade when the photo suits it better. Pillow owns the '
         f'fixed fade shape and contrast-driven strength: titles retain the earlier {TITLE_FADE_FEATHER}px '
-        f'vertical feather, while examples use a compact {PHOTO_FADE_FEATHER}px feather beyond their '
+        f'vertical feather, while examples use a compact {PHOTO_FADE_FEATHER}px feather plus lower padding beyond their '
         'measured text band. Weak or no shading remains valid; shading is added only when contrast needs it. '
         'Only the text/fade COLOURS may change; never geometry, border, opacity or filter shape. Do not supply '
         'heading_fade or fade_style: those creative controls have been removed. '
@@ -261,7 +265,8 @@ def review_compositions(package, candidates, recent=()):
         'font_size*line_spacing; tighter leading still needs safe glyph separation. For every block '
         'check y+height against its allowed bottom, its neighbours and any photo window. Do not '
         'place an example using an estimated body height from another width/font. Allow at least '
-        f'{MIN_BLOCK_GAP}px between visible blocks; prefer 14..24px for breathing room and leave '
+        f'{MIN_BLOCK_GAP}px between body/answer blocks; prefer 20..32px. PRIMJER needs at least '
+        f'{EXAMPLE_BLOCK_GAP}px clearance from other blocks; prefer 40..56px when the photograph permits. Leave '
         'a little extra when estimating. Full panel surfaces '
         'count as occupied. Unboxed text occupies its measured glyphs/label/rule, not blank trailing '
         'wrapping space. Keep your selected style, palette and photographic composition; solve fit '

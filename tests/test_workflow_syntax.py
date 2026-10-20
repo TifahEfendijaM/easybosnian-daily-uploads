@@ -22,7 +22,9 @@ class WorkflowSyntaxTests(unittest.TestCase):
         self.assertEqual(inputs['content_selection']['options'],['same_words','same_images','same_theme','new','custom'])
         self.assertEqual(inputs['batch_target']['options'],['latest','none','all_today'])
         self.assertEqual(inputs['batch_target']['default'],'latest')
-        self.assertLessEqual(len(inputs),10)
+        self.assertLessEqual(len(inputs),25)
+        self.assertEqual(inputs['difficulty']['options'],['random','A1','A2','B1','B2','C1','C2'])
+        self.assertEqual(inputs['difficulty']['default'],'random')
         self.assertIn('--prepared',next(step['run'] for step in document['jobs']['run']['steps'] if step.get('id')=='publication'))
         for i in (1,2,3):
             action=inputs[f'custom_word_{i}_action']

@@ -1,6 +1,7 @@
-"""One persistent repository configuration for future preparation, no provider state."""
+"""Active per-run level selection and retained inactive legacy setting utilities."""
 import base64
 import json
+import secrets
 
 from .core import ROOT, REPO, gh
 
@@ -35,3 +36,25 @@ def set_level(level):
     if settings_level(json.loads(base64.b64decode(actual['content']))) != level:
         raise ValueError('The requested global difficulty was not confirmed; no update retry')
     return {'bosnian_level': level, 'updated': True}
+
+
+# Exact halving probabilities through C1; the remaining tail belongs to C2.
+RANDOM_LEVEL = 'random'
+LEVEL_WEIGHTS = (32,16,8,4,2,2)
+
+def random_level():
+    ticket=secrets.randbelow(sum(LEVEL_WEIGHTS))
+    for level,weight in zip(LEVELS,LEVEL_WEIGHTS):
+        if ticket<weight:return level
+        ticket-=weight
+    raise AssertionError('Unreachable difficulty ticket')
+
+
+def select_run_level(selection, requested=RANDOM_LEVEL):
+    """One per-run snapshot; the archived persistent setting has no authority."""
+    if requested not in (RANDOM_LEVEL,*LEVELS):raise ValueError('Choose random or A1–C2 difficulty')
+    if selection['choice'] in ('new','same_theme','custom'):
+        return random_level() if requested==RANDOM_LEVEL else requested
+    previous=selection.get('previous') or {}
+    level=previous.get('bosnian_level')
+    return level if level in LEVELS else random_level()

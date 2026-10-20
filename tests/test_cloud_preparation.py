@@ -147,7 +147,7 @@ class CloudPreparationTests(unittest.TestCase):
                     for c in package['cards']:c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
                     write_json(root/f'build/preparation/{date}.json',package)
                     return '{"status":"ready","reason":"none"}'
-                with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.load_level',return_value='B2'),patch('easybosnian.cloud_prepare.require_publishing') as gate,patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate') as validation,patch('easybosnian.cloud_prepare.fit_check'),patch('easybosnian.cloud_prepare.prepare') as save:
+                with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.select_run_level',return_value='B2'),patch('easybosnian.cloud_prepare.require_publishing') as gate,patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate') as validation,patch('easybosnian.cloud_prepare.fit_check'),patch('easybosnian.cloud_prepare.prepare') as save:
                     store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':old}]}
                     cloud_run('daily',choice)
                     gate.assert_called_once();save.assert_called_once()

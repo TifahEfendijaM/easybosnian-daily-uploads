@@ -25,6 +25,6 @@ Kod zamjene se pokušaju obrisati odgovarajuće IG objave i storiji te FB objave
 
 Kad run završi, otvorite ga i pogledajte Summary. Kod uspješnog runa tu je izvještaj s temom, nivoom, promptovima za slike i linkovima do objava. Kopije izvještaja možete preuzeti pod Artifacts.
 
-Nivo mijenjate ovdje:
-https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/configure-level.yml
-→ Run workflow → main → A1–C2 ili Keep current → zeleno Run workflow. Sačekajte da završi prije reruna. Odabrani nivo ostaje za budući sadržaj dok ga opet ne promijenite; Keep current zadržava već spremljeni. Ovo samo mijenja postavku, ništa ne objavljuje.
+Nivo sada birate u istom Run workflow meniju, u polju difficulty. Za new/same_theme odaberite A1–C2 ili random. Random češće bira početne nivoe, a tako radi i jutarnja automatika. Novoizabrane custom riječi prate taj izbor, dok zadržane riječi čuvaju svoj nivo. Stari zasebni workflow za nivo je trenutno neaktivan.
+
+Za A1/A2 su objašnjenja i definicije na engleskom, dok riječi, odgovori i primjeri ostaju na bosanskom. Od B1 nadalje i objašnjenja su na bosanskom.

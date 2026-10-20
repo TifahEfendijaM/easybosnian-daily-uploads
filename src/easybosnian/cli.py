@@ -88,9 +88,8 @@ def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
             raise ValueError('Draft does not match the trusted current-date cleanup scope')
     if selection:
         check_selection(package,selection);history=novelty_history(history,package['date'],selection,package)
-    from .levels import load_level
-    level=load_level()
-    validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level),quiz_option_target=(selection or {}).get('quiz_option_target'));fit_check(package)
+    level=(selection or {}).get('target_cefr',package.get('bosnian_level'))
+    validate(package,history,include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,selection or {'choice':'new'},level),quiz_option_target=(selection or {}).get('quiz_option_target'),require_language_policy=True);fit_check(package)
     stage_content(package)
     print('Reviewed content staged privately; history unchanged for '+package['date'])
     return package

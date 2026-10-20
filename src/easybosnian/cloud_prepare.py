@@ -13,7 +13,7 @@ from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
 from .selection import selection_context, check_selection, novelty_history, word_levels
-from .levels import load_level
+from .levels import select_run_level
 from .batches import identity, plan_batch
 
 
@@ -169,7 +169,7 @@ def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only
     return output.read_text(encoding="utf-8").strip()
 
 
-def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None, batch_target='latest'):
+def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None, batch_target='latest', difficulty='random'):
     if mode not in ('verify','preview','daily'): raise ValueError('Unknown workflow mode')
     run_date=today();date=run_date;stage='cloud preparation infrastructure authorization'
     try:
@@ -187,7 +187,11 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
             from .photo_reuse import prepare_photos
             stage='saved background retrieval'
             reused=prepare_photos(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date,kinds=photo_kinds)
-        level=load_level()
+        existing=next((x for x in history['days'] if identity(x)==plan['batch_id']),None) if plan else None
+        saved_preview=mode=='preview' and existing and existing['content'].get('schema_version')==1
+        level=(existing['content'].get('bosnian_level') if saved_preview else
+               select_run_level(chosen,difficulty) if mode!='verify' else None)
+        if level is not None:chosen['target_cefr']=level
         write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
                                                        'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan,
                                                        'reused_photo_kinds':list(photo_kinds)})
@@ -230,13 +234,14 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 if package.get('batch_id',plan['batch_id'])!=plan['batch_id']:raise ValueError('Draft has the wrong batch identity')
                 package['batch_id']=plan['batch_id'];write_json(draft,package)
                 stage='validation';check_selection(package,chosen)
-                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level),quiz_option_target=chosen['quiz_option_target']);fit_check(package)
+                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level),quiz_option_target=chosen['quiz_option_target'],require_language_policy=True);fit_check(package)
                 stage='private content staging';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
             from .cli import stage_content
             stage_content(package,root=ROOT)
             result={'date':date,'status':'reviewed content staged privately','mode':mode,
                     'publication':'nothing published by preparation'}
         result.update(project=PROJECT,mode=mode,run_date=run_date,batch_target=batch_target)
+        if level is not None:result['target_cefr']=package.get('bosnian_level',level) if mode=='preview' else level
         if plan:result.update(batch_id=plan['batch_id'],cleanup_batch_id=plan['cleanup_batch_id'])
         if plan and batch_target=='all_today':
             result.update(cleanup_batch_ids=plan['cleanup_batch_ids'],prune_history_ids=plan['prune_history_ids'])
@@ -254,7 +259,7 @@ def main():
         cloud_run(action,os.getenv('CONTENT_SELECTION','new'),os.getenv('CUSTOM_THEME',''),
                   [os.getenv('CUSTOM_WORD_'+str(i),'') for i in (1,2,3)],
                   [os.getenv('CUSTOM_WORD_'+str(i)+'_ACTION','keep_today') for i in (1,2,3)],
-                  batch_target=os.getenv('BATCH_TARGET','latest'))
+                  batch_target=os.getenv('BATCH_TARGET','latest'),difficulty=os.getenv('DIFFICULTY','random'))
         return
     try:
         bootstrap() if action == "bootstrap" else persist()
