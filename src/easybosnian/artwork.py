@@ -15,7 +15,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':23, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
+    return {'rendering_version':24, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -86,10 +86,17 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 plan=dict(plan,palette=palette) if model_accepted else default_plan(card)
                 rejection=None;palette_rejection=None;layout_adjustment=None
                 stage='Pillow rendering'
+                def draw_plan(selected_plan):
+                    from .visual_adjustment import single_line_example_plan
+                    wider=single_line_example_plan(card,selected_plan,background) if model_accepted else None
+                    if wider is not None:
+                        try:return render_hybrid(card,palette,background,path,wider)
+                        except ValueError:pass  # Keep valid wrapping if the wider line is unreadable.
+                    return render_hybrid(card,palette,background,path,selected_plan)
                 def render_selected(selected_plan):
                     nonlocal palette,palette_outcome,palette_rejection
                     try:
-                        return render_hybrid(card,palette,background,path,selected_plan)
+                        return draw_plan(selected_plan)
                     except ValueError as error:
                         if (str(error) not in PALETTE_RENDER_FAILURES or
                                 palette_outcome['source']!='chatgpt'):
@@ -105,7 +112,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                         if palette==package['design_palette']:raise
                         palette=package['design_palette']
                         selected_plan['palette']=palette
-                        return render_hybrid(card,palette,background,path,selected_plan)
+                        return draw_plan(selected_plan)
                 try:
                     metrics=render_selected(plan)
                     decision_status='accepted' if model_accepted else 'default'
@@ -133,6 +140,10 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                         decision_status='rejected; safe hybrid fallback'
                     if layout_adjustment is None:
                         print(f"::warning::{kind} composition rejected: {rejection['reason']}; using measured fallback without retry")
+                if model_accepted and decision_status in ('accepted','adjusted'):
+                    from .visual_adjustment import applied_adjustment
+                    layout_adjustment=applied_adjustment(plan,metrics['composition'])
+                    if layout_adjustment is not None:decision_status='adjusted'
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
                                  'palette':metrics['palette'],'design':metrics['design'],'category_style':metrics['category_style'],
                                  'heading_tone':metrics['heading_tone'],'example_tone':metrics['example_tone'],

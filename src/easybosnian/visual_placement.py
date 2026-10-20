@@ -99,7 +99,7 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
     window=palette_window(recent)
@@ -185,8 +185,9 @@ def review_compositions(package, candidates, recent=()):
         'with approved palette or neutral fade colours. Compare all compatible colour pairings '
         'for actual photo fit, harmony and readability. Light text on a dark fade remains the '
         'usual direction; use dark text on a light fade when the photo suits it better. Pillow owns the '
-        f'fixed fade shape and contrast-driven strength, with a compact {PHOTO_FADE_FEATHER}px vertical feather '
-        'beyond the measured text band; shading is added only when contrast needs it. '
+        f'fixed fade shape and contrast-driven strength: titles retain the earlier {TITLE_FADE_FEATHER}px '
+        f'vertical feather, while examples use a compact {PHOTO_FADE_FEATHER}px feather beyond their '
+        'measured text band. Weak or no shading remains valid; shading is added only when contrast needs it. '
         'Only the text/fade COLOURS may change; never geometry, border, opacity or filter shape. Do not supply '
         'heading_fade or fade_style: those creative controls have been removed. '
         'For a paper-surface heading (any photo_window) and editorial italic_footer use auto. '
@@ -211,6 +212,12 @@ def review_compositions(package, candidates, recent=()):
         'are unsuitable. This comparison does not override style/design compatibility, '
         'the full-photo strong default, the approved middle-photo exception or any safety constraint. '
         'Hybrid explanations and answers MUST use one of the approved bounded text-card panels, never unboxed text over a photograph or fade. Plain body text is editorial paper only; pill is answers only (max2 lines). Bottom_sheet requires width>=660 and y>=700. Only titles and examples may use unboxed photographic text with approved contrast fades. Examples have a SEPARATE enum: italic_photo (no shading), italic_photo_fade (approved contrast fade), or editorial italic_footer. Never box an example. '
+        'PRIMJER should use ONE LINE whenever the exact sentence at the chosen font size fits safely. '
+        'Reserve enough horizontal width; do not make a short sentence wrap merely by choosing a '
+        'narrow column. Multiple lines remain valid when one line cannot fit within the safe photo '
+        'or footer region without a collision or unreadable contrast. Pillow may widen only this '
+        'example block, with the nearest safe horizontal shift if needed, preserving its y, text, '
+        'font, style and colours; any applied adjustment is reported. '
         'For ordinary lesson/word cards use full-background hybrid as the STRONG DEFAULT. '
         'Choose freely among its approved body treatments, placing body and unboxed italic '
         'example around the important visible subjects. No hybrid body treatment has priority '

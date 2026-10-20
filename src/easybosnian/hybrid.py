@@ -14,9 +14,11 @@ from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
 MIN_BLOCK_GAP = 8
 CATEGORY_TOP = 64
 CATEGORY_HEIGHT = 62
-# Renderer-owned vertical feather beyond the measured title/PRIMJER band.
-# The former 100px extension made short copy shade a large part of the photo.
+# Renderer-owned vertical feathers beyond each measured text band.
+# Keep PRIMJER compact while restoring the title's earlier, broader gradient.
 PHOTO_FADE_FEATHER = 32
+# Restore the earlier title fade extent without widening PRIMJER shading.
+TITLE_FADE_FEATHER = 100
 
 
 def serif(size, italic=False):
@@ -244,9 +246,10 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard'):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
+    feather=PHOTO_FADE_FEATHER if feather is None else feather
     text_height,_=measure(rows,face,line_spacing)
     mask=Image.new('L',image.size)
     draw_rows(ImageDraw.Draw(mask),xy,rows,face,255,line_spacing)
@@ -288,7 +291,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                 od=ImageDraw.Draw(overlay)
                 for y in range(round(top),round(bottom)):
                     distance=max(text_top-y,y-text_bottom,0)
-                    opacity=round(alpha*max(0,1-distance/PHOTO_FADE_FEATHER))
+                    opacity=round(alpha*max(0,1-distance/feather))
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)
@@ -455,7 +458,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         # Photographic title shading starts below the entire category strip;
         # even its feather must never appear behind a category chip or underline.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,
-            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,fade_style=plan.get('heading_fade','standard'))
+            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
+            fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER)
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.

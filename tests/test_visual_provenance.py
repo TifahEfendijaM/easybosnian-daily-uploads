@@ -28,8 +28,8 @@ class VisualProvenanceTests(unittest.TestCase):
                                       category_style='ribbon',palette_exception='no_other_suitable_palette')
                          for c in package['cards']}}
 
-    def render(self,package,proposal,render_override=None):
-        stream=io.BytesIO();Image.new('RGB',(1024,1024),'#728192').save(stream,'JPEG')
+    def render(self,package,proposal,render_override=None,photo=None):
+        stream=io.BytesIO();(photo if photo is not None else Image.new('RGB',(1024,1024),'#728192')).save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue()
         store=MagicMock()
         with contextlib.ExitStack() as stack:

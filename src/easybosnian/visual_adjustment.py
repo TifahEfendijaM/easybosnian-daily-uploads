@@ -1,8 +1,9 @@
 """Bounded deterministic translation of approved model geometry, never a model retry.
 
-Search nearby measured placements while preserving copy, widths, styles, colours,
-fonts and leading. The first ranked valid candidate still goes through full pixel
-rendering. This is a finite nearest-candidate search, not a global optimality claim.
+Search nearby measured placements while preserving copy, styles, colours, fonts
+and leading. Position repair preserves widths; a separate, reported PRIMJER-only
+step may widen an artificial column to fit one line. Every candidate still goes
+through full pixel rendering. This is not a global optimality claim.
 """
 import copy
 import math
@@ -24,6 +25,7 @@ GEOMETRY_ERRORS = frozenset((
     'Bottom sheet requires a wide lower placement',
 ))
 ADJUSTMENT_REASON='Nearest tested safe placement; design and typography preserved'
+EXAMPLE_LINE_REASON='Single-line PRIMJER width and safe placement; design and typography preserved'
 
 
 def adjustable_proposal(plan, model=False):
@@ -41,7 +43,7 @@ def adjustable_proposal(plan, model=False):
 
 def safe_adjustment(value):
     if (not isinstance(value,dict) or set(value)!={'reason','moves'}
-            or value['reason']!=ADJUSTMENT_REASON or not isinstance(value['moves'],list)
+            or value['reason'] not in (ADJUSTMENT_REASON,EXAMPLE_LINE_REASON) or not isinstance(value['moves'],list)
             or not 1<=len(value['moves'])<=5):
         raise ValueError('Invalid safe placement adjustment metadata')
     seen=set()
@@ -51,13 +53,82 @@ def safe_adjustment(value):
                 or move['element'] in seen):raise ValueError('Invalid safe placement adjustment metadata')
         seen.add(move['element'])
         expected={'y'} if move['element']=='photo_window' else {'x','y'}
+        expanded=(move['element']=='example' and value['reason']==EXAMPLE_LINE_REASON
+                  and isinstance(move.get('to'),dict) and 'width' in move['to'])
+        if expanded:expected.add('width')
         for side in ('from','to'):
             pos=move[side]
             if (not isinstance(pos,dict) or set(pos)!=expected
                     or any(type(v) is not int or not -2700<=v<=2700 for v in pos.values())):
                 raise ValueError('Invalid safe placement adjustment metadata')
         if move['from']==move['to']:raise ValueError('Invalid safe placement adjustment metadata')
+        if expanded and not 300<=move['from']['width']<move['to']['width']<=952:
+            raise ValueError('Invalid safe placement adjustment metadata')
+    if value['reason']==EXAMPLE_LINE_REASON and not any('width' in m['to'] for m in value['moves']):
+        raise ValueError('Invalid safe placement adjustment metadata')
     return copy.deepcopy(value)
+
+
+def single_line_example_plan(card, proposal, background):
+    """Prefer one exact-copy line when a wider horizontal slot safely permits it.
+
+    Keep y, typography, style and every other block unchanged. Pixel contrast is
+    checked by the caller's full render; if it fails, keep the original wrapping.
+    """
+    from .hybrid import block_spec, measured_plan, MIN_BLOCK_GAP
+    from .visual_placement import CARD_SCHEMA
+    if list(Draft202012Validator(CARD_SCHEMA).iter_errors(proposal)):return None
+    block=next((b for b in proposal['blocks'] if b['role']=='example'),None)
+    if block is None:return None
+    try:
+        spec=block_spec(card,'example',block['width'],block['style'],block['font_size'],
+                        block['line_spacing'],None,block.get('wrapping','balanced'))
+    except ValueError:return None
+    if len(spec['rows'])<=1:return None
+    face=spec['face'];text=card['example'];box=face.getbbox(text)
+    width=math.ceil(max(face.getlength(text),box[2]-box[0]))
+    if not block['width']<width<=952:return None
+    left,right=64,880 if block['style']=='italic_footer' else 1016
+    window=proposal['photo_window']
+    if window is not None and proposal['design']=='hybrid':
+        with Image.open(background) as photo:
+            photo_width=ImageOps.contain(photo,(952,window['height']),Image.Resampling.LANCZOS).width
+        left=max(left,math.ceil((1080-photo_width)/2+20))
+        right=min(right,math.floor((1080+photo_width)/2-20))
+    high=min(716,right-width)
+    if high<left:return None
+    anchors={max(left,min(high,block['x'])),left,high}
+    # Nearby horizontal slots preserve the chosen vertical placement. The full
+    # measured plan rejects collisions, protected photo regions and bad bounds.
+    for other in proposal['blocks']:
+        if other['role']=='example':continue
+        anchors.update((other['x']+other['width']+MIN_BLOCK_GAP,
+                        other['x']-width-MIN_BLOCK_GAP))
+    for x in sorted((x for x in anchors if left<=x<=high),key=lambda x:(abs(x-block['x']),x)):
+        candidate=copy.deepcopy(proposal)
+        target=next(b for b in candidate['blocks'] if b['role']=='example')
+        target.update(x=x,width=width)
+        try:
+            measured=measured_plan(card,candidate)
+        except ValueError:continue
+        if len(next(b for b in measured if b['role']=='example')['rows'])==1:return candidate
+    return None
+
+
+def applied_adjustment(requested, applied):
+    """Describe only actual, approved positional/single-line width changes."""
+    moves=[]
+    a,b=requested['photo_window'],applied['photo_window']
+    if a is not None and b is not None and a['y']!=b['y']:
+        moves.append({'element':'photo_window','from':{'y':a['y']},'to':{'y':b['y']}})
+    wider=False
+    for old,new in zip(requested['blocks'],applied['blocks']):
+        keys=('x','y','width') if old['width']!=new['width'] else ('x','y')
+        if any(old[k]!=new[k] for k in keys):
+            wider=wider or 'width' in keys
+            moves.append({'element':old['role'],'from':{k:old[k] for k in keys},'to':{k:new[k] for k in keys}})
+    if not moves:return None
+    return safe_adjustment({'reason':EXAMPLE_LINE_REASON if wider else ADJUSTMENT_REASON,'moves':moves})
 
 
 def nearest_valid_plan(card, proposal, background):

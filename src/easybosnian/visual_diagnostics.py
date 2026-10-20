@@ -70,8 +70,10 @@ def rendering_outcome(card, review_status=None):
     """Only trusted classifications can reach the summary or recent-design context."""
     status=card.get('status')
     if status=='adjusted':
-        from .visual_adjustment import safe_adjustment
-        safe_adjustment(card.get('layout_adjustment'))
+        from .visual_adjustment import safe_adjustment, EXAMPLE_LINE_REASON
+        detail=safe_adjustment(card.get('layout_adjustment'))
+        if detail['reason']==EXAMPLE_LINE_REASON:
+            return {'source':'chatgpt','reason':'Pillow preserved ChatGPT’s design with a single-line PRIMJER adjustment'}
         return {'source':'chatgpt','reason':'Pillow preserved ChatGPT’s design with measured placement adjustments'}
     if status=='accepted':return {'source':'chatgpt','reason':'Pillow validated and used ChatGPT’s layout choices'}
     if card.get('rejection'):
