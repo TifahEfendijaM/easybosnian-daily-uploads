@@ -75,7 +75,7 @@ def single_line_example_plan(card, proposal, background):
     Keep y, typography, style and every other block unchanged. Pixel contrast is
     checked by the caller's full render; if it fails, keep the original wrapping.
     """
-    from .hybrid import block_spec, measured_plan, MIN_BLOCK_GAP
+    from .hybrid import block_spec, measured_plan, MIN_BLOCK_GAP, block_gap
     from .visual_placement import CARD_SCHEMA
     if list(Draft202012Validator(CARD_SCHEMA).iter_errors(proposal)):return None
     block=next((b for b in proposal['blocks'] if b['role']=='example'),None)
@@ -102,8 +102,8 @@ def single_line_example_plan(card, proposal, background):
     # measured plan rejects collisions, protected photo regions and bad bounds.
     for other in proposal['blocks']:
         if other['role']=='example':continue
-        anchors.update((other['x']+other['width']+MIN_BLOCK_GAP,
-                        other['x']-width-MIN_BLOCK_GAP))
+        gap=block_gap('example',other['role'])
+        anchors.update((other['x']+other['width']+gap,other['x']-width-gap))
     for x in sorted((x for x in anchors if left<=x<=high),key=lambda x:(abs(x-block['x']),x)):
         candidate=copy.deepcopy(proposal)
         target=next(b for b in candidate['blocks'] if b['role']=='example')
@@ -132,7 +132,7 @@ def applied_adjustment(requested, applied):
 
 
 def nearest_valid_plan(card, proposal, background):
-    from .hybrid import heading, block_spec, occupied_width, measured_plan, MIN_BLOCK_GAP, roles
+    from .hybrid import heading, block_spec, occupied_width, measured_plan, MIN_BLOCK_GAP, block_gap, roles
     original=adjustable_proposal(proposal)
     if original is None or original['confidence']!='high':return None
     try:
@@ -187,13 +187,15 @@ def nearest_valid_plan(card, proposal, background):
     for index,(block,limits) in enumerate(zip(result['blocks'],bounds)):
         xlo,xhi,intervals,ow,height=limits;expanded=[]
         for cost,positions,boxes in beam:
-            anchors=[*targets,*[(a,b,c-a,d-b) for a,b,c,d in boxes]]
+            anchors=[(*target,result['blocks'][j]['role']) for j,target in enumerate(targets)]
+            anchors.extend((a,b,c-a,d-b,result['blocks'][j]['role']) for j,(a,b,c,d) in enumerate(boxes))
             xs={max(xlo,min(xhi,block['x'])),xlo,xhi}
             ys={max(a,min(b,block['y'])) for a,b in intervals}
             for a,b in intervals:ys.update((a,b))
-            for x,y,w,h in anchors:
-                xs.update((round(x+w+MIN_BLOCK_GAP),round(x-ow-MIN_BLOCK_GAP)))
-                ys.update((math.ceil(y+h+MIN_BLOCK_GAP),math.floor(y-height-MIN_BLOCK_GAP)))
+            for x,y,w,h,other_role in anchors:
+                gap=block_gap(block['role'],other_role)
+                xs.update((round(x+w+gap),round(x-ow-gap)))
+                ys.update((math.ceil(y+h+gap),math.floor(y-height-gap)))
             candidates=[]
             for x in sorted(xs):
                 if not xlo<=x<=xhi:continue
@@ -201,9 +203,9 @@ def nearest_valid_plan(card, proposal, background):
                     if not any(a<=y<=b for a,b in intervals):continue
                     if card['kind']=='quiz' and positions and (y,x)<(positions[-1][1],positions[-1][0]):continue
                     box=(x,y,x+ow,y+height)
-                    if any(box[0]<a2+MIN_BLOCK_GAP and box[2]>a0-MIN_BLOCK_GAP
-                           and box[1]<a3+MIN_BLOCK_GAP and box[3]>a1-MIN_BLOCK_GAP
-                           for a0,a1,a2,a3 in boxes):continue
+                    if any(box[0]<a2+block_gap(block['role'],result['blocks'][j]['role']) and box[2]>a0-block_gap(block['role'],result['blocks'][j]['role'])
+                           and box[1]<a3+block_gap(block['role'],result['blocks'][j]['role']) and box[3]>a1-block_gap(block['role'],result['blocks'][j]['role'])
+                           for j,(a0,a1,a2,a3) in enumerate(boxes)):continue
                     distance=(x-block['x'])**2+(y-block['y'])**2
                     candidates.append((cost+distance,positions+[(x,y)],boxes+[box]))
             expanded.extend(sorted(candidates,key=lambda s:(s[0],s[1]))[:24])

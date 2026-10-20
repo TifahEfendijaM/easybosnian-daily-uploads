@@ -193,11 +193,11 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                          {'label':'B','text':'Poštanska marka'},
                          {'label':'C','text':'Novine'}]
         plan=default_plan(quiz);plan['confidence']='high'
-        for block,(x,y,width) in zip(plan['blocks'],((64,320,440),(524,320,492),(64,490,320))):
+        for block,(x,y,width) in zip(plan['blocks'],((64,340,440),(524,340,492),(64,510,320))):
             block.update(x=x,y=y,width=width,style='minimal_rule',font_size=38,line_spacing=1.3)
         measured=measured_plan(quiz,plan)
         self.assertEqual(measured[0]['bounds'][1::2],measured[1]['bounds'][1::2])
-        self.assertEqual(measured[2]['y'],490)  # Intentional stagger stays exact.
+        self.assertEqual(measured[2]['y'],510)  # Intentional stagger stays exact.
         before=copy.deepcopy(quiz)
         from easybosnian.render import draw_rows
         with tempfile.TemporaryDirectory() as tmp:
@@ -284,7 +284,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],25)
+        self.assertEqual(expected['rendering_version'],26)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

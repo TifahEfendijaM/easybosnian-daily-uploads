@@ -13,6 +13,11 @@ on:
         type: choice
         options: [same_words, same_images, same_theme, new, custom]
         default: new
+      difficulty:
+        description: 'New/same_theme and newly chosen custom words: random = weighted A1-C2; reused words keep their level'
+        type: choice
+        options: [random, A1, A2, B1, B2, C1, C2]
+        default: random
       custom_theme:
         description: 'Custom only: if left empty, the theme from the selected saved batch remains'
         type: string
@@ -63,6 +68,7 @@ jobs:
     timeout-minutes: 30
     env:
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
+      DIFFICULTY: ${{ inputs.difficulty || 'random' }}
       BATCH_TARGET: ${{ inputs.batch_target || 'latest' }}
       CUSTOM_THEME: ${{ inputs.custom_theme }}
       CUSTOM_WORD_1: ${{ inputs.custom_word_1 }}

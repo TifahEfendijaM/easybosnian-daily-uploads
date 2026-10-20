@@ -44,7 +44,7 @@ def caption_levels(package):
     return ranked if len(ranked)==1 else [ranked[0],ranked[-1]]
 
 
-def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False, quiz_option_target=None):
+def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False, quiz_option_target=None, require_language_policy=False):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -69,6 +69,14 @@ def validate(package, history=None, include_today=False, require_website_footer=
     for c, w in zip(package["cards"], package["words"]):
         if normalise(c["word"]) != normalise(w["lemma"]):
             raise ValueError("Each card must use its assigned distinct word")
+    if require_language_policy and package['private_review'].get('language_policy_checked') is not True:
+        raise ValueError('Fresh content requires reviewed beginner-English/advanced-Bosnian explanations')
+    for card,word in zip(package['cards'],package['words']):
+        if card['kind']=='quiz':continue
+        level=word.get('bosnian_level',package.get('bosnian_level'))
+        expected='en' if level in ('A1','A2') else 'bs'
+        if (require_language_policy or 'body_language' in card) and card.get('body_language')!=expected:
+            raise ValueError('Explanation language must match the individual reviewed word level')
     quiz = package["cards"][0]
     if require_quiz_format and 'quiz_format' not in quiz:
         raise ValueError('New quiz content requires reviewed visual-identification or other format metadata')

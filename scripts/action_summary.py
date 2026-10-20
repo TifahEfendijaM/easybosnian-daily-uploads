@@ -5,6 +5,11 @@ from easybosnian.visual_diagnostics import safe_rejection, rendering_provenance
 from easybosnian.success_report import visual_summary
 from easybosnian.batches import output_key
 
+context_path=Path('build/preparation-result.json')
+level_summary=''
+if context_path.is_file():
+    level=json.loads(context_path.read_text()).get('target_cefr')
+    if level in ('A1','A2','B1','B2','C1','C2'):level_summary=f'\nRun difficulty target: **{level}** (retained words keep their individual levels).\n'
 text='This workflow has no confirmed publication result. Inspect failed steps and diagnostics.\n'
 results=list(Path('build').glob('*/result.json'))
 if results:
@@ -44,6 +49,7 @@ if placements:
             rejection=safe_rejection(result['rejection'])
             text+='  Layout fallback: '+rejection['reason']+'\n'
             text+='\n<details><summary>'+kind+' — rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(rejection['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
+text+=level_summary
 console_text=text  # Keep reviewed prompts/design detail in the private Summary, not step logs.
 sources=list(Path('build').glob('*/report-source.json'))
 if sources:

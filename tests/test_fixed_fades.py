@@ -115,7 +115,7 @@ class FixedFadeTests(unittest.TestCase):
         text,markup=render_report(report)
         self.assertIn('Title fade: soft',text);self.assertIn('Title fade: soft',markup)
 
-    def test_standard_fade_support_stays_within_32px_of_measured_title_and_example(self):
+    def test_standard_fade_support_stays_within_48px_of_measured_text_by_default(self):
         palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         label_face=font(21,'SemiBold')
         example_y=500+measure(['PRIMJER'],label_face)[0]+16
@@ -139,8 +139,8 @@ class FixedFadeTests(unittest.TestCase):
                     top=min([xy[1],*(item[0][1] for item in extra)])
                     bottom=max([xy[1]+measure(rows,face,leading)[0],
                                 *(p[1]+measure(r,f)[0] for p,r,f in extra)])
-                    self.assertGreaterEqual(changed[1],top-32)
-                    self.assertLessEqual(changed[3],bottom+32)
+                    self.assertGreaterEqual(changed[1],top-48)
+                    self.assertLessEqual(changed[3],bottom+48)
                     self.assertLess(changed[1],top);self.assertGreater(changed[3],bottom)
                     self.assertEqual(image.getpixel((540,top-64)),original.getpixel((540,top-64)))
                     self.assertEqual(image.getpixel((540,bottom+64)),original.getpixel((540,bottom+64)))

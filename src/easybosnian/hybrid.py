@@ -14,9 +14,12 @@ from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
 MIN_BLOCK_GAP = 8
 CATEGORY_TOP = 64
 CATEGORY_HEIGHT = 62
+HEADING_TOP = 174
+EXAMPLE_BLOCK_GAP = 32
+EXAMPLE_FADE_PADDING = 18
 # Renderer-owned vertical feathers beyond each measured text band.
 # Keep PRIMJER compact while restoring the title's earlier, broader gradient.
-PHOTO_FADE_FEATHER = 32
+PHOTO_FADE_FEATHER = 48
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
 
@@ -32,7 +35,7 @@ def heading(card):
     rows = wrap(card.get('question') if card['kind']=='quiz' else card['heading'], face, 952)
     if len(rows) > (3 if card['kind']=='quiz' else 2):
         raise ValueError('Hybrid heading exceeds measured lines; never truncate')
-    return face, rows, 155 + measure(rows, face)[0]
+    return face, rows, HEADING_TOP + measure(rows, face)[0]
 
 
 def roles(card):
@@ -118,9 +121,9 @@ def default_plan(card):
         spec=fallback_spec(card,role,952)
         if role=='example':
             # Bottom-biased, measured and logo-safe; never model repair or truncation.
-            y=max(y,1150-spec['height'])
+            y=max(y,1126-spec['height'])
         blocks.append(declared_block(card,role,x=64,y=round(y)))
-        y+=spec['height']+(28 if role=='body' else 16)
+        y+=spec['height']+(40 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
             'heading_tone':'auto','palette_exception':'none','photo_window':window,'blocks':blocks}
 
@@ -155,6 +158,10 @@ def occupied_width(spec):
         label=font(21,'SemiBold').getbbox('PRIMJER')
         width=max(width,label[2]-label[0])
     return width
+
+
+def block_gap(first, second):
+    return EXAMPLE_BLOCK_GAP if 'example' in (first, second) else MIN_BLOCK_GAP
 
 
 def measured_plan(card, plan):
@@ -193,9 +200,9 @@ def measured_plan(card, plan):
         if box[0]<64 or box[2]>(880 if footer else 1016) or box[1]<header_end+24 or box[3]>(1286 if footer else 1170):
             raise ValueError('Composition intersects the fixed heading, margin or logo strip')
         for previous in measured:
-            a=previous['occupied_bounds']
-            if (occupied[0]<a[2]+MIN_BLOCK_GAP and occupied[2]>a[0]-MIN_BLOCK_GAP
-                    and occupied[1]<a[3]+MIN_BLOCK_GAP and occupied[3]>a[1]-MIN_BLOCK_GAP):
+            a=previous['occupied_bounds'];gap=block_gap(block['role'],previous['role'])
+            if (occupied[0]<a[2]+gap and occupied[2]>a[0]-gap
+                    and occupied[1]<a[3]+gap and occupied[3]>a[1]-gap):
                 raise ValueError('Composition text blocks overlap or have no breathing room')
         measured.append({**block,**spec,'bounds':box,'occupied_bounds':occupied})
     if card['kind']=='quiz':
@@ -246,7 +253,7 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -290,8 +297,15 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
             else:
                 od=ImageDraw.Draw(overlay)
                 for y in range(round(top),round(bottom)):
-                    distance=max(text_top-y,y-text_bottom,0)
-                    opacity=round(alpha*max(0,1-distance/feather))
+                    # Taper to zero INSIDE protected bounds rather than clipping
+                    # a still-opaque gradient into a visible horizontal seam.
+                    start=max(top,text_top-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
+                    core_end=min(text_bottom+bottom_padding,max(text_bottom,end-16))
+                    if y<=start or y>=end:t=0
+                    elif y<text_top:t=(y-start)/max(1,text_top-start)
+                    elif y>core_end:t=(end-y)/max(1,end-core_end)
+                    else:t=1
+                    t=max(0,min(1,t));opacity=round(alpha*t*t*(3-2*t))
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)
@@ -457,7 +471,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         colours,backings=photo_colours(palette,heading_tone)
         # Photographic title shading starts below the entire category strip;
         # even its feather must never appear behind a category chip or underline.
-        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,
+        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
             (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER)
     example_contrast=None;example_shading=0;example_colour=None
@@ -467,18 +481,20 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         if block['style'] in ('italic_photo','italic_photo_fade'):
             x,y=block['x'],block['y'];label_face=font(21,'SemiBold')
             example_y=y+measure(['PRIMJER'],label_face)[0]+16
-            limit=photo_bounds or [0,header_end+14,WIDTH,1170]
+            # Text remains above y1170. Its background fade may taper into
+            # the footer; the untouched logo is composited on top afterward.
+            limit=photo_bounds or [0,header_end+14,WIDTH,HEIGHT-64]
             colours,backings=photo_colours(palette,block.get('photo_tone','auto'))
             example_colour,example_contrast,example_shading=protect_text(
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[((x,y),['PRIMJER'],label_face)],
-                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings,fade_style=block.get('fade_style','standard'))
+                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings,fade_style=block.get('fade_style','standard'),bottom_padding=EXAMPLE_FADE_PADDING)
             block['photo_colour']=example_colour;block['photo_contrast']=example_contrast
             block['photo_shading']=example_shading
     # Another block's preset fade must not invalidate already-chosen glyph
     # colours. Validate the final photographic surface before drawing anything.
     if not window:
-        protect_text(image,(64,155),title_rows,title_face,[heading_colour],3,allow_fade=False)
+        protect_text(image,(64,HEADING_TOP),title_rows,title_face,[heading_colour],3,allow_fade=False)
     for block in blocks:
         if 'photo_colour' not in block:continue
         x,y=block['x'],block['y'];label_face=font(21,'SemiBold')
@@ -493,7 +509,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     label=LABELS[card['kind']]
     category=category_label(image,label,palette,plan.get('category_style','underlined' if plan['design']=='editorial' else 'rounded'),paper_surface=bool(window),tone=plan.get('category_tone','auto'))
     draw=ImageDraw.Draw(image)
-    draw_rows(draw,(64,155),title_rows,title_face,heading_colour)
+    draw_rows(draw,(64,HEADING_TOP),title_rows,title_face,heading_colour)
     for block in blocks:
         x,y=block['x'],block['y'];role=block['role'];face=block['face'];rows=block['rows'];padding=block['padding'];style=block['style']
         leading=block['line_spacing']
@@ -529,7 +545,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     image.convert('RGB').save(output,'JPEG',quality=94,subsampling=0,optimize=True)
     return {'size':[WIDTH,HEIGHT],
-            **({'treatment':'B','question_bounds':[64,155,1016,header_end],
+            **({'treatment':'B','question_bounds':[64,HEADING_TOP,1016,header_end],
                 'photo_size':[photo_bounds[2]-photo_bounds[0],photo_bounds[3]-photo_bounds[1]]} if card.get('quiz_format')=='visual_identification' else {}),
             'typography':'hybrid','palette':palette_id,'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),

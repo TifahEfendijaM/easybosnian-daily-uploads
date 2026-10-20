@@ -109,7 +109,7 @@ class LevelTests(unittest.TestCase):
         text=(ROOT/'.github/workflows/configure-level.yml').read_text()
         self.assertIn('options: [Keep current, A1, A2, B1, B2, C1, C2]',text)
         self.assertIn('default: Keep current',text);self.assertNotIn('default: A2',text)
-        self.assertIn('contents: write',text);self.assertIn("github.ref == 'refs/heads/main'",text)
+        self.assertIn('contents: read',text);self.assertIn('false &&',text);self.assertIn("github.ref == 'refs/heads/main'",text)
         self.assertNotIn('secrets.',text);self.assertNotIn('cloud_prepare',text);self.assertNotIn('easybosnian run',text)
         pipeline=(ROOT/'.github/workflows/preparation.yml').read_text()
         self.assertIn('contents: read',pipeline);self.assertNotIn('contents: write',pipeline)

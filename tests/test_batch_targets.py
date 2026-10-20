@@ -48,7 +48,7 @@ class BatchTargetTests(unittest.TestCase):
                         card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
                     write_json(root/'build/preparation/2026-10-03.json',package)
                     return '{"status":"ready","reason":"none"}'
-                for name,value in [('ROOT',root),('today','2026-10-04'),('load_level','A2')]:
+                for name,value in [('ROOT',root),('today','2026-10-04'),('select_run_level','A2')]:
                     stack.enter_context(patch('easybosnian.cloud_prepare.'+name,return_value=value) if name!='ROOT' else patch('easybosnian.cloud_prepare.ROOT',value))
                 for name in ('require_publishing','check_infrastructure','validate','fit_check'):
                     stack.enter_context(patch('easybosnian.cloud_prepare.'+name))

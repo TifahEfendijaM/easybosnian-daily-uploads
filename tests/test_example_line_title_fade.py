@@ -141,7 +141,7 @@ class ExampleLineTitleFadeTests(unittest.TestCase):
             return result
         with patch('easybosnian.hybrid.protect_text',side_effect=checked):
             result=render_hybrid(self.card,'forest-cream',self.photo,self.root/'title.jpg',plan)
-        self.assertEqual((TITLE_FADE_FEATHER,PHOTO_FADE_FEATHER),(100,32))
+        self.assertEqual((TITLE_FADE_FEATHER,PHOTO_FADE_FEATHER),(100,48))
         bottom=heading(self.card)[2]
         self.assertEqual(len(observed),1)
         self.assertGreater(observed[0][3],bottom+32)

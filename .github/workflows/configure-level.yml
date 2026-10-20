@@ -1,21 +1,22 @@
-name: Change EasyBosnian difficulty
+name: Legacy EasyBosnian difficulty (inactive)
 run-name: EasyBosnian difficulty → ${{ inputs.level }}
 on:
   workflow_dispatch:
     inputs:
       level:
-        description: 'Keep current reads the saved level; choose A1-C2 to change future preparations. The run summary confirms the actual level.'
+        description: 'INACTIVE legacy setting. Current preparations use the publishing workflow difficulty selector.'
         type: choice
         options: [Keep current, A1, A2, B1, B2, C1, C2]
         default: Keep current
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: easybosnian-preparation-level-settings
   cancel-in-progress: false
 jobs:
   configure:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.ref == 'refs/heads/main'
+    # Retained for a possible return to persistent difficulty; deliberately inactive.
+    if: ${{ false && github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
