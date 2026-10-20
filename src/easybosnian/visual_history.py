@@ -7,6 +7,26 @@ import zipfile
 from .core import REPO, gh, gh_binary
 from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, PHOTO_TONES, PANEL_OPACITIES, PANEL_STYLES
 
+REPEATED_PALETTE='terracotta-sand'
+
+
+def palette_window(recent):
+    """Last nine known rendered palette IDs, oldest first; never copy/model prose."""
+    from .core import ROOT, read_json
+    catalogue=read_json(ROOT/'data/design-palettes.json');values=[]
+    for run in reversed(recent):
+        observations=run.get('palette_observations')
+        if not isinstance(observations,list):
+            observations=[run.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
+        values.extend(v for v in observations if isinstance(v,str) and v in catalogue)
+    return values[-9:]
+
+
+def palette_policy(window):
+    return {'palette':REPEATED_PALETTE,'window_size':9,'known_images':len(window[-9:]),
+            'recent_uses':window[-9:].count(REPEATED_PALETTE),
+            'alternatives_first':window[-9:].count(REPEATED_PALETTE)>=3}
+
 
 def accepted_choices(placement):
     from .core import ROOT, read_json
@@ -15,7 +35,7 @@ def accepted_choices(placement):
     for kind in ('quiz','lesson','word'):
         card=placement.get('cards',{}).get(kind,{})
         # Fallbacks must never teach the model what it previously chose.
-        if card.get('status')!='accepted':continue
+        if card.get('status') not in ('accepted','adjusted'):continue
         styles=card.get('block_styles',{})
         if (card.get('palette') not in palettes or card.get('design') not in DESIGNS
                 or not isinstance(styles,dict) or not styles
@@ -25,7 +45,7 @@ def accepted_choices(placement):
         safe={field:card[field] for field in ('design','block_styles')}
         # A preserved ChatGPT layout may now use a fallback palette. Do not
         # attribute that colour choice to the model in its recent-design context.
-        if card.get('palette_outcome',{}).get('source')!='fallback':safe['palette']=card['palette']
+        if card.get('palette_outcome',{}).get('source')=='chatgpt':safe['palette']=card['palette']
         for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
             if card.get(field) in allowed:safe[field]=card.get(field)
         badges=card.get('answer_badges',{})
@@ -62,8 +82,13 @@ def recent_choices(limit=5):
             with zipfile.ZipFile(io.BytesIO(body)) as archive:
                 members=[m for m in archive.infolist() if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',m.filename) and m.file_size<=100_000]
                 if len(members)!=1:continue
-                choices=accepted_choices(json.loads(archive.read(members[0])))
-            if choices:recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices})
+                placement=json.loads(archive.read(members[0]));choices=accepted_choices(placement)
+                from .core import ROOT,read_json
+                catalogue=read_json(ROOT/'data/design-palettes.json')
+                observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
+                observations=[v for v in observations if isinstance(v,str) and v in catalogue]
+            if choices or observations:
+                recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations})
             if len(recent)==limit:break
         return recent,'available'
     except Exception:

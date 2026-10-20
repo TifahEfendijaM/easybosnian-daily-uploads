@@ -21,6 +21,8 @@ from test_project import reviewed_fixture
 
 class PanelOpacityTests(unittest.TestCase):
     def test_enum_is_panel_only_and_arbitrary_opacity_is_rejected(self):
+        self.assertEqual(PANEL_OPACITIES['translucent'],191)
+        self.assertEqual(round(PANEL_OPACITIES['translucent']/255*100),75)
         card=reviewed_fixture()['cards'][2]
         for preset in PANEL_OPACITIES:
             plan=default_plan(card);plan['blocks'][0]['panel_opacity']=preset
@@ -36,7 +38,7 @@ class PanelOpacityTests(unittest.TestCase):
     def test_every_panel_style_composites_surface_but_keeps_rules_and_badges_opaque(self):
         package=reviewed_fixture();palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         for style in PANEL_STYLES:
-            card=package['cards'][0 if style=='pill' else 2];role='A' if style=='pill' else 'body'
+            card=package['cards'][0 if style in ('pill','folded_corner') else 2];role='A' if style in ('pill','folded_corner') else 'body'
             for preset,alpha in PANEL_OPACITIES.items():
                 with self.subTest(style=style,preset=preset):
                     spec=block_spec(card,role,952,style,font_size=36)
@@ -56,7 +58,7 @@ class PanelOpacityTests(unittest.TestCase):
     def test_legacy_omissions_keep_previous_surfaces_and_geometry(self):
         card=reviewed_fixture()['cards'][2]
         for style in PANEL_STYLES:
-            if style=='pill':continue
+            if style in ('pill','folded_corner'):continue
             block={**block_spec(card,'body',952,style,font_size=36),'role':'body',
                    'x':64,'y':750,'width':952}
             block['bounds']=[64,750,1016,750+block['height']]

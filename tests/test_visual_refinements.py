@@ -83,6 +83,7 @@ class VisualRefinementTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#828282').save(photo)
             for tone in PHOTO_TONES:
+                Image.new('RGB',(1080,1350),'#111111' if tone in ('accent_light','paper_accent') else '#828282').save(photo)
                 plan=default_plan(card);plan['heading_tone']=tone;plan['blocks'][-1]['photo_tone']=tone
                 metrics=render_hybrid(card,'terracotta-sand',photo,root/'card.jpg',plan)
                 self.assertEqual(metrics['heading_tone'],tone);self.assertEqual(metrics['example_tone'],tone)
@@ -95,6 +96,7 @@ class VisualRefinementTests(unittest.TestCase):
                 if tone=='accent_ink':self.assertEqual(metrics['example_colour'],'#f0b18f')
             self.assertEqual(card,before)
             # An explicit colour is never permission to invent a fade for italic_photo.
+            Image.new('RGB',(1080,1350),'#828282').save(photo)
             plan=default_plan(card);plan['blocks'][-1].update(style='italic_photo',photo_tone='paper_dark')
             with self.assertRaisesRegex(ValueError,'contrast'):render_hybrid(card,'terracotta-sand',photo,root/'bad.jpg',plan)
 

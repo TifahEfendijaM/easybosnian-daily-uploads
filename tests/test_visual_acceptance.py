@@ -100,7 +100,7 @@ class ReviewerFitDataTests(unittest.TestCase):
         data=block_measurements(card,'body')
         self.assertEqual(set(data['measurements_by_style']),set(BODY_STYLES))
         self.assertEqual(set(data['fit_profiles']),{'rounded','split_panel','plain'})
-        for style in set(PANEL_STYLES)-{'split_panel','pill'}:
+        for style in set(BODY_STYLES)-{'split_panel','plain'}:
             self.assertEqual(data['measurements_by_style'][style]['measurement_family'],'rounded')
         # Body and answer insets differ; each role still has its own exact
         # profiles. No drawing renderer or allowed geometry is aliased.

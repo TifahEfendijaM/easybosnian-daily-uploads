@@ -32,7 +32,7 @@ def _measurements(source, role):
     profiles={};by_style={}
     for style in styles:
         # Shared measurement only: all style IDs still draw distinct pixels.
-        family=('rounded' if style in PANEL_STYLES and style not in ('split_panel','pill')
+        family=('rounded' if style in PANEL_STYLES and style not in ('split_panel','pill','folded_corner')
                 else 'italic_photo' if style=='italic_photo_fade' else style)
         if family not in profiles:
             rows=[]
