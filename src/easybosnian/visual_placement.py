@@ -14,6 +14,8 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
 OPACITY_SCHEMA = {'type':'number','minimum':PANEL_OPACITY_RANGE[0],'maximum':PANEL_OPACITY_RANGE[1]}
+# Saved numeric 50–69.999...% choices remain readable, never newly selectable.
+LEGACY_OPACITY_SCHEMA = {**OPACITY_SCHEMA,'minimum':50}
 def block_schema(role, styles):
     low,high=FONT_RANGES[role]
     return {'type':'object','additionalProperties':False,
@@ -28,7 +30,7 @@ def block_schema(role, styles):
                 'line_spacing':{'type':'number','minimum':LEADING_RANGE[0],'maximum':LEADING_RANGE[1]},
                 'max_lines':{'anyOf':[{'type':'null'},{'type':'integer','minimum':1,'maximum':12}]},
                 'wrapping':{'enum':list(WRAPPING)},
-                **({'panel_opacity':{'anyOf':[OPACITY_SCHEMA,{'enum':list(PANEL_OPACITIES)}]}} if role!='example' else {}),
+                **({'panel_opacity':{'anyOf':[LEGACY_OPACITY_SCHEMA,{'enum':list(PANEL_OPACITIES)}]}} if role!='example' else {}),
                 **({'panel_tone':{'enum':list(PANEL_TONES)}} if role!='example' else {}),
                 **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {}),
                 **({'photo_tone':{'enum':list(PHOTO_TONES)},
@@ -153,7 +155,7 @@ def review_compositions(package, candidates, recent=()):
         'not metadata: Pillow owns fonts, category/title anchors, borders and exact drawing. '
         'Choose category_style from the approved category catalogue independently of body/answer '
         'styles. The ribbon, underline and pill category designs are fully available. '
-        'For each body/answer panel choose panel_opacity as a NUMBER from 50 to 100, inclusive '
+        'For each body/answer panel choose panel_opacity as a NUMBER from 70 to 100, inclusive '
         '(percentage; fractional percentages are allowed, not a 0–1 alpha). Select the opacity '
         'deliberately for this photograph, local detail, colour pairing and readability, never '
         'randomly or by rotating values. A softer surface can integrate the box '
