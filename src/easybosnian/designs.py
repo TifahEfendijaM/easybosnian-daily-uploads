@@ -11,10 +11,15 @@ PANEL_STYLES = (*PANEL_STYLES, 'pill', 'folded_corner')
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink',
                'ink_accent', 'accent_dark', 'accent_light', 'paper_accent')
-# Fresh reviews may choose colours, but not fade shape, extent or strength.
+# Fresh reviews choose approved colours and one of two fixed fade presets.
 REVIEW_PHOTO_TONES = PHOTO_TONES
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
-FADE_STYLES = ('standard', 'soft')
+REVIEW_FADE_STYLES = ('standard', 'defined')
+FADE_STYLES = (*REVIEW_FADE_STYLES, 'soft')  # soft is archive-only
+FADE_CATALOGUE = {
+    'standard': 'Smoothly eased edges within protected bounds; gentler outer title fade.',
+    'defined': 'Earlier full-width linear shade with more defined edges, not the smooth preset. PRIMJER backing extends 18px below the last row before its 48px taper.',
+}
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
 PANEL_OPACITY_RANGE = (70, 100)
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
@@ -41,7 +46,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using the compact renderer-owned contrast fade when needed. Only an approved text/fade colour pairing is selectable; shape and strength are fixed.',
+    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using either the approved smooth standard fade or earlier defined linear shade when needed. Both extend below the text; colours are approved and dimensions/strength are renderer-owned.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {

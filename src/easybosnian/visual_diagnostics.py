@@ -126,6 +126,8 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Original logo must retain alpha transparency',
     'Paper examples require automatic palette ink',
     'Paper headings require automatic palette ink',
+    'Paper headings cannot select a photographic shade',
+    'Only photographic faded examples can select a shade preset',
     'Paper styles require the editorial design',
     'Photo window intersects heading or logo strip',
     'Photographic caption requires a full-background hybrid card',

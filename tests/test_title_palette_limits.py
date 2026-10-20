@@ -1,4 +1,4 @@
-"""Original title strength and candidate-inclusive palette suitability limits."""
+"""Gentle title strength and candidate-inclusive palette suitability limits."""
 import copy
 import json
 import tempfile
@@ -93,13 +93,13 @@ class TitlePaletteLimitsTests(unittest.TestCase):
         self.assertEqual(protect_text(readable,xy,rows,face,['#ffffff'],3)[2],0)
         self.assertEqual(readable.tobytes(),before)
 
-    def test_real_title_restores_original_strength_with_colour_choices_and_copy_preserved(self):
+    def test_real_title_uses_weaker_safe_strength_with_colour_choices_and_copy_preserved(self):
         card=reviewed_fixture()['cards'][2];source=copy.deepcopy(card)
         palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg'
             Image.new('RGB',(1080,1350),'#ffffff').save(photo)
-            for tone,expected_alpha in [('paper_dark',130),('paper_ink',130),('accent_dark',170)]:
+            for tone,expected_alpha in [('paper_dark',114),('paper_ink',126),('accent_dark',144)]:
                 plan=dict(default_plan(card),confidence='high',heading_tone=tone)
                 plan['blocks'][-1]['photo_tone']='paper_dark'
                 result=render_hybrid(card,'gold-cream',photo,root/(tone+'.jpg'),plan)

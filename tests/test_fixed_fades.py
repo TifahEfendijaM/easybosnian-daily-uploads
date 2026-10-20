@@ -1,4 +1,4 @@
-"""Fresh reviews choose fade colours only; geometry and strength remain renderer-owned."""
+"""Fresh reviews choose approved colours/presets; geometry and strength stay trusted."""
 import copy
 import json
 import tempfile
@@ -24,7 +24,7 @@ class FixedFadeTests(unittest.TestCase):
         package=reviewed_fixture()
         return package,{'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='forest-cream') for c in package['cards']}}
 
-    def test_new_model_allows_colour_pairs_but_cannot_choose_fade_shapes_or_strength(self):
+    def test_new_model_allows_colour_pairs_and_two_presets_but_no_free_shape_or_strength(self):
         package,base=self.proposal();model=Draft202012Validator(MODEL_CARD_SCHEMA)
         self.assertIn('paper_dark',REVIEW_PHOTO_TONES);self.assertIn('ink_light',REVIEW_PHOTO_TONES)
         for tone in REVIEW_PHOTO_TONES:
@@ -32,8 +32,11 @@ class FixedFadeTests(unittest.TestCase):
             plan['heading_tone']=tone;plan['blocks'][-1]['photo_tone']=tone
             self.assertFalse(list(model.iter_errors(plan)),tone)
         self.assertFalse(list(model.iter_errors(base['cards']['word'])))
-        for scope,key,value in [('card','heading_fade','soft'),('card','heading_fade','standard'),
-                                ('example','fade_style','soft'),('example','fade_style','standard')]:
+        for preset in ('standard','defined'):
+            plan=copy.deepcopy(base['cards']['word'])
+            plan['heading_fade']=preset;plan['blocks'][-1]['fade_style']=preset
+            self.assertFalse(list(model.iter_errors(plan)))
+        for scope,key,value in [('card','heading_fade','soft'),('example','fade_style','soft')]:
             plan=copy.deepcopy(base['cards']['word'])
             target=plan if scope=='card' else next(b for b in plan['blocks'] if b['role']=='example')
             target[key]=value
@@ -43,6 +46,7 @@ class FixedFadeTests(unittest.TestCase):
         self.assertEqual(PANEL_OPACITIES['translucent'],191)
         for scope,key,value in [('card','fade_opacity',50),('example','fade_width',400),
                                 ('card','heading_feather',100),('example','fade_padding',100),
+                                ('card','shade_levels',[54,78]),('card','feather_power',1.75),
                                 ('example','photo_tone','#559966')]:
             plan=copy.deepcopy(base['cards']['word'])
             (plan if scope=='card' else plan['blocks'][-1])[key]=value
@@ -61,8 +65,8 @@ class FixedFadeTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['heading_contrast'],3)
                 self.assertGreaterEqual(metrics['example_contrast'],4.5)
                 self.assertEqual(measured_plan(card,plan)[0]['rows'].reconstructed(),card['body'])
-                self.assertNotIn('heading_fade',plan)
-                self.assertNotIn('fade_style',plan['blocks'][-1])
+                self.assertEqual(plan['heading_fade'],'standard')
+                self.assertEqual(plan['blocks'][-1]['fade_style'],'standard')
                 images.append((root/f'{tone}.jpg').read_bytes())
             self.assertNotEqual(*images);self.assertEqual(card,original)
 
@@ -75,20 +79,25 @@ class FixedFadeTests(unittest.TestCase):
         child.assert_called_once();self.assertEqual(status,'reviewed')
         self.assertEqual(reviewed['card_failures'],{'word':'review violated the declarative schema'})
         self.assertEqual(reviewed['cards']['word']['confidence'],'uncertain')
-        self.assertNotIn('heading_fade',reviewed['cards']['word'])
+        self.assertEqual(reviewed['cards']['word']['heading_fade'],'standard')
         self.assertEqual(reviewed['cards']['quiz'],base['cards']['quiz'])
         self.assertEqual(reviewed['palette_decisions']['word']['source'],'chatgpt')
         prompt=child.call_args.args[0]
         for text in ('Catalogue order is not a ranking','Compare EVERY approved palette',
                      'do not stop at the first acceptable','review ALL compatible',
-                     'For the TITLE specifically, aim for a subtle, more transparent-looking backing',
-                     'favour one that is clearly readable with little or no added shading',
-                     'Do not choose a heavy-looking title fade by habit',
-                     'Stronger shading is appropriate only when',
-                     'Pillow still determines the final opacity from measured contrast',
+                     'For the TITLE specifically, keep a softly shaded appearance',
+                     'Favour a gentle fade over a pronounced dark band',
+                     'Do not select a worse-fitting colour pair simply to avoid shading',
+                     'Pillow first tries lighter title strengths and a softer outer fade',
+                     'Stronger shading remains available where necessary',
+                     'Pillow alone controls strength',
                      'This title preference does not change PRIMJER treatment',
-                     'Do not supply heading_fade or fade_style', 'Only the text/fade COLOURS may change'):
+                     'Choose heading_fade for photographic titles and example fade_style',
+                     'standard has smoothly eased edges; defined preserves the earlier',
+                     'with EITHER preset and EVERY design',
+                     'Only the approved preset ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)
+        self.assertNotIn('favour one that is clearly readable with little or no added shading',prompt)
         shown=prompt.split(' Photo-colour catalogue: ',1)[1].split(' Palette repetition policy:',1)[0]
         self.assertEqual(set(json.loads(shown)),set(REVIEW_PHOTO_TONES))
 

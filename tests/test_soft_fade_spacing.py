@@ -6,13 +6,35 @@ from pathlib import Path
 from unittest.mock import patch
 from PIL import Image
 from easybosnian.hybrid import (protect_text,serif,heading,default_plan,measured_plan,render_hybrid,
-                                EXAMPLE_BLOCK_GAP,HEADING_TOP,CATEGORY_TOP,CATEGORY_HEIGHT)
+                                EXAMPLE_BLOCK_GAP,HEADING_TOP,CATEGORY_TOP,CATEGORY_HEIGHT,
+                                TITLE_SHADE_LEVELS,TITLE_FADE_POWER)
 from easybosnian.visual_adjustment import nearest_valid_plan
 from easybosnian.render import measure
 from test_project import reviewed_fixture
 
 
 class SoftFadeSpacingTests(unittest.TestCase):
+    def test_title_softens_outer_fade_without_weakening_glyph_contrast_or_category_protection(self):
+        source=Image.new('RGBA',(1080,1350),'#ffffff');old=source.copy();new=source.copy()
+        face=serif(74);rows=['Čuvaj riječ.'];bottom=HEADING_TOP+measure(rows,face)[0]
+        settings=dict(region_limit=(0,127,1080,1350),feather=100,shade_levels=(130,))
+        legacy=protect_text(old,(64,HEADING_TOP),rows,face,['#ffffff'],3,**settings)
+        gentle=protect_text(new,(64,HEADING_TOP),rows,face,['#ffffff'],3,
+                            feather_power=TITLE_FADE_POWER,**settings)
+        # Real title core stays readable and unchanged; it is not a blind 0.6 multiplier.
+        self.assertEqual(gentle,legacy);self.assertGreaterEqual(gentle[1],3)
+        self.assertEqual(new.getpixel((540,HEADING_TOP+20)),old.getpixel((540,HEADING_TOP+20)))
+        for image in (old,new):
+            self.assertEqual(image.crop((0,0,1080,128)).tobytes(),source.crop((0,0,1080,128)).tobytes())
+            self.assertEqual(image.getpixel((540,bottom+100)),source.getpixel((540,bottom+100)))
+        old_opacity=255-old.getpixel((540,bottom+50))[0]
+        new_opacity=255-new.getpixel((540,bottom+50))[0]
+        self.assertAlmostEqual(new_opacity/old_opacity,.60,delta=.03)
+        steps=[new.getpixel((540,y))[0] for y in range(bottom,bottom+101)]
+        self.assertLessEqual(max(abs(a-b) for a,b in zip(steps,steps[1:])),5)
+        self.assertEqual(tuple(sorted(set(TITLE_SHADE_LEVELS))),TITLE_SHADE_LEVELS)
+        self.assertTrue(set((90,130,170,210,240)).issubset(TITLE_SHADE_LEVELS))
+
     def test_renderer_keeps_low_example_text_safe_but_allows_its_fade_to_finish(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)
         plan['blocks'][-1].update(y=1094,font_size=36,max_lines=1)
