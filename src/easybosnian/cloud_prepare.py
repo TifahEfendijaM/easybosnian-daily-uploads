@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import secrets
 import subprocess
 from pathlib import Path
 
@@ -180,13 +181,16 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if plan:date=plan['date']
         chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
         reused=None
-        if mode=='daily' and selection=='same_images':
+        from .selection import reused_kinds
+        photo_kinds=reused_kinds(chosen) if mode=='daily' else ()
+        if photo_kinds:
             from .photo_reuse import prepare_photos
             stage='saved background retrieval'
-            reused=prepare_photos(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date)
+            reused=prepare_photos(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date,kinds=photo_kinds)
         level=load_level()
         write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
-                                                       'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan})
+                                                       'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan,
+                                                       'reused_photo_kinds':list(photo_kinds)})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -208,19 +212,25 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 package=dict(existing['content'],batch_id=plan['batch_id']);validate(package);fit_check(package)
             else:
                 stage='cloud ChatGPT research/review';draft=ROOT/f'build/preparation/{date}.json';draft.unlink(missing_ok=True)
+                # One independent, uniform draw for this research attempt. Do
+                # not redraw after failure; genuinely binary questions use two.
+                chosen['quiz_option_target']=secrets.choice((2,3,4))
+                context=read_json(ROOT/'build/preparation-context.json')
+                context['selection']=chosen;write_json(ROOT/'build/preparation-context.json',context)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)
                 require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
-                if 'background_source' in package:raise ValueError('Photo provenance must be assigned by the trusted wrapper')
+                if 'background_source' in package or 'background_sources' in package:
+                    raise ValueError('Photo provenance must be assigned by the trusted wrapper')
                 if reused:
                     from .photo_reuse import seal_photos
-                    package['background_source']=seal_photos(reused)
+                    package.update(seal_photos(reused,metadata=True))
                 if package['date']!=date: raise ValueError('Draft has the wrong Sarajevo date')
                 if package.get('batch_id',plan['batch_id'])!=plan['batch_id']:raise ValueError('Draft has the wrong batch identity')
                 package['batch_id']=plan['batch_id'];write_json(draft,package)
                 stage='validation';check_selection(package,chosen)
-                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level));fit_check(package)
+                validate(package,novelty_history(history,date,chosen,package),include_today=True,require_website_footer=True,require_quiz_format=True,require_caption_level=True,target_cefr=level,word_level_targets=word_levels(package,chosen,level),quiz_option_target=chosen['quiz_option_target']);fit_check(package)
                 stage='private content staging';prepare(draft,selection=chosen,batch_target=batch_target,run_date=run_date,plan=plan)
             from .cli import stage_content
             stage_content(package,root=ROOT)

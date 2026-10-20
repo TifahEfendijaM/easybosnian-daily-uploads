@@ -15,7 +15,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':24, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
+    return {'rendering_version':25, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -40,12 +40,19 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
         candidates={}
         if not require_prepared:
             if reused_backgrounds is not None:
-                if not review_images or set(reused_backgrounds)!={'quiz','lesson','word'} or not package.get('background_source'):
-                    raise ValueError('Photo reuse requires all three trusted photos and a fresh private review')
-            else:
+                from .photo_reuse import valid_source
+                if (not review_images or not reused_backgrounds or not set(reused_backgrounds)<={'quiz','lesson','word'}
+                        or any(not valid_source(package.get('background_sources',{}).get(k,package.get('background_source')))
+                               for k in reused_backgrounds)):
+                    raise ValueError('Photo reuse requires the selected trusted photos and a fresh private review')
+            if reused_backgrounds is None or set(reused_backgrounds)!={'quiz','lesson','word'}:
+                retained={k:package.get('background_sources',{}).get(k,package.get('background_source'))
+                          for k in (reused_backgrounds or {})}
                 package['background_source']={'batch_id':package.get('batch_id') or 'legacy-'+date,'artwork_id':artwork_id if package.get('batch_id') else None}
+                if retained:package['background_sources']=retained
+                else:package.pop('background_sources',None)
         def photo_bytes(card):
-            if reused_backgrounds is not None:return reused_backgrounds[card['kind']].read_bytes()
+            if reused_backgrounds is not None and card['kind'] in reused_backgrounds:return reused_backgrounds[card['kind']].read_bytes()
             return provider().generate(card['background_prompt'],date,card['kind'],**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {}))
         if review_images:
             from .visual_placement import composition_sheet, review_compositions

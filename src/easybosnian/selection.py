@@ -5,7 +5,7 @@ from .validate import instructional, normalise
 from .batches import identity, latest_record
 
 CHOICES = ('new', 'same_theme', 'same_words', 'same_images', 'custom')
-WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered')
+WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered', 'same_image')
 WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
 
 
@@ -33,12 +33,14 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         if len(words) != 3: raise ValueError('Custom content requires exactly three word fields')
         actions = custom_actions or ['entered' if word else 'keep_today' for word in words]
         if len(actions) != 3 or any(action not in WORD_ACTIONS for action in actions):
-            raise ValueError('Choose keep_today, chatgpt or entered for each custom word')
+            raise ValueError('Choose keep_today, chatgpt, entered or same_image for each custom word')
+        if 'same_image' in actions and not previous:
+            raise ValueError('same_image requires a complete saved source batch')
         if not previous and not theme:
             raise ValueError('Without a saved batch, enter a theme')
         for i, action in enumerate(actions):
             if action != 'entered' and words[i]:
-                raise ValueError('Clear the word field for keep_today/chatgpt, or select entered to use it')
+                raise ValueError('Clear the word field for keep_today/chatgpt/same_image, or select entered to use it')
         theme = theme or previous['theme']['name']
         theme_changed = bool(previous and normalise(theme) != normalise(previous['theme']['name']))
         # Keeping an old-theme word is not a request to force it into a new theme.
@@ -46,16 +48,17 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         input_fallbacks = []
         seen = set()
         for i, action in enumerate(effective_actions):
-            word = previous['words'][i]['lemma'] if action=='keep_today' and previous else words[i]
+            word = previous['words'][i]['lemma'] if action in ('keep_today','same_image') and previous else words[i]
             cause = None
             if action!='chatgpt':
                 if not word or len(word)>180 or not normalise(word): cause='unusable_seed'
                 elif normalise(word) in seen: cause='word_overlap'
                 else: seen.add(normalise(word))
             if cause:
+                if action=='same_image':raise ValueError('A retained photo requires its original valid distinct word')
                 effective_actions[i]='chatgpt'
                 input_fallbacks.append({'word_index':i,'cause':cause})
-        words = [previous['words'][i]['lemma'] if action=='keep_today' else (None if action=='chatgpt' else words[i]) for i, action in enumerate(effective_actions)]
+        words = [previous['words'][i]['lemma'] if action in ('keep_today','same_image') else (None if action=='chatgpt' else words[i]) for i, action in enumerate(effective_actions)]
         if len(theme) > 180:
             raise ValueError('Custom theme exceeds the content schema length limit')
         pinned_theme = previous['theme'] if previous and normalise(theme) == normalise(previous['theme']['name']) else None
@@ -65,6 +68,13 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
                       pinned_theme=pinned_theme, pinned_words=pinned_words, word_actions=effective_actions, theme_changed=theme_changed)
         if input_fallbacks: result['word_input_fallbacks']=input_fallbacks
     return result
+
+
+def reused_kinds(selection):
+    if selection['choice']=='same_images':return ('quiz','lesson','word')
+    if selection['choice']=='custom':
+        return tuple(kind for kind,action in zip(('quiz','lesson','word'),selection['word_actions']) if action=='same_image')
+    return ()
 
 
 def check_selection(package, selection):
@@ -82,7 +92,7 @@ def check_selection(package, selection):
             if index in replacements: continue
             if (requested is not None and normalise(word['lemma']) != normalise(requested)) or (pinned and not retained_metadata(word,pinned,previous)):
                 raise ValueError('Custom word or reused equivalence metadata differs from the requested selection')
-        if previous: check_fresh_copy(package,previous)
+        if previous: check_fresh_copy(package,previous,preserve_kinds=reused_kinds(selection))
         return
     if package['theme'] != previous['theme']:
         raise ValueError('The selected theme and equivalence metadata must remain unchanged')
@@ -92,14 +102,15 @@ def check_selection(package, selection):
         check_fresh_copy(package,previous,preserve_images=choice=='same_images')
 
 
-def check_fresh_copy(package, previous, preserve_images=False):
+def check_fresh_copy(package, previous, preserve_images=False, preserve_kinds=()):
     if package['caption'] == previous['caption']:
         raise ValueError('Reusing words requires a fresh caption')
     for new in package['cards']:
+        reuse=preserve_images or new['kind'] in preserve_kinds
         old = next((c for c in previous['cards'] if normalise(c['word']) == normalise(new['word'])), None)
-        if old and (instructional(old) == instructional(new) or (not preserve_images and old['background_prompt'] == new['background_prompt'])):
+        if old and (instructional(old) == instructional(new) or (not reuse and old['background_prompt'] == new['background_prompt'])):
             raise ValueError('Reusing words requires fresh text and background prompts unless photos are explicitly reused')
-        if old and preserve_images and old['background_prompt'] != new['background_prompt']:
+        if old and reuse and old['background_prompt'] != new['background_prompt']:
             raise ValueError('Reusing photos must preserve their original background prompts')
 
 

@@ -50,7 +50,17 @@ async function saveHistory(env,p,id,preserveArtwork=false) {
 }
 async function clearArtwork(env,id,date) {
   const namespaces=[id,...(id==='legacy-'+date?[date]:[])];
-  for(const key of namespaces) for(const kind of KINDS) {await env.IMAGES.delete(`private-ai:${key}:${kind}`);for(const suffix of ['background','card','story']) await env.IMAGES.delete(`private:${key}:${kind}-${suffix}.jpg`);}
+  const records=await env.DB.prepare('SELECT batch_id,content_json FROM history').all(),retained=new Set();
+  for(const record of records.results) if(record.batch_id!==id) {
+    const content=JSON.parse(record.content_json);
+    for(const kind of KINDS) {
+      const source=content.background_sources?.[kind] ?? content.background_source;
+      if(validPhotoSource(source) && source.batch_id===id && source.artwork_id===null) retained.add(kind);
+    }
+  }
+  // Run-scoped originals already retain their original TTL. Also preserve a
+  // legacy stable original while another saved batch still explicitly uses it.
+  for(const key of namespaces) for(const kind of KINDS) {if(!retained.has(kind)) await env.IMAGES.delete(`private-ai:${key}:${kind}`);for(const suffix of ['background','card','story']) await env.IMAGES.delete(`private:${key}:${kind}-${suffix}.jpg`);}
 }
 async function imageValue(env,key,id,date,options) {
   return await env.IMAGES.get(key,options) || (id==='legacy-'+date?await env.IMAGES.get(key.replace(id,date),options):null);
@@ -61,20 +71,25 @@ function safePackage(p,date) {
   for(const flag of ['standard_bosnian_checked','sources_checked','semantic_history_checked','no_answer_leak_checked']) if(p.private_review?.[flag]!==true) throw Error('Editorial checks incomplete');
   if(!p.theme.equivalence_keys?.length || !p.words.every(w=>w.equivalence_keys?.length)) throw Error('Equivalence metadata missing');
   if(p.background_source!==undefined && !validPhotoSource(p.background_source)) throw Error('Invalid photograph provenance');
+  if(p.background_sources!==undefined && (!p.background_sources || typeof p.background_sources!=='object' ||
+      Array.isArray(p.background_sources) || !Object.keys(p.background_sources).length ||
+      Object.entries(p.background_sources).some(([kind,source])=>!KINDS.includes(kind) || !validPhotoSource(source)))) throw Error('Invalid per-card photograph provenance');
 }
 function validPhotoSource(source) {
-  return source && Object.keys(source).sort().join(',')==='artwork_id,batch_id' && BATCH.test(source.batch_id) &&
+  return source && typeof source==='object' && !Array.isArray(source) && Object.keys(source).sort().join(',')==='artwork_id,batch_id' &&
+    typeof source.batch_id==='string' && BATCH.test(source.batch_id) &&
     (source.artwork_id===null || /^r-[a-f0-9]{32}$/.test(source.artwork_id));
 }
 async function savedBackground(env,id,kind) {
   const record=await row(env,id);if(!record) return response({error:'No saved batch'},404);
-  const p=JSON.parse(record.content_json);let source=p.background_source;
+  const p=JSON.parse(record.content_json);let source=p.background_sources?.[kind] ?? p.background_source;
   // A cache listing cannot prove publication provenance: a lone surviving
   // namespace may belong to a failed rerun after the published originals expired.
   if(source===undefined) return response({error:'Legacy photograph source was not recorded; verified source annotation required'},409);
   if(!validPhotoSource(source)) throw Error('Invalid saved photograph source');
   const key=`private-ai:${source.batch_id}:${source.artwork_id?source.artwork_id+':':''}${kind}`;
-  const image=await imageValue(env,key,source.batch_id,record.date);
+  const sourceDate=source.batch_id.startsWith('legacy-')?source.batch_id.slice(7):record.date;
+  const image=await imageValue(env,key,source.batch_id,sourceDate);
   return image?response({image,source,prompt:p.cards.find(c=>c.kind===kind).background_prompt}):response({error:'Saved original photograph expired'},404);
 }
 async function equalToken(a,b) {

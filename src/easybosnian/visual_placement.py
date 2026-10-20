@@ -351,7 +351,10 @@ def main():
             except Exception:
                 print('::warning::Report metadata could not be captured; artwork preparation continues')
         from .photo_reuse import loaded_photos
-        reused=loaded_photos(package) if os.getenv('CONTENT_SELECTION')=='same_images' and mode=='daily' else None
+        reuse_requested=(os.getenv('CONTENT_SELECTION')=='same_images' or
+                         os.getenv('CONTENT_SELECTION')=='custom' and
+                         any(os.getenv(f'CUSTOM_WORD_{i}_ACTION')=='same_image' for i in (1,2,3)))
+        reused=loaded_photos(package) if reuse_requested and mode=='daily' else None
         artwork(store, package, review_images=True,reused_backgrounds=reused)
         stage_content(package)
         print('Private feed artwork prepared; no images exposed or content published')

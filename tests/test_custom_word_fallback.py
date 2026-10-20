@@ -147,9 +147,11 @@ class CustomWordFallbackTests(unittest.TestCase):
                 root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
                 def agent(*args):
                     package=self.market();self.change(package,1,'Cijenkati se','spelling_correction')
+                    package['private_review']['quiz_choice_review']={'target':3,'binary':False,
+                        'reason':'This is a non-binary multiple-choice question with three distinct options.'}
                     write_json(root/'build/preparation/2026-10-02.json',package)
                     return '{"status":"ready","reason":"none"}'
-                with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value='2026-10-02'),patch('easybosnian.cloud_prepare.load_level',return_value='A2'),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent) as child,patch('easybosnian.cloud_prepare.prepare') as save:
+                with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.secrets.choice',return_value=3),patch('easybosnian.cloud_prepare.today',return_value='2026-10-02'),patch('easybosnian.cloud_prepare.load_level',return_value='A2'),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent) as child,patch('easybosnian.cloud_prepare.prepare') as save:
                     store.return_value.history.return_value={'project':PROJECT,'days':[]}
                     store.return_value.publications_for_date.return_value=[]
                     result=cloud_run('daily','custom','Pijaca i kupovina',['Tezga','Cijenkati se',''],['entered','entered','chatgpt'],batch_target=target)
