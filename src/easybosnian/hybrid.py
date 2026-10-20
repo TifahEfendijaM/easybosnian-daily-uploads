@@ -12,6 +12,9 @@ from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
 MIN_BLOCK_GAP = 8
+# Renderer-owned vertical feather beyond the measured title/PRIMJER band.
+# The former 100px extension made short copy shade a large part of the photo.
+PHOTO_FADE_FEATHER = 32
 
 
 def serif(size, italic=False):
@@ -281,7 +284,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                 od=ImageDraw.Draw(overlay)
                 for y in range(round(top),round(bottom)):
                     distance=max(text_top-y,y-text_bottom,0)
-                    opacity=round(alpha*max(0,1-distance/100))
+                    opacity=round(alpha*max(0,1-distance/PHOTO_FADE_FEATHER))
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)

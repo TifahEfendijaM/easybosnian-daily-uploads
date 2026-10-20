@@ -41,7 +41,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using the original renderer-owned contrast fade when needed. Only an approved text/fade colour pairing is selectable; shape and strength are fixed.',
+    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using the compact renderer-owned contrast fade when needed. Only an approved text/fade colour pairing is selectable; shape and strength are fixed.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {

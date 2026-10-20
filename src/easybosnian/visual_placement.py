@@ -99,7 +99,7 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
     window=palette_window(recent)
@@ -177,7 +177,8 @@ def review_compositions(package, candidates, recent=()):
         'with approved palette or neutral fade colours. Compare all compatible colour pairings '
         'for actual photo fit, harmony and readability. Light text on a dark fade remains the '
         'usual direction; use dark text on a light fade when the photo suits it better. Pillow owns the '
-        'original fade shape, extent and strength; shading is added only when contrast needs it. '
+        f'fixed fade shape and contrast-driven strength, with a compact {PHOTO_FADE_FEATHER}px vertical feather '
+        'beyond the measured text band; shading is added only when contrast needs it. '
         'Only the text/fade COLOURS may change; never geometry, border, opacity or filter shape. Do not supply '
         'heading_fade or fade_style: those creative controls have been removed. '
         'For a paper-surface heading (any photo_window) and editorial italic_footer use auto. '
