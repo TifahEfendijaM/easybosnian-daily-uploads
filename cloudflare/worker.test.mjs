@@ -478,3 +478,47 @@ test('legacy caches are never guessed even when one complete namespace survives'
   f.kv.delete(`private-ai:${A}:${run}:word`);
   assert.equal((await f.send('GET',path)).status,404);assert.equal(f.generated,0);
 });
+
+test('mixed batches resolve each retained original independently after source history removal',async()=>{
+  const f=batchFixture(),oldRun='r-'+'1'.repeat(32),newRun='r-'+'2'.repeat(32);
+  const old=content(A);old.background_source={batch_id:A,artwork_id:oldRun};await f.save(old);
+  f.kv.set(`private-ai:${A}:${oldRun}:word`,'retained-word');
+  const mixed=content(B);mixed.background_source={batch_id:B,artwork_id:newRun};
+  mixed.background_sources={word:old.background_source};assert.equal((await f.save(mixed)).status,200);
+  for(const kind of ['quiz','lesson'])f.kv.set(`private-ai:${B}:${newRun}:${kind}`,'fresh-'+kind);
+  for(const kind of ['quiz','lesson','word']) {
+    const r=await f.send('GET',`/v1/backgrounds/batches/${B}/${kind}`);assert.equal(r.status,200);
+    const body=await r.json();assert.equal(body.image,kind==='word'?'retained-word':'fresh-'+kind);
+    assert.deepEqual(body.source,kind==='word'?old.background_source:mixed.background_source);
+  }
+  assert.equal((await f.send('DELETE','/v1/history/batches/'+A,{date:old.date})).status,200);
+  assert.equal((await f.send('GET',`/v1/backgrounds/batches/${B}/word`)).status,200);
+  const full=content(C);full.background_sources={quiz:mixed.background_source,lesson:mixed.background_source,word:old.background_source};
+  assert.equal((await f.save(full)).status,200);
+  assert.equal((await f.send('GET',`/v1/backgrounds/batches/${C}/quiz`)).status,200);
+  assert.equal((await f.send('GET',`/v1/backgrounds/batches/${C}/word`)).status,200);
+  assert.equal(f.generated,0);
+});
+
+test('per-card photo sources reject malformed roles or references without generation',async()=>{
+  const f=batchFixture(),valid={batch_id:A,artwork_id:'r-'+'1'.repeat(32)};
+  for(const sources of [null,[],{}, {other:valid},{word:{...valid,extra:'x'}},
+                        {word:{batch_id:'../other',artwork_id:null}}, {word:{...valid,batch_id:[A]}}]) {
+    const p=content(B);p.background_sources=sources;
+    assert.equal((await f.save(p)).status,409);assert.equal(f.history.has(B),false);
+  }
+  assert.equal(f.generated,0);
+});
+
+test('pruning legacy source history preserves referenced originals with the original date and TTL',async()=>{
+  const f=batchFixture(),legacy='legacy-2026-10-03',old=content(legacy,'2026-10-03');
+  old.background_source={batch_id:legacy,artwork_id:null};assert.equal((await f.save(old)).status,200);
+  f.kv.set('private-ai:2026-10-03:word','legacy-word');
+  const mixed=content(B);mixed.background_source={batch_id:B,artwork_id:'r-'+'2'.repeat(32)};
+  mixed.background_sources={word:old.background_source};await f.save(mixed);
+  const before=f.kv.get('private-ai:2026-10-03:word');
+  assert.equal((await f.send('DELETE','/v1/history/batches/'+legacy,{date:old.date})).status,200);
+  assert.equal(f.history.has(legacy),false);assert.equal(f.kv.get('private-ai:2026-10-03:word'),before);
+  const r=await f.send('GET',`/v1/backgrounds/batches/${B}/word`);assert.equal(r.status,200);
+  assert.equal((await r.json()).image,'legacy-word');assert.equal(f.generated,0);
+});

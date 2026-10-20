@@ -5,7 +5,8 @@
   "properties":{
     "schema_version":{"const":1},
     "batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},
-    "background_source":{"description":"Trusted wrapper provenance for the exact cached original photographs, not a model design choice.","type":"object","additionalProperties":false,"required":["batch_id","artwork_id"],"properties":{"batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},"artwork_id":{"anyOf":[{"type":"null"},{"type":"string","pattern":"^r-[a-f0-9]{32}$"}]}}},
+    "background_source":{"$ref":"#/$defs/photo_source"},
+    "background_sources":{"description":"Trusted per-card overrides for retained original photos.","type":"object","additionalProperties":false,"minProperties":1,"properties":{"quiz":{"$ref":"#/$defs/photo_source"},"lesson":{"$ref":"#/$defs/photo_source"},"word":{"$ref":"#/$defs/photo_source"}}},
     "bosnian_level":{"enum":["A1","A2","B1","B2","C1","C2"]},
     "project":{"const":"tifahefendijam-easybosnian-daily-uploads-v1"},
     "date":{"type":"string","format":"date"},
@@ -17,6 +18,7 @@
     "hashtags":{"type":"array","minItems":3,"maxItems":5,"uniqueItems":true,"items":{"type":"string","pattern":"^#[^\\s#]+$","maxLength":60}},
     "sources":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["url","title","supports","checked_at"],"properties":{"url":{"type":"string","format":"uri"},"title":{"$ref":"#/$defs/text"},"supports":{"type":"string","minLength":20,"maxLength":800},"checked_at":{"type":"string","format":"date-time"}}}},
     "private_review":{"type":"object","additionalProperties":false,"required":["correct_option","correct_text","explanation","answer_aliases","identifying_hints","standard_bosnian_checked","sources_checked","semantic_history_checked","no_answer_leak_checked","history_checked_at","reviewed_at","reviewer","notes"],"properties":{
+      "quiz_choice_review":{"type":"object","additionalProperties":false,"required":["target","binary","reason"],"properties":{"target":{"enum":[2,3,4]},"binary":{"type":"boolean"},"reason":{"type":"string","minLength":20,"maxLength":400}}},
       "word_replacements":{"type":"array","maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["word_index","requested_word","chosen_word","reason"],"properties":{"word_index":{"enum":[0,1,2]},"cause":{"enum":["spelling_correction","theme_mismatch","invalid_bosnian","history_repeat","word_overlap","unusable_seed"]},"requested_word":{"$ref":"#/$defs/text"},"chosen_word":{"$ref":"#/$defs/text"},"reason":{"type":"string","minLength":20,"maxLength":400}}}},
       "correct_option":{"enum":["A","B","C","D"]},"correct_text":{"$ref":"#/$defs/text"},"explanation":{"type":"string","minLength":10,"maxLength":1000},
       "answer_aliases":{"$ref":"#/$defs/keys"},"identifying_hints":{"$ref":"#/$defs/keys"},
@@ -25,6 +27,7 @@
     }}
   },
   "$defs":{
+    "photo_source":{"description":"Trusted wrapper provenance for the exact cached original photographs, not a model design choice.","type":"object","additionalProperties":false,"required":["batch_id","artwork_id"],"properties":{"batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},"artwork_id":{"anyOf":[{"type":"null"},{"type":"string","pattern":"^r-[a-f0-9]{32}$"}]}}},
     "text":{"type":"string","minLength":1,"maxLength":180},
     "keys":{"type":"array","minItems":1,"maxItems":40,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":100}},
     "card":{"type":"object","additionalProperties":false,"required":["kind","word","background_prompt","alt_text"],"properties":{

@@ -44,7 +44,7 @@ def caption_levels(package):
     return ranked if len(ranked)==1 else [ranked[0],ranked[-1]]
 
 
-def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False):
+def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False, quiz_option_target=None):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(package)
@@ -87,6 +87,14 @@ def validate(package, history=None, include_today=False, require_website_footer=
     if any(re.match(r"^[ABCD][).:\s]", o["text"]) for o in quiz["options"]):
         raise ValueError("Option text must not duplicate its option marker")
     review = package["private_review"]
+    choice_review=review.get('quiz_choice_review')
+    if quiz_option_target is not None:
+        if type(quiz_option_target) is not int or quiz_option_target not in (2,3,4):
+            raise ValueError('Invalid trusted quiz option target')
+        if not choice_review or choice_review['target']!=quiz_option_target:
+            raise ValueError('Quiz choice review differs from the trusted random target')
+    if choice_review and len(labels)!=(2 if choice_review['binary'] else choice_review['target']):
+        raise ValueError('Quiz option count must follow its random target or reviewed binary exception')
     if review["correct_option"] not in labels:
         raise ValueError("Private correct_option must be one of the provided options")
     correct = next(o["text"] for o in quiz["options"] if o["label"] == review["correct_option"])
