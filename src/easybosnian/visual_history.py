@@ -5,7 +5,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, PHOTO_TONES, PANEL_OPACITIES, PANEL_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, valid_panel_opacity, PANEL_STYLES
 
 REPEATED_PALETTE='terracotta-sand'
 
@@ -46,7 +46,7 @@ def accepted_choices(placement):
         # A preserved ChatGPT layout may now use a fallback palette. Do not
         # attribute that colour choice to the model in its recent-design context.
         if card.get('palette_outcome',{}).get('source')=='chatgpt':safe['palette']=card['palette']
-        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
+        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',REVIEW_PHOTO_TONES),('example_tone',(*REVIEW_PHOTO_TONES,None))):
             if card.get(field) in allowed:safe[field]=card.get(field)
         badges=card.get('answer_badges',{})
         if isinstance(badges,dict) and all(r in ('A','B','C','D') and s in MARKER_STYLES for r,s in badges.items()):
@@ -56,7 +56,7 @@ def accepted_choices(placement):
         if isinstance(blocks,list):
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
-                       and isinstance(b.get('panel_opacity'),str) and b['panel_opacity'] in PANEL_OPACITIES}
+                       and valid_panel_opacity(b.get('panel_opacity'))}
             if opacities:safe['panel_opacities']=opacities
         choices[kind]=safe
     return choices

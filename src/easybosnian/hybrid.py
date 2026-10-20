@@ -6,8 +6,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 
 from .core import ROOT
 from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
-                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES, PANEL_OPACITIES,
-                      FADE_STYLES, panel_colours, typography)
+                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
+                      FADE_STYLES, panel_alpha, panel_colours, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -91,10 +91,10 @@ def fallback_spec(card,role,width=952,style=None):
 def declared_block(card,role,width=952,style=None,**geometry):
     spec=fallback_spec(card,role,width,style)
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
-            **({'panel_opacity':'solid'} if role!='example' else {}),
+            **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
             **({'marker_style':'circle'} if role not in ('body','example') else {}),
-            **({'photo_tone':'auto','fade_style':'standard'} if role=='example' else {}),
+            **({'photo_tone':'auto'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
 
@@ -115,7 +115,7 @@ def default_plan(card):
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(28 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none','photo_window':window,'blocks':blocks}
+            'heading_tone':'auto','palette_exception':'none','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
@@ -130,7 +130,7 @@ def editorial_plan(card):
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
     return {'confidence':'high','design':'editorial','category_style':'underlined','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none',
+            'heading_tone':'auto','palette_exception':'none',
             'photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
@@ -166,7 +166,7 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
-        if style=='plain' and block.get('panel_opacity','solid')!='solid':
+        if style=='plain' and block.get('panel_opacity',100) not in (100,'solid'):
             raise ValueError('Unboxed editorial body cannot set panel opacity')
         if style=='plain' and block.get('panel_tone','auto')!='auto':
             raise ValueError('Unboxed editorial body requires automatic palette ink')
@@ -228,9 +228,9 @@ def photo_colours(palette, tone='auto'):
     """Only catalogue colours and fixed fade backgrounds; no model primitives."""
     if tone not in PHOTO_TONES:raise ValueError('Unsupported photographic colour treatment')
     paper,ink,accent=palette['panel'],palette['ink'],palette['accent']
-    if tone=='auto':return [paper,ink],None
+    if tone=='auto':return ['#ffffff','#000000'],None
     colour,backing={
-        'paper_dark':(paper,'#000000'), 'ink_light':(ink,'#ffffff'),
+        'paper_dark':('#ffffff','#000000'), 'ink_light':('#000000','#ffffff'),
         'paper_ink':(paper,ink), 'ink_paper':(ink,paper), 'accent_ink':(accent,ink),
         'ink_accent':(ink,accent), 'accent_dark':(accent,'#000000'),
         'accent_light':(accent,'#ffffff'), 'paper_accent':(paper,accent),
@@ -333,7 +333,7 @@ def draw_panel(image, block, palette):
     colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark')
     # Composite only the bounded surface. Glyphs, decorations and answer badges
     # remain opaque; geometry and renderer-owned drawing presets do not change.
-    alpha=PANEL_OPACITIES[block['panel_opacity']] if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)
+    alpha=panel_alpha(block['panel_opacity']) if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)
     surface=Image.new('RGBA',image.size)
     paint=ImageDraw.Draw(surface)
     fill=(*tuple(int(surface_colour[i:i+2],16) for i in (1,3,5)),alpha)

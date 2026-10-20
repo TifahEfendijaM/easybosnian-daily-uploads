@@ -89,6 +89,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Unboxed editorial body requires automatic palette ink',
     'Unsupported panel colour treatment',
     'Unsupported fade treatment',
+    'Panel opacity outside the approved range',
     'Category text fails measured contrast',
     'Folded answers are limited to two measured lines',
     'Actual glyphs exceed block width',

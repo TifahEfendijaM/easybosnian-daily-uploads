@@ -57,7 +57,7 @@ class CatalogueExpansionTests(unittest.TestCase):
                 plan=default_plan(card);plan['blocks'][0][field]=value
                 self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
 
-    def test_soft_fade_is_distinct_localized_and_actual_contrast_is_not_relaxed(self):
+    def test_historical_soft_fade_remains_readable_with_contrast_checks(self):
         card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['body']='Ovo je kratko objašnjenje.'
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#828282').save(photo)
