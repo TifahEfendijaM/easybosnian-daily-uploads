@@ -9,7 +9,8 @@ from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
-                     PANEL_TONES, FADE_STYLES, REVIEW_PHOTO_TONES, PANEL_OPACITY_RANGE)
+                     PANEL_TONES, FADE_STYLES, REVIEW_FADE_STYLES, FADE_CATALOGUE,
+                     REVIEW_PHOTO_TONES, PANEL_OPACITY_RANGE)
 
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
@@ -65,17 +66,19 @@ def model_fields(properties, removed=()):
     fields={k:v for k,v in properties.items() if k not in removed}
     for field in ('heading_tone','photo_tone'):
         if field in fields:fields[field]={'enum':list(REVIEW_PHOTO_TONES)}
+    for field in ('heading_fade','fade_style'):
+        if field in fields:fields[field]={'enum':list(REVIEW_FADE_STYLES)}
     if 'panel_opacity' in fields:fields['panel_opacity']=OPACITY_SCHEMA
     return fields
 
 
-# Archive readers accept former fade fields; the provider-facing contract does
-# not offer them. Position adjustment uses this same strict model contract.
+# Only two fixed presets are newly selectable; old soft metadata is archive-only.
+# Position adjustment uses this same strict model contract.
 MODEL_BLOCK_SCHEMA = {'anyOf':[
-    {**branch,'properties':model_fields(branch['properties'],('fade_style',)),
-     'required':list(model_fields(branch['properties'],('fade_style',)))}
+    {**branch,'properties':model_fields(branch['properties']),
+     'required':list(model_fields(branch['properties']))}
     for branch in BLOCK_SCHEMA['anyOf']]}
-_model_card_fields=model_fields(CARD_SCHEMA['properties'],('heading_fade',))
+_model_card_fields=model_fields(CARD_SCHEMA['properties'])
 MODEL_CARD_SCHEMA = {**CARD_SCHEMA,'required':list(_model_card_fields),
                      'properties':{**_model_card_fields,
                          'blocks':{**CARD_SCHEMA['properties']['blocks'],'items':MODEL_BLOCK_SCHEMA}}}
@@ -99,7 +102,7 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP, EXAMPLE_FADE_PADDING
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
     window=palette_window(recent)
@@ -192,18 +195,24 @@ def review_compositions(package, candidates, recent=()):
         f'fixed fade shape and contrast-driven strength: titles retain the earlier {TITLE_FADE_FEATHER}px '
         f'vertical feather, while examples use a compact {PHOTO_FADE_FEATHER}px feather plus lower padding beyond their '
         'measured text band. Weak or no shading remains valid; shading is added only when contrast needs it. '
-        'For the TITLE specifically, aim for a subtle, more transparent-looking backing that keeps '
-        'the photograph visible instead of making the title sit on a heavy band. Among harmonious '
-        'approved heading_tone pairs, favour one that is clearly readable with little or no added '
-        'shading. Do not choose a heavy-looking title fade by habit or as an extra safety margin. '
-        'Stronger shading is appropriate only when the actual local photograph and chosen title '
-        'colours need it for readability. Keep the existing light-on-dark preference; do not choose '
-        'a worse-fitting colour pair or accept inadequate contrast merely to make shading lighter. '
-        'Pillow still determines the final opacity from measured contrast; this is colour-selection '
-        'guidance, not permission to supply a fade-strength parameter. Preserve the current smooth '
+        'For the TITLE specifically, keep a softly shaded appearance when the photo needs a backing, '
+        'with the photograph still visible through it. Favour a gentle fade over a pronounced dark '
+        'band. Do not select a worse-fitting colour pair simply to avoid shading. Pillow first tries '
+        'lighter title strengths and a softer outer fade, while retaining enough backing at the '
+        'actual glyphs for measured readability. Stronger shading remains available where necessary. '
+        'Keep the existing light-on-dark preference and all approved colour pairings. Pillow alone '
+        'controls strength; do not supply a fade-strength parameter. Preserve the current smooth '
         'edges and category/title spacing. This title preference does not change PRIMJER treatment. '
-        'Only the text/fade COLOURS may change; never geometry, border, opacity or filter shape. Do not supply '
-        'heading_fade or fade_style: those creative controls have been removed. '
+        'Choose heading_fade for photographic titles and example fade_style from exactly two '
+        'approved presets: standard has smoothly eased edges; defined preserves the earlier '
+        'more defined full-width linear shade. Compare both and choose whichever looks nicer '
+        'on this photograph; do not collapse defined into the smooth treatment. Both example '
+        f'presets extend {EXAMPLE_FADE_PADDING}px below the last row before tapering. PRIMJER still needs at least '
+        f'{EXAMPLE_BLOCK_GAP}px clearance from other text blocks, preferably 40..56px when suitable, '
+        'with EITHER preset and EVERY design. No fade may cover the category strip. '
+        'Only the approved preset ID and text/fade COLOURS are selectable; never custom geometry, '
+        'border, opacity, strength or filter shape. The old soft preset is not newly selectable. '
+        'For paper headings, italic_footer and unshaded italic_photo, use standard as the inactive preset. '
         'For a paper-surface heading (any photo_window) and editorial italic_footer use auto. '
         'For italic_photo there is NO fade even with an explicit tone; contrast must pass as-is. '
         'Choose colours for readability and harmony, never variety for its own sake. '
@@ -293,6 +302,7 @@ def review_compositions(package, candidates, recent=()):
         'Use high confidence only for a considered, readable composition. The wrapper independently '
         'measures fit/overlap/contrast and falls back rather than changing copy. Design catalogue: '
         +json.dumps(STYLE_CATALOGUE)+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
+        +' Fade catalogue: '+json.dumps(FADE_CATALOGUE)
         +' Photo-colour catalogue: '+json.dumps({k:PHOTO_TONE_CATALOGUE[k] for k in REVIEW_PHOTO_TONES})+' Palette repetition policy: '
         +json.dumps(palette_policy(window))+' Rolling prior palette window: '+json.dumps(window)+' Palette catalogue: '
         +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Recent accepted choices: '

@@ -22,6 +22,11 @@ EXAMPLE_FADE_PADDING = 18
 PHOTO_FADE_FEATHER = 48
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
+# Lighter title candidates precede the original safety strengths. At the
+# midpoint of a feather, this exponent leaves about 60% of its former opacity;
+# the measured glyph band retains whatever strength readability actually needs.
+TITLE_SHADE_LEVELS = (54, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
+TITLE_FADE_POWER = 1.75
 
 
 def serif(size, italic=False):
@@ -104,7 +109,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
             **({'marker_style':'circle'} if role not in ('body','example') else {}),
-            **({'photo_tone':'auto'} if role=='example' else {}),
+            **({'photo_tone':'auto','fade_style':'standard'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
 
@@ -125,7 +130,7 @@ def default_plan(card):
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(40 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
-            'heading_tone':'auto','palette_exception':'none','photo_window':window,'blocks':blocks}
+            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
@@ -140,7 +145,7 @@ def editorial_plan(card):
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
     return {'confidence':'high','design':'editorial','category_style':'underlined','category_tone':'auto',
-            'heading_tone':'auto','palette_exception':'none',
+            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none',
             'photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
@@ -174,12 +179,16 @@ def measured_plan(card, plan):
         raise ValueError('Composition must preserve every reviewed block and quiz label order')
     if plan['photo_window'] is not None and plan.get('heading_tone','auto')!='auto':
         raise ValueError('Paper headings require automatic palette ink')
+    if plan['photo_window'] is not None and plan.get('heading_fade')=='defined':
+        raise ValueError('Paper headings cannot select a photographic shade')
     header_end = heading(card)[2]
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
+        if style!='italic_photo_fade' and block.get('fade_style')=='defined':
+            raise ValueError('Only photographic faded examples can select a shade preset')
         if style=='plain' and block.get('panel_opacity',100) not in (100,'solid'):
             raise ValueError('Unboxed editorial body cannot set panel opacity')
         if style=='plain' and block.get('panel_tone','auto')!='auto':
@@ -253,7 +262,7 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -286,10 +295,10 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         allowed=Image.new('L',image.size)
         ImageDraw.Draw(allowed).rectangle((left,top,right-1,bottom-1),fill=255)
         soft_mask=ImageChops.multiply(soft_mask,allowed)
-    # Restore the original contrast-driven strengths, including for titles.
-    # Approved colour pairs remain independent of this trusted renderer preset.
+    # Only trusted callers select these presets, never model-supplied fields.
+    # Examples keep the original contrast-driven strengths and feather profile.
     for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
-        for alpha in (90,130,170,210,240):
+        for alpha in shade_levels:
             overlay=Image.new('RGBA',image.size)
             if soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
@@ -297,6 +306,13 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
             else:
                 od=ImageDraw.Draw(overlay)
                 for y in range(round(top),round(bottom)):
+                    if fade_style=='defined':
+                        # Retain the earlier linear, more defined strip. Padding
+                        # belongs to both presets; never stop at the last glyph.
+                        distance=max(text_top-y,y-text_bottom-bottom_padding,0)
+                        opacity=round(alpha*max(0,1-distance/feather))
+                        if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
+                        continue
                     # Taper to zero INSIDE protected bounds rather than clipping
                     # a still-opaque gradient into a visible horizontal seam.
                     start=max(top,text_top-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
@@ -305,7 +321,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                     elif y<text_top:t=(y-start)/max(1,text_top-start)
                     elif y>core_end:t=(end-y)/max(1,end-core_end)
                     else:t=1
-                    t=max(0,min(1,t));opacity=round(alpha*t*t*(3-2*t))
+                    t=max(0,min(1,t));opacity=round(alpha*(t*t*(3-2*t))**feather_power)
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)
@@ -473,7 +489,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         # even its feather must never appear behind a category chip or underline.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
             (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
-            fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER)
+            fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
+            shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER)
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
