@@ -25,7 +25,7 @@ class PanelOpacityTests(unittest.TestCase):
         self.assertEqual(PANEL_OPACITIES['translucent'],191)
         self.assertEqual(round(PANEL_OPACITIES['translucent']/255*100),75)
         card=reviewed_fixture()['cards'][2]
-        for preset in [50,62.5,75,99.9,100,*PANEL_OPACITIES]:
+        for preset in [70,72.5,75,99.9,100,*PANEL_OPACITIES]:
             plan=default_plan(card);plan['blocks'][0]['panel_opacity']=preset
             self.assertEqual(measured_plan(card,plan)[0]['panel_opacity'],preset)
         for value in (49.99,100.01,0.8,True,None,'50%','invisible'):
@@ -36,6 +36,11 @@ class PanelOpacityTests(unittest.TestCase):
         for value in (float('nan'),float('inf'),float('-inf')):
             self.assertFalse(valid_panel_opacity(value))
             with self.assertRaises(ValueError):panel_alpha(value)
+        for value in (50,69.99,70,77.5,100):
+            plan=dict(default_plan(card),palette='gold-cream');plan['blocks'][0]['panel_opacity']=value
+            self.assertEqual(bool(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan))),value<70)
+            self.assertEqual(valid_panel_opacity(value,legacy=False),value>=70)
+            self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
         for value in PANEL_OPACITIES:
             plan=dict(default_plan(card),palette='gold-cream');plan['blocks'][0]['panel_opacity']=value
             self.assertTrue(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)))
@@ -44,16 +49,16 @@ class PanelOpacityTests(unittest.TestCase):
             plan=default_plan(card)
             next(b for b in plan['blocks'] if b['role']==role)[field]=value
             self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
-        for value in (50,99.9,'soft'):
+        for value in (70,99.9,'soft'):
             plan=editorial_plan(card);plan['blocks'][0]['panel_opacity']=value
             with self.assertRaisesRegex(ValueError,'Unboxed editorial body'):measured_plan(card,plan)
-        self.assertEqual([panel_alpha(v) for v in (50,62.5,75,100)],[128,159,191,255])
+        self.assertEqual([panel_alpha(v) for v in (70,72.5,75,100)],[178,185,191,255])
 
     def test_every_panel_style_composites_surface_but_keeps_rules_and_badges_opaque(self):
         package=reviewed_fixture();palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         for style in PANEL_STYLES:
             card=package['cards'][0 if style in ('pill','folded_corner') else 2];role='A' if style in ('pill','folded_corner') else 'body'
-            for preset,alpha in [*PANEL_OPACITIES.items(),(50,128),(63.5,162),(87,222),(100,255)]:
+            for preset,alpha in [*PANEL_OPACITIES.items(),(70,178),(73.5,187),(87,222),(100,255)]:
                 with self.subTest(style=style,preset=preset):
                     spec=block_spec(card,role,952,style,font_size=36)
                     block={**spec,'role':role,'x':64,'y':750,'width':952,'panel_opacity':preset,
@@ -91,7 +96,7 @@ class PanelOpacityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#808080').save(photo)
             outputs=[];bounds=[]
-            for preset in (50,62.5,87,100):
+            for preset in (70,72.5,87,100):
                 plan=default_plan(card);plan['blocks'][0]['panel_opacity']=preset
                 metrics=render_hybrid(card,'gold-cream',photo,root/f'{preset}.jpg',plan)
                 self.assertEqual(metrics['composition'],plan)
@@ -101,7 +106,7 @@ class PanelOpacityTests(unittest.TestCase):
             self.assertEqual(len(set(outputs)),4)
             self.assertEqual(bounds,[bounds[0]]*4)
             self.assertEqual(card,before)
-            plan=default_plan(card);plan['blocks'][0]['panel_opacity']=50
+            plan=default_plan(card);plan['blocks'][0]['panel_opacity']=70
             Image.new('RGB',(1080,1350),'#000000').save(photo)
             # A synthetic palette with valid opaque contrast exposes unreadable
             # compositing; model-supplied custom colours remain forbidden above.
@@ -110,7 +115,7 @@ class PanelOpacityTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'Actual panel text contrast fails') as failed:
                     render_hybrid(card,'gold-cream',photo,root/'bad.jpg',plan)
             self.assertFalse((root/'bad.jpg').exists())
-            self.assertEqual(plan['blocks'][0]['panel_opacity'],50)
+            self.assertEqual(plan['blocks'][0]['panel_opacity'],70)
             self.assertEqual(rejection_diagnostic(failed.exception,plan)['reason'],str(failed.exception))
 
     def test_prompt_and_safe_report_include_opacity_and_recent_metadata_stays_whitelisted(self):
@@ -119,21 +124,24 @@ class PanelOpacityTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             result,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',result)
-        self.assertIn('panel_opacity as a NUMBER from 50 to 100',child.call_args.args[0])
+        self.assertIn('panel_opacity as a NUMBER from 70 to 100',child.call_args.args[0])
         self.assertIn('never randomly',child.call_args.args[0])
-        plan=proposal['cards']['word'];plan['blocks'][0]['panel_opacity']=62.5
+        plan=proposal['cards']['word'];plan['blocks'][0]['panel_opacity']=72.5
         rendering={'palette':'gold-cream','design':'hybrid','block_styles':{'body':'rounded','example':'italic_photo_fade'},
                    'answer_badges':{},'composition':plan,'status':'accepted'}
-        self.assertIn('Explanation surface opacity: 62.5%.',decision_lines(rendering))
+        self.assertIn('Explanation surface opacity: 72.5%.',decision_lines(rendering))
         recent=accepted_choices({'cards':{'word':rendering}})
-        self.assertEqual(recent['word']['panel_opacities'],{'body':62.5})
+        self.assertEqual(recent['word']['panel_opacities'],{'body':72.5})
+        plan['blocks'][0]['panel_opacity']=60
+        self.assertIn('Explanation surface opacity: 60%.',decision_lines(rendering))
+        self.assertNotIn('panel_opacities',accepted_choices({'cards':{'word':rendering}})['word'])
         plan['blocks'][0]['panel_opacity']='secret model prose'
         self.assertNotIn('panel_opacities',accepted_choices({'cards':{'word':rendering}})['word'])
 
     def test_fractional_percentage_survives_the_whole_review_render_and_report_path(self):
         harness=provenance_harness.VisualProvenanceTests();harness.setUp()
         proposal=harness.proposal(harness.package)
-        proposal['cards']['word']['blocks'][0]['panel_opacity']=67.5
+        proposal['cards']['word']['blocks'][0]['panel_opacity']=77.5
         proposal['cards']['word']['heading_tone']='paper_ink'
         proposal['cards']['word']['blocks'][-1]['photo_tone']='paper_ink'
         placement,metrics=harness.render(harness.package,proposal)
@@ -142,13 +150,13 @@ class PanelOpacityTests(unittest.TestCase):
         self.assertEqual(metrics['word']['composition'],proposal['cards']['word'])
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertGreaterEqual(metrics['word']['body_contrast'],4.5)
-        self.assertIn('Explanation surface opacity: 67.5%.',decision_lines(word))
-        self.assertEqual(accepted_choices(placement)['word']['panel_opacities'],{'body':67.5})
+        self.assertIn('Explanation surface opacity: 77.5%.',decision_lines(word))
+        self.assertEqual(accepted_choices(placement)['word']['panel_opacities'],{'body':77.5})
 
     def test_out_of_range_opacity_cannot_be_repaired_or_invalidate_sibling_layouts(self):
         harness=provenance_harness.VisualProvenanceTests();harness.setUp()
         proposal=harness.proposal(harness.package)
-        proposal['cards']['word']['blocks'][0].update(panel_opacity=49.9,x=30)
+        proposal['cards']['word']['blocks'][0].update(panel_opacity=69.9,x=30)
         placement,metrics=harness.render(harness.package,proposal)
         self.assertEqual(placement['cards']['word']['provenance']['layout']['source'],'fallback')
         self.assertEqual(placement['cards']['word']['provenance']['palette']['source'],'chatgpt')

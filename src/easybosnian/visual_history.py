@@ -56,7 +56,7 @@ def accepted_choices(placement):
         if isinstance(blocks,list):
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
-                       and valid_panel_opacity(b.get('panel_opacity'))}
+                       and valid_panel_opacity(b.get('panel_opacity'),legacy=False)}
             if opacities:safe['panel_opacities']=opacities
         choices[kind]=safe
     return choices
