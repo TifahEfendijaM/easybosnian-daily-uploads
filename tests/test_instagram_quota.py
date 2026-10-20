@@ -52,8 +52,8 @@ class InstagramQuotaTests(unittest.TestCase):
         error=safe_response_error({'error':{'code':9,'error_subcode':2207042,
                                   'message':'private-token','error_user_msg':'private detail'}},400)
         self.assertEqual(error.reason,'instagram_publishing_limit')
-        self.assertIn('publishing quota reached',str(error));self.assertNotIn('private',str(error))
-        self.assertIn('rolling quota',next_step('Instagram Stories publishing',error))
+        self.assertIn('publishing-limit refusal',str(error));self.assertNotIn('private',str(error))
+        self.assertIn('rolling window',next_step('Instagram Stories publishing',error))
         for code,subcode in ((9,2207027),(9007,2207027),(10,2207042),('9',2207042),(True,2207042)):
             other=safe_response_error({'error':{'code':code,'error_subcode':subcode}},400)
             self.assertIsNone(other.reason)
@@ -95,6 +95,9 @@ class InstagramQuotaTests(unittest.TestCase):
             self.assertEqual(error.reason,'instagram_publishing_limit')
             self.assertEqual(result['failure_reason'],'instagram_publishing_limit')
             self.assertEqual(result['failed_stage'],'Instagram Stories publishing')
+            self.assertEqual(result['quota_counter_conflict'],quota is not None)
+            self.assertEqual(error.quota_counter_conflict,quota is not None)
+            if quota is not None:self.assertIn('despite reported spare quota',str(error))
             self.assertIn('provider code 9; provider subcode 2207042',result['error'])
             ig.story.assert_called_once();ig.publish.assert_called_once();record.assert_not_called()
             self.assertEqual(result['containers'][-1]['status_after_failure'],'FINISHED')
@@ -113,6 +116,7 @@ class InstagramQuotaTests(unittest.TestCase):
     def test_daily_summary_names_quota_without_suppressing_other_platforms_or_history(self):
         from easybosnian.daily import daily
         quota_error=SafeError('Instagram Stories incomplete: publishing quota reached',reason='instagram_publishing_limit')
+        quota_error.quota_counter_conflict=True
         flags={'FACEBOOK_POSTING_ENABLED':'true','TIKTOK_POSTING_ENABLED':'true',
                'INSTAGRAM_STORIES_ENABLED':'true','FACEBOOK_STORIES_ENABLED':'true'}
         with patch.dict(os.environ,flags),patch('easybosnian.daily.verify_repository'), \
@@ -131,7 +135,7 @@ class InstagramQuotaTests(unittest.TestCase):
             self.assertTrue(outcome['history_saved']);store.return_value.save_content.assert_called_once()
             for provider in (instagram,facebook,tiktok,facebook_stories):provider.assert_called_once()
             self.assertEqual(outcome['platforms']['instagram_stories']['status'],
-                             'incomplete; Instagram publishing quota reached')
+                             'incomplete; Meta publishing-limit refusal despite reported spare quota')
 
     def test_verify_quota_probe_reads_both_existing_clients_without_content_or_writes(self):
         spec=importlib.util.spec_from_file_location('_quota_diagnostic',ROOT/'scripts/diagnose_publications.py')

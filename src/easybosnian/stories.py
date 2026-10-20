@@ -86,8 +86,10 @@ def publish_stories(store,package,assets,record=None):
         write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',result);return result
     except Exception as error:
         quota_failure=getattr(error,'reason',None)=='instagram_publishing_limit'
+        quota_conflict=bool(quota_failure and quota and quota['status']=='available'
+                            and quota['remaining']>=quota['required'])
         if quota_failure:
-            publication=f'{len(stories)} Instagram Stories confirmed; publishing quota reached; remaining Stories not published'
+            publication=f'{len(stories)} Instagram Stories confirmed; publishing-limit refusal; remaining Stories not published'
         if containers and stage=='Instagram Stories publishing':
             try:
                 containers[-1]['status_after_failure']=ig.call('GET',containers[-1]['container_id'],{'fields':'status_code'}).get('status_code')
@@ -95,8 +97,12 @@ def publish_stories(store,package,assets,record=None):
                 containers[-1]['status_readback']='unavailable; no retry'
         write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',{'batch':date,'batch_id':package.get('batch_id'),'status':publication,'stories':stories,'containers':containers,'failed_stage':stage,
                    'failure_reason':'instagram_publishing_limit' if quota_failure else 'publisher_failed',
-                   'error':redact(error),'publishing_quota':quota})
+                   'error':redact(error),'publishing_quota':quota,'quota_counter_conflict':quota_conflict})
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
         message=('Instagram Stories incomplete: publishing quota reached; wait for capacity; no automatic retry'
                  if quota_failure else 'Instagram Stories failed at '+stage)
-        raise SafeError(message,stage,reason='instagram_publishing_limit' if quota_failure else None) from None
+        if quota_conflict:
+            message='Instagram Stories incomplete: Meta publishing-limit refusal despite reported spare quota; no automatic retry'
+        problem=SafeError(message,stage,reason='instagram_publishing_limit' if quota_failure else None)
+        problem.quota_counter_conflict=quota_conflict
+        raise problem from None

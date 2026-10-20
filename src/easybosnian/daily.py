@@ -99,6 +99,8 @@ def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,
         except Exception as error:
             status=('incomplete; Instagram publishing quota reached' if getattr(error,'reason',None)=='instagram_publishing_limit'
                     else 'failed; inspect Story result artifact')
+            if getattr(error,'reason',None)=='instagram_publishing_limit' and getattr(error,'quota_counter_conflict',False) is True:
+                status='incomplete; Meta publishing-limit refusal despite reported spare quota'
             failed.append('instagram_stories');results['instagram_stories']={'status':status,'error':redact(error),'published':False}
     else: results['instagram_stories']={'status':'disabled or Instagram feed publication not confirmed in this run','published':False}
     if os.getenv('FACEBOOK_STORIES_ENABLED')=='true' and results['facebook'].get('published'):
