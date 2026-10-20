@@ -244,7 +244,7 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', title_fade=False):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard'):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     text_height,_=measure(rows,face,line_spacing)
@@ -276,12 +276,10 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         allowed=Image.new('L',image.size)
         ImageDraw.Draw(allowed).rectangle((left,top,right-1,bottom-1),fill=255)
         soft_mask=ImageChops.multiply(soft_mask,allowed)
-    # Titles need only large-text contrast. Fine steps avoid a needless jump to
-    # an opaque-looking strip; examples retain their existing protection. This
-    # is a trusted renderer preset, never a model-selectable alpha or geometry.
-    strengths=range(5,241,5) if title_fade else (90,130,170,210,240)
+    # Restore the original contrast-driven strengths, including for titles.
+    # Approved colour pairs remain independent of this trusted renderer preset.
     for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
-        for alpha in strengths:
+        for alpha in (90,130,170,210,240):
             overlay=Image.new('RGBA',image.size)
             if soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
@@ -457,7 +455,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         # Photographic title shading starts below the entire category strip;
         # even its feather must never appear behind a category chip or underline.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,
-            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,fade_style=plan.get('heading_fade','standard'),title_fade=True)
+            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,fade_style=plan.get('heading_fade','standard'))
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.

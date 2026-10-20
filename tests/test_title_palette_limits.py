@@ -1,4 +1,4 @@
-"""Subtle readable titles and candidate-inclusive palette suitability limits."""
+"""Original title strength and candidate-inclusive palette suitability limits."""
 import copy
 import json
 import tempfile
@@ -72,55 +72,45 @@ class TitlePaletteLimitsTests(unittest.TestCase):
                          'Repeated palette lacks required suitability exception')
         self.assertEqual(result['cards']['lesson']['palette'],t)
 
-    def test_titles_choose_finer_lower_strength_without_weakening_contrast(self):
+    def test_titles_match_strengths_measured_from_pre_expansion_renderer(self):
+        # Golden values independently obtained from cb8c171's protect_text,
+        # before the October 19/20 expansion; new palette-role pairs also work.
         palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         face=serif(74);xy=(64,155);rows=['Čuvaj svoju riječ.']
-        for tone,background in [('paper_dark','#979797'),('ink_light','#555555'),
-                                ('paper_ink','#b0b0b0'),('ink_paper','#303030')]:
-            with self.subTest(tone=tone):
-                original=Image.new('RGBA',(1080,1350),background)
+        cases=[('paper_dark','#979797',90),('ink_light','#555555',90),
+               ('paper_ink','#b0b0b0',90),('ink_paper','#303030',90),
+               ('paper_dark','#ffffff',130),('ink_light','#000000',90),
+               ('paper_ink','#ffffff',130),('ink_paper','#000000',130),
+               ('accent_dark','#ffffff',170),('ink_accent','#000000',130)]
+        for tone,background,expected_alpha in cases:
+            with self.subTest(tone=tone,background=background):
+                image=Image.new('RGBA',(1080,1350),background)
                 colours,backings=photo_colours(palette,tone)
-                old=original.copy();new=original.copy()
-                _,_,old_alpha=protect_text(old,xy,rows,face,colours,3,backings=backings)
-                colour,score,alpha=protect_text(new,xy,rows,face,colours,3,
-                                               backings=backings,title_fade=True)
-                self.assertGreater(alpha,0);self.assertLess(alpha,old_alpha)
-                self.assertGreaterEqual(score,3);self.assertEqual(colour,colours[0])
-                self.assertEqual(alpha%5,0)
-                # It is the first safe preset step, not a cosmetic unvalidated cap.
-                if alpha>5:
-                    backing=backings[0][1]
-                    lower=Image.alpha_composite(original,Image.new('RGBA',original.size,(*backing,alpha-5)))
-                    with self.assertRaisesRegex(ValueError,'Unshaded photo text fails'):
-                        protect_text(lower,xy,rows,face,colours,3,allow_fade=False)
+                colour,score,alpha=protect_text(image,xy,rows,face,colours,3,backings=backings)
+                self.assertEqual(alpha,expected_alpha)
+                self.assertEqual(colour,colours[0]);self.assertGreaterEqual(score,3)
         readable=Image.new('RGBA',(1080,1350),'#000000');before=readable.tobytes()
-        self.assertEqual(protect_text(readable,xy,rows,face,['#ffffff'],3,title_fade=True)[2],0)
+        self.assertEqual(protect_text(readable,xy,rows,face,['#ffffff'],3)[2],0)
         self.assertEqual(readable.tobytes(),before)
 
-    def test_real_title_uses_subtle_preset_with_exact_plan_and_example_unchanged(self):
-        import easybosnian.hybrid as hybrid
-        original_protect=hybrid.protect_text
+    def test_real_title_restores_original_strength_with_colour_choices_and_copy_preserved(self):
         card=reviewed_fixture()['cards'][2];source=copy.deepcopy(card)
-        plan=dict(default_plan(card),confidence='high',heading_tone='paper_dark')
-        plan['blocks'][-1]['photo_tone']='paper_dark'
-        def previous_title(*args,**kwargs):
-            kwargs.pop('title_fade',None)
-            return original_protect(*args,**kwargs)
+        palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg'
-            Image.new('RGB',(1080,1350),'#979797').save(photo)
-            with patch('easybosnian.hybrid.protect_text',side_effect=previous_title):
-                old=render_hybrid(card,'gold-cream',photo,root/'old.jpg',plan)
-            new=render_hybrid(card,'gold-cream',photo,root/'new.jpg',plan)
-            self.assertLess(new['heading_shading'],old['heading_shading'])
-            self.assertGreaterEqual(new['heading_contrast'],3)
-            self.assertEqual(old['example_shading'],new['example_shading'])
-            self.assertEqual(old['example_colour'],new['example_colour'])
-            self.assertEqual(new['composition'],plan);self.assertEqual(card,source)
-            with Image.open(root/'old.jpg') as a,Image.open(root/'new.jpg') as b:
-                # JPEG block ringing can extend beyond a changed pixel row;
-                # compare the protected category's actual distant glyph region.
-                self.assertEqual(a.crop((0,0,1080,112)).tobytes(),b.crop((0,0,1080,112)).tobytes())
+            Image.new('RGB',(1080,1350),'#ffffff').save(photo)
+            for tone,expected_alpha in [('paper_dark',130),('paper_ink',130),('accent_dark',170)]:
+                plan=dict(default_plan(card),confidence='high',heading_tone=tone)
+                plan['blocks'][-1]['photo_tone']='paper_dark'
+                result=render_hybrid(card,'gold-cream',photo,root/(tone+'.jpg'),plan)
+                self.assertEqual(result['heading_shading'],expected_alpha)
+                self.assertEqual(result['heading_tone'],tone)
+                self.assertEqual(result['heading_colour'],photo_colours(palette,tone)[0][0])
+                self.assertGreaterEqual(result['heading_contrast'],3)
+                self.assertEqual(result['example_colour'],'#ffffff')
+                self.assertEqual(result['example_shading'],170)
+                self.assertGreaterEqual(result['example_contrast'],4.5)
+                self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
 
 
 if __name__=='__main__':unittest.main()
