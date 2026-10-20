@@ -67,3 +67,6 @@ Before selecting a final composition, the reviewer must compare every approved p
 
 
 The standard photographic fade now feathers vertically for 32px beyond the measured title/example text band, replacing the old 100px extension on either side. Its inner protection, approved text/fade colour pairings and contrast thresholds are unchanged; shading is still added only when required. This is a fixed Pillow preset, never a model-controlled dimension. The historical soft-fade reader remains compatible. Panel opacity stays 70–100%, and treatment-B Stories stay unchanged.
+
+
+Category labels never receive photographic fades, scrims, glows or shadows, including the underlined treatment. Approved bounded category chips keep their own solid surfaces. Underlined photo labels must pass measured glyph contrast without shading; choose a bounded approved category style when the actual photo cannot support bare text. Pillow rejects an unreadable bare label through the existing reported layout fallback, preserving an independently valid palette; it never adds a category fade or silently substitutes a category design. Title shading is clipped below the fixed category strip, so its feather cannot show behind the category. All approved category shapes remain available. Title/PRIMJER colour controls, the compact 32px feather and 70–100% panel opacity remain unchanged.

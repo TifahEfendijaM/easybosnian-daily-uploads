@@ -12,6 +12,8 @@ from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
 MIN_BLOCK_GAP = 8
+CATEGORY_TOP = 64
+CATEGORY_HEIGHT = 62
 # Renderer-owned vertical feather beyond the measured title/PRIMJER band.
 # The former 100px extension made short copy shade a large part of the photo.
 PHOTO_FADE_FEATHER = 32
@@ -296,11 +298,11 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     return colour,score,alpha
 
 
-def category_label(image, label, palette, style='rounded', top=64, paper_surface=False, tone='auto'):
+def category_label(image, label, palette, style='rounded', top=CATEGORY_TOP, paper_surface=False, tone='auto'):
     """Six fixed category treatments, shared anchors/typography and exact accents."""
     if style not in CATEGORY_STYLES:raise ValueError('Unsupported category treatment')
     face=font(27,'SemiBold');width=round(face.getlength(label))+46
-    x=64;right=x+width;bottom=top+62
+    x=64;right=x+width;bottom=top+CATEGORY_HEIGHT
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     text_colour,surface=panel_colours(palette,tone)
     if tone=='auto':text_colour,surface=ink,paper if style=='outlined' else accent
@@ -310,7 +312,12 @@ def category_label(image, label, palette, style='rounded', top=64, paper_surface
         if paper_surface:
             colour=ink if tone=='auto' else text_colour;score=contrast(colour,paper);shade=0
             if score<4.5:raise ValueError('Category text fails measured contrast')
-        else:colour,score,shade=protect_text(image,xy,[label],face,[paper,ink] if tone=='auto' else [text_colour],4.5,(0,top-12,WIDTH,bottom+12))
+        else:
+            try:
+                colour,score,shade=protect_text(image,xy,[label],face,
+                    [paper,ink] if tone=='auto' else [text_colour],4.5,allow_fade=False)
+            except ValueError as error:
+                raise ValueError('Category text fails measured contrast') from error
         draw=ImageDraw.Draw(image)
         draw_rows(draw,xy,[label],face,colour)
         draw.line((x,bottom-1,right-46,bottom-1),fill=accent,width=3)
@@ -443,7 +450,10 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
         colours,backings=photo_colours(palette,heading_tone)
-        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,backings=backings,fade_style=plan.get('heading_fade','standard'))
+        # Photographic title shading starts below the entire category strip;
+        # even its feather must never appear behind a category chip or underline.
+        heading_colour,heading_contrast,heading_shading=protect_text(image,(64,155),title_rows,title_face,colours,3,
+            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,fade_style=plan.get('heading_fade','standard'))
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
