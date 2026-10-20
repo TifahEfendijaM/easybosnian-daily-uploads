@@ -1,10 +1,22 @@
 """Read only known publication IDs on this project's verified accounts."""
+import argparse
 import json
 
 from easybosnian.core import ROOT, PROJECT, verify_repository, today, write_json
-from easybosnian.meta import Facebook, Instagram
+from easybosnian.meta import Facebook, Instagram, InstagramFacebook
+from easybosnian.instagram_quota import publishing_quota
 from easybosnian.store import Store
 from easybosnian.http import redact
+
+
+def diagnose_publishing_quota():
+    verify_repository(remote=True)
+    quotas={}
+    for name,client in (('instagram_login',Instagram()),('facebook_login',InstagramFacebook())):
+        client.verify_account()
+        quotas[name]=publishing_quota(client,required=3)
+    return {'date':today(),'instagram_publishing_quotas':quotas,
+            'publication':'Read-only; no deletion, preparation, rendering or publication'}
 
 
 def diagnose():
@@ -54,6 +66,7 @@ def diagnose():
 
 
 if __name__ == '__main__':
-    result = diagnose()
+    parser=argparse.ArgumentParser();parser.add_argument('--publishing-quota-only',action='store_true')
+    result = diagnose_publishing_quota() if parser.parse_args().publishing_quota_only else diagnose()
     write_json(ROOT/'build'/result['date']/'meta-diagnostics-result.json', result)
     print(json.dumps(result, indent=2))
