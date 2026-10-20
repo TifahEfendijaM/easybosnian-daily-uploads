@@ -48,7 +48,7 @@ CATEGORY_CATALOGUE = {
     'rounded': 'Accent chip with moderately rounded corners and ink text.',
     'pill': 'Accent capsule with fully rounded ends and ink text.',
     'ribbon': 'Accent ribbon with a pointed right end and ink text.',
-    'underlined': 'Unboxed category text with a thin accent underline; measured photographic contrast or paper ink.',
+    'underlined': 'Unboxed category text with a thin accent underline; actual photographic contrast must pass without a fade, or use paper ink on a paper layout. Choose a bounded category chip when unshaded text would be unreadable.',
     'outlined': 'Paper chip with square corners and an accent outline, ink text.',
     'tab': 'Square accent tab with a short ink underline, ink text.',
 }
