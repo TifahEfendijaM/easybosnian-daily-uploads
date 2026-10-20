@@ -174,7 +174,8 @@ def decision_lines(rendering):
     if rendering.get('layout_adjustment'):
         from .visual_adjustment import safe_adjustment
         for move in safe_adjustment(rendering['layout_adjustment'])['moves']:
-            lines.append('Pillow placement adjustment — '+move['element']+': '+
+            label='Pillow single-line PRIMJER adjustment' if 'width' in move['to'] else 'Pillow placement adjustment'
+            lines.append(label+' — '+move['element']+': '+
                          json.dumps(move['from'],sort_keys=True)+' → '+json.dumps(move['to'],sort_keys=True)+'.')
     return lines
 
