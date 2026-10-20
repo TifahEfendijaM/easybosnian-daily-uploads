@@ -81,6 +81,12 @@ class FixedFadeTests(unittest.TestCase):
         prompt=child.call_args.args[0]
         for text in ('Catalogue order is not a ranking','Compare EVERY approved palette',
                      'do not stop at the first acceptable','review ALL compatible',
+                     'For the TITLE specifically, aim for a subtle, more transparent-looking backing',
+                     'favour one that is clearly readable with little or no added shading',
+                     'Do not choose a heavy-looking title fade by habit',
+                     'Stronger shading is appropriate only when',
+                     'Pillow still determines the final opacity from measured contrast',
+                     'This title preference does not change PRIMJER treatment',
                      'Do not supply heading_fade or fade_style', 'Only the text/fade COLOURS may change'):
             self.assertIn(text,prompt)
         shown=prompt.split(' Photo-colour catalogue: ',1)[1].split(' Palette repetition policy:',1)[0]
