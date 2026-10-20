@@ -90,9 +90,9 @@ class VisualRefinementTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['heading_contrast'],3)
                 self.assertGreaterEqual(metrics['example_contrast'],4.5)
                 if tone.startswith('ink_'):
-                    self.assertEqual(metrics['heading_colour'],'#44271e')
-                    self.assertEqual(metrics['example_colour'],'#44271e')
-                if tone.startswith('paper_'):self.assertEqual(metrics['example_colour'],'#fff3e4')
+                    self.assertEqual(metrics['heading_colour'],'#000000' if tone=='ink_light' else '#44271e')
+                    self.assertEqual(metrics['example_colour'],'#000000' if tone=='ink_light' else '#44271e')
+                if tone.startswith('paper_'):self.assertEqual(metrics['example_colour'],'#ffffff' if tone=='paper_dark' else '#fff3e4')
                 if tone=='accent_ink':self.assertEqual(metrics['example_colour'],'#f0b18f')
             self.assertEqual(card,before)
             # An explicit colour is never permission to invent a fade for italic_photo.

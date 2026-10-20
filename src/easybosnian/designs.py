@@ -1,4 +1,5 @@
 """Trusted declarative catalogue. Every treatment has a real Pillow renderer."""
+import math
 DESIGNS = ('hybrid', 'editorial')
 BODY_STYLES = ('rounded', 'outlined', 'plain', 'overlay_dark', 'overlay_light',
                'side_rule', 'bottom_sheet', 'split_panel', 'minimal_rule',
@@ -10,9 +11,12 @@ PANEL_STYLES = (*PANEL_STYLES, 'pill', 'folded_corner')
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink',
                'ink_accent', 'accent_dark', 'accent_light', 'paper_accent')
+# Fresh reviews may choose colours, but not fade shape, extent or strength.
+REVIEW_PHOTO_TONES = PHOTO_TONES
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
 FADE_STYLES = ('standard', 'soft')
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
+PANEL_OPACITY_RANGE = (50, 100)
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size
@@ -23,8 +27,8 @@ STYLE_CATALOGUE = {
     'rounded': 'Paper panel, 24px rounded corners, inset accent rule; independently chosen approved quiz badge.',
     'outlined': 'Square paper panel with 3px accent outline; inset rule and independently chosen approved quiz badge.',
     'plain': 'Unboxed Inter body on editorial paper only; no background, rule or border. Not valid for answers.',
-    'overlay_dark': 'Approved ink panel with paper text and paper-filled approved answer badge. Surface opacity uses only approved panel_opacity presets.',
-    'overlay_light': 'Approved paper panel, square corners, accent underline. Legacy omitted opacity retains alpha 235; new choices use panel_opacity presets. Actual glyph contrast must pass after compositing.',
+    'overlay_dark': 'Approved ink panel with paper text and paper-filled approved answer badge. Surface opacity is a declared 50–100 percent.',
+    'overlay_light': 'Approved paper panel, square corners, accent underline. Legacy omitted opacity retains alpha 235; new choices declare 50–100 percent. Actual glyph contrast must pass after compositing.',
     'side_rule': 'Square paper panel with full-height 12px left accent bar; approved answer badge.',
     'bottom_sheet': 'Wide paper sheet with 54px rounded top corners and square bottom; centered accent handle. Must start at y700 or lower and be at least 660px wide.',
     'split_panel': 'Square paper panel with a full-height 82px accent rail; answer label in rail, body text in its own column.',
@@ -37,7 +41,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using only renderer-owned approved neutral/palette feathered contrast presets when needed.',
+    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using the original renderer-owned contrast fade when needed. Only an approved text/fade colour pairing is selectable; shape and strength are fixed.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {
@@ -49,9 +53,9 @@ CATEGORY_CATALOGUE = {
     'tab': 'Square accent tab with a short ink underline, ink text.',
 }
 PHOTO_TONE_CATALOGUE = {
-    'auto': 'Pillow chooses approved paper or ink glyphs and a neutral black/white fade only if required.',
-    'paper_dark': 'Palette paper glyphs; neutral black fade when required.',
-    'ink_light': 'Palette ink glyphs; neutral white fade when required.',
+    'auto': 'On photographs Pillow chooses white/black glyphs with the matching black/white fade only if required; paper layouts retain palette ink.',
+    'paper_dark': 'White glyphs; fixed neutral black fade when required.',
+    'ink_light': 'Black glyphs; fixed neutral white fade when required.',
     'paper_ink': 'Palette paper glyphs; palette ink fade when required.',
     'ink_paper': 'Palette ink glyphs; palette paper fade when required.',
     'accent_ink': 'Palette accent glyphs; palette ink fade when required.',
@@ -60,6 +64,19 @@ PHOTO_TONE_CATALOGUE = {
     'accent_light': 'Palette accent glyphs; neutral light fade when required; actual contrast must pass.',
     'paper_accent': 'Palette paper glyphs; palette accent fade when required; actual contrast must pass.',
 }
+
+
+def valid_panel_opacity(value):
+    """A bounded percentage, or an old preset retained for saved plans/reports."""
+    return ((isinstance(value, str) and value in PANEL_OPACITIES) or
+            (type(value) in (int, float) and PANEL_OPACITY_RANGE[0] <= value <= PANEL_OPACITY_RANGE[1]
+             and math.isfinite(value)))
+
+
+def panel_alpha(value):
+    """Convert the declared surface percentage to Pillow's 8-bit alpha only."""
+    if not valid_panel_opacity(value):raise ValueError('Panel opacity outside the approved range')
+    return PANEL_OPACITIES[value] if isinstance(value, str) else round(value * 255 / 100)
 
 
 def panel_colours(palette, tone='auto', *, dark=False):

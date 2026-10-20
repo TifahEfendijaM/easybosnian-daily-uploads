@@ -102,3 +102,6 @@ same_images is a daily-only content selection. It retains the selected source th
 ## Quiz answer count
 
 Consider four choices more often for ordinary multiple-choice quizzes. Prefer four when three plausible, distinct and researched distractors fit alongside the one correct answer. Do not choose two simply for convenience. Keep two for genuine yes/no or naturally binary questions; three is allowed when a fourth distractor would be weak or harm clarity/fit. All questions and choices remain standard Bosnian, with exactly one objective correct answer, private source review and no public answer leakage. Do not invent an extra choice during visual composition; the prepared exact options are final.
+
+
+For scene-based fallback palette planning, compare every approved palette before choosing. Catalogue order is not a ranking: do not stop at the first acceptable match, the last-listed option or a familiar colour scheme. Keep the scene natural and do not force FLUX colours to fit a palette. Actual photographic design choices belong to the later visual review and its fixed-geometry, approved-colour fade contract.

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES, PANEL_STYLES,
+                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, panel_alpha, PANEL_STYLES,
                       PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
 from .core import PROJECT, REPO, ROOT, read_json, write_json
@@ -159,8 +159,10 @@ def decision_lines(rendering):
             block=next(b for b in composition['blocks'] if b['role']==role)
             if style in PANEL_STYLES:
                 preset=block.get('panel_opacity')
-                alpha=PANEL_OPACITIES[preset] if preset else (235 if style=='overlay_light' else 255)
-                lines.append(label+' surface opacity: '+(preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
+                alpha=panel_alpha(preset) if preset is not None else (235 if style=='overlay_light' else 255)
+                description=(f'{preset:g}%.' if type(preset) in (int,float) else
+                             (preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
+                lines.append(label+' surface opacity: '+description)
                 lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
             if role=='example':lines.append('PRIMJER fade: '+block.get('fade_style','standard')+'.')
             vertical='upper' if block['y']<450 else 'middle' if block['y']<900 else 'lower'
