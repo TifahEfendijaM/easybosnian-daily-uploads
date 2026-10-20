@@ -4,7 +4,8 @@ import os
 from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageOps
 from .core import ROOT, read_json, require_publishing, write_json
-from .http import SafeError, request
+from .http import SafeError, request, redact
+from .instagram_quota import publishing_quota,require_story_capacity
 from .meta import Instagram
 from .notify import failure
 from .story_layouts import tall_story_image
@@ -55,11 +56,15 @@ def verify_story(ig,media_id):
 
 def publish_stories(store,package,assets,record=None):
     date=package['date'];stage='Instagram Stories authorization';stories=[];containers=[]
-    publication='nothing published to Instagram Stories'
+    publication='nothing published to Instagram Stories';quota=None
     try:
         require_publishing()
         if os.getenv('INSTAGRAM_STORIES_ENABLED')!='true': raise ValueError('Story publisher is disabled')
         ig=Instagram();ig.refresh_if_needed();ig.verify_account()
+        stage='Instagram Stories publishing quota';quota=publishing_quota(ig,required=len(package['cards']))
+        require_story_capacity(quota)
+        if quota['status']=='unavailable':
+            print('::warning::Instagram publishing quota could not be read; no capacity is assumed; normal one-attempt publishing continues')
         for card in package['cards']:
             kind=card['kind'];palette=artwork_palette(package,assets,kind);stage='Instagram Stories rendering'
             path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
@@ -77,14 +82,21 @@ def publish_stories(store,package,assets,record=None):
             if record: record('story',media_id,ig.user_id)
             item={'slide':kind,'media_id':media_id,'highlight':HIGHLIGHTS[kind],'highlight_status':'manual addition required'}
             stories.append(item);stage='Instagram Stories verification';item['permalink']=verify_story(ig,media_id)
-        result={'batch':date,'batch_id':package.get('batch_id'),'published':True,'status':'three image Stories confirmed published; Highlights need manual addition','stories':stories}
+        result={'batch':date,'batch_id':package.get('batch_id'),'published':True,'status':'three image Stories confirmed published; Highlights need manual addition','stories':stories,'publishing_quota':quota}
         write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',result);return result
     except Exception as error:
+        quota_failure=getattr(error,'reason',None)=='instagram_publishing_limit'
+        if quota_failure:
+            publication=f'{len(stories)} Instagram Stories confirmed; publishing quota reached; remaining Stories not published'
         if containers and stage=='Instagram Stories publishing':
             try:
                 containers[-1]['status_after_failure']=ig.call('GET',containers[-1]['container_id'],{'fields':'status_code'}).get('status_code')
             except Exception:
                 containers[-1]['status_readback']='unavailable; no retry'
-        write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',{'batch':date,'batch_id':package.get('batch_id'),'status':publication,'stories':stories,'containers':containers,'failed_stage':stage})
+        write_json(ROOT/'build'/output_key(package)/'instagram-stories-result.json',{'batch':date,'batch_id':package.get('batch_id'),'status':publication,'stories':stories,'containers':containers,'failed_stage':stage,
+                   'failure_reason':'instagram_publishing_limit' if quota_failure else 'publisher_failed',
+                   'error':redact(error),'publishing_quota':quota})
         print(failure(date,stage,error,publication,os.getenv('GITHUB_RUN_URL')))
-        raise SafeError('Instagram Stories failed at '+stage,stage) from None
+        message=('Instagram Stories incomplete: publishing quota reached; wait for capacity; no automatic retry'
+                 if quota_failure else 'Instagram Stories failed at '+stage)
+        raise SafeError(message,stage,reason='instagram_publishing_limit' if quota_failure else None) from None

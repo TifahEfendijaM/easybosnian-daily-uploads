@@ -97,7 +97,9 @@ def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,
     if os.getenv('INSTAGRAM_STORIES_ENABLED')=='true' and results['instagram'].get('published'):
         try: results['instagram_stories']=publish_stories(store,package,assets,record=recorder(store,key,'instagram'))
         except Exception as error:
-            failed.append('instagram_stories');results['instagram_stories']={'status':'failed; inspect Story result artifact','error':redact(error),'published':False}
+            status=('incomplete; Instagram publishing quota reached' if getattr(error,'reason',None)=='instagram_publishing_limit'
+                    else 'failed; inspect Story result artifact')
+            failed.append('instagram_stories');results['instagram_stories']={'status':status,'error':redact(error),'published':False}
     else: results['instagram_stories']={'status':'disabled or Instagram feed publication not confirmed in this run','published':False}
     if os.getenv('FACEBOOK_STORIES_ENABLED')=='true' and results['facebook'].get('published'):
         try: results['facebook_stories']=publish_facebook_stories(store,package,assets,record=recorder(store,key,'facebook'))

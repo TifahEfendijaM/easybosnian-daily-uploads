@@ -17,6 +17,8 @@ NEXT={
 
 
 def next_step(stage,error):
+    if getattr(error,'reason',None)=='instagram_publishing_limit':
+        return 'Instagram reports its publishing allowance is exhausted or insufficient for all three Stories. Wait for its rolling quota to recover before a deliberate new run. Another workflow run does not reset the allowance. No automatic retry, delayed upload or catch-up is scheduled; confirmed feed posts and Facebook Stories remain published.'
     if stage.startswith('Facebook '):
         return 'Check the exact Easy Bosnian Page authorization, pages_show_list/pages_read_engagement/pages_manage_posts and current can_post capability. Renew the separate FACEBOOK_PAGE_TOKEN without removing existing Instagram permissions. No publishing retry is sent.'
     if stage=='FLUX generation':

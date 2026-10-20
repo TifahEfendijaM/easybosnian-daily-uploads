@@ -131,9 +131,9 @@ jobs:
           EASYBOSNIAN_CODEX_DIR: ${{ runner.temp }}/easybosnian-cloud-codex
           MODE: ${{ inputs.mode }}
         run: python -m easybosnian.cloud_prepare "$MODE"
-      - name: Read only recorded Meta publication capabilities
+      - name: Read only Instagram publishing quota
         if: inputs.mode == 'verify'
-        run: python scripts/diagnose_publications.py
+        run: python scripts/diagnose_publications.py --publishing-quota-only
       - name: Generate backgrounds and visually place feed text privately
         id: artwork
         if: success() && inputs.mode != 'verify'

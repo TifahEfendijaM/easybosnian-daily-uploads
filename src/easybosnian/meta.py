@@ -109,6 +109,9 @@ class Instagram:
     def stories(self):
         return self.call("GET", self.user_id + "/stories", {"fields": "id", "limit": 100})
 
+    def publishing_limit(self):
+        return self.call('GET', self.user_id+'/content_publishing_limit',{'fields':'quota_usage,config'})
+
 
 class Facebook:
     """Independent Pages token and photo-feed publishing."""
