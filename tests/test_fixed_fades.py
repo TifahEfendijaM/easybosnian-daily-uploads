@@ -6,10 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageChops
 from jsonschema import Draft202012Validator
 from easybosnian.designs import REVIEW_PHOTO_TONES, PANEL_OPACITIES
-from easybosnian.hybrid import default_plan, render_hybrid, measured_plan
+from easybosnian.hybrid import default_plan, render_hybrid, measured_plan, protect_text, serif, photo_colours
+from easybosnian.render import font, measure
+from easybosnian.core import ROOT, read_json
 from easybosnian.visual_placement import MODEL_CARD_SCHEMA, CARD_SCHEMA, review_compositions
 from easybosnian.visual_history import accepted_choices
 from easybosnian.success_report import with_rendering, report_data, render_report
@@ -40,6 +42,7 @@ class FixedFadeTests(unittest.TestCase):
             self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
         self.assertEqual(PANEL_OPACITIES['translucent'],191)
         for scope,key,value in [('card','fade_opacity',50),('example','fade_width',400),
+                                ('card','heading_feather',100),('example','fade_padding',100),
                                 ('example','photo_tone','#559966')]:
             plan=copy.deepcopy(base['cards']['word'])
             (plan if scope=='card' else plan['blocks'][-1])[key]=value
@@ -111,3 +114,70 @@ class FixedFadeTests(unittest.TestCase):
         report=with_rendering(report_data(package,results(),RUN),placement)
         text,markup=render_report(report)
         self.assertIn('Title fade: soft',text);self.assertIn('Title fade: soft',markup)
+
+    def test_standard_fade_support_stays_within_32px_of_measured_title_and_example(self):
+        palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
+        label_face=font(21,'SemiBold')
+        example_y=500+measure(['PRIMJER'],label_face)[0]+16
+        cases=[((64,155),['Čuvaj svoju riječ.'],serif(74),None,(),3),
+               ((64,example_y),['Moje vunene rukavice su pored jakne.'],serif(34,True),1.35,
+                (((64,500),['PRIMJER'],label_face),),4.5),
+               ((64,example_y),['Čuvaj svoju riječ i đakovu torbu.',
+                                'Šetnja će prijati cijeloj porodici.'],serif(34,True),1.55,
+                (((64,500),['PRIMJER'],label_face),),4.5)]
+        for tone,background in [('paper_dark','#b0b0b0'),('ink_light','#303030'),
+                                ('paper_ink','#b0b0b0'),('ink_paper','#303030')]:
+            for xy,rows,face,leading,extra,threshold in cases:
+                with self.subTest(tone=tone,rows=len(rows),size=face.size):
+                    original=Image.new('RGBA',(1080,1350),background);image=original.copy()
+                    colours,backings=photo_colours(palette,tone)
+                    colour,score,alpha=protect_text(image,xy,rows,face,colours,threshold,
+                        extra=extra,line_spacing=leading,backings=backings)
+                    self.assertEqual(colour,colours[0]);self.assertGreaterEqual(score,threshold)
+                    self.assertGreater(alpha,0)
+                    changed=ImageChops.difference(image.convert('RGB'),original.convert('RGB')).getbbox()
+                    top=min([xy[1],*(item[0][1] for item in extra)])
+                    bottom=max([xy[1]+measure(rows,face,leading)[0],
+                                *(p[1]+measure(r,f)[0] for p,r,f in extra)])
+                    self.assertGreaterEqual(changed[1],top-32)
+                    self.assertLessEqual(changed[3],bottom+32)
+                    self.assertLess(changed[1],top);self.assertGreater(changed[3],bottom)
+                    self.assertEqual(image.getpixel((540,top-64)),original.getpixel((540,top-64)))
+                    self.assertEqual(image.getpixel((540,bottom+64)),original.getpixel((540,bottom+64)))
+
+    def test_compact_fade_respects_photo_limits_and_existing_no_shade_rules(self):
+        original=Image.new('RGBA',(420,300),'#b0b0b0');image=original.copy()
+        face=serif(28,True);label=font(21,'SemiBold')
+        colour,score,alpha=protect_text(image,(48,110),['Čuvaj riječ.'],face,['#ffffff'],4.5,
+            (20,50,400,200),extra=[((48,65),['PRIMJER'],label)])
+        self.assertEqual(colour,'#ffffff');self.assertGreaterEqual(score,4.5);self.assertGreater(alpha,0)
+        bounds=ImageChops.difference(image.convert('RGB'),original.convert('RGB')).getbbox()
+        self.assertGreaterEqual(bounds[0],20);self.assertGreaterEqual(bounds[1],50)
+        self.assertLessEqual(bounds[2],400);self.assertLessEqual(bounds[3],200)
+        readable=Image.new('RGBA',(420,300),'#000000');before=readable.tobytes()
+        self.assertEqual(protect_text(readable,(48,110),['Čuvaj riječ.'],face,['#ffffff'],4.5)[2],0)
+        self.assertEqual(readable.tobytes(),before)
+        untouched=original.copy()
+        with self.assertRaisesRegex(ValueError,'Unshaded photo text fails'):
+            protect_text(untouched,(48,110),['Čuvaj riječ.'],face,['#ffffff'],4.5,allow_fade=False)
+        self.assertEqual(untouched.tobytes(),original.tobytes())
+
+    def test_real_card_keeps_model_choices_exact_with_narrower_fades(self):
+        card=reviewed_fixture()['cards'][2];source=copy.deepcopy(card)
+        plan=default_plan(card);plan.update(confidence='high',heading_tone='paper_ink')
+        plan['blocks'][-1]['photo_tone']='paper_ink'
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#b0b0b0').save(photo)
+            with patch('easybosnian.hybrid.PHOTO_FADE_FEATHER',100):
+                old=render_hybrid(card,'gold-cream',photo,root/'old.jpg',plan)
+            new=render_hybrid(card,'gold-cream',photo,root/'new.jpg',plan)
+            self.assertNotEqual((root/'old.jpg').read_bytes(),(root/'new.jpg').read_bytes())
+            self.assertEqual(new['composition'],plan);self.assertEqual(old['composition'],plan)
+            for key in ('heading_colour','example_colour','heading_shading','example_shading',
+                        'panel_bounds','example_bounds','block_styles','block_typography'):
+                self.assertEqual(new[key],old[key],key)
+            self.assertGreaterEqual(new['heading_contrast'],3)
+            self.assertGreaterEqual(new['example_contrast'],4.5)
+            self.assertGreaterEqual(new['body_contrast'],4.5)
+            self.assertEqual(measured_plan(card,plan)[0]['rows'].reconstructed(),card['body'])
+            self.assertEqual(card,source)
