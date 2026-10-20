@@ -29,7 +29,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Unsupported explanation/answer style'):
             block_spec(card,'body',952,'caption')
         self.assertNotIn('caption',BODY_STYLES)
-        self.assertEqual(set(BODY_STYLES)-{'plain'},set(PANEL_STYLES)-{'pill'})
+        self.assertEqual(set(BODY_STYLES)-{'plain'},set(PANEL_STYLES)-{'pill','folded_corner'})
         plan['blocks'][0]['style']='plain'
         with self.assertRaisesRegex(ValueError,'Paper styles require the editorial design'):
             measured_plan(card,plan)
@@ -148,7 +148,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['body_contrast'],4.5)
                 self.assertEqual(metrics['block_styles']['body'],style)
                 outputs[style]=(root/'card.jpg').read_bytes()
-            self.assertEqual(len(set(outputs.values())),13)
+            self.assertEqual(len(set(outputs.values())),14)
             for style in EXAMPLE_STYLES:
                 plan=editorial_plan(card) if style=='italic_footer' else default_plan(card)
                 plan['blocks'][-1]['style']=style
@@ -183,7 +183,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertTrue(all(b==bounds[0] for b in bounds))
                 self.assertEqual(len(set(pixels)),4)
                 variants[style]=pixels[0]
-            self.assertEqual(len(set(variants.values())),13)
+            self.assertEqual(len(set(variants.values())),15)
         self.assertEqual(quiz,before)
 
     def test_shared_answer_row_aligns_panel_heights_badges_and_glyph_baselines(self):
@@ -205,7 +205,8 @@ class DeclarativeVisualContractTests(unittest.TestCase):
             with patch('easybosnian.hybrid.draw_rows',wraps=draw_rows) as drawing:
                 metrics=render_hybrid(quiz,'charcoal-lemon',root/'photo.jpg',root/'quiz.jpg',plan)
             calls=[c for c in drawing.call_args_list if hasattr(c.args[2],'source')
-                   and c.args[2].source in [o['text'] for o in quiz['options']]]
+                   and c.args[2].source in [o['text'] for o in quiz['options']]
+                   and isinstance(c.args[4],str)]  # Exclude glyph masks used for contrast checks.
             self.assertEqual(len(calls),3)
             # draw_rows subtracts actual glyph top; compare the common origin,
             # rather than demanding accent pixels begin at the same height.
@@ -283,7 +284,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],16)
+        self.assertEqual(expected['rendering_version'],18)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

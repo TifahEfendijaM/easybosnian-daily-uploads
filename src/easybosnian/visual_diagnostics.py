@@ -11,6 +11,7 @@ PALETTE_REASONS = {
     'chatgpt': frozenset(('ChatGPT selected this approved palette',)),
     'fallback': frozenset(('ChatGPT palette missing', 'ChatGPT palette not approved',
         'ChatGPT palette fails text contrast', 'ChatGPT palette fails photographic contrast',
+        'Repeated palette lacks required suitability exception',
         'Review unavailable; using preparation palette')),
     'unknown': frozenset(('Palette source not recorded in this older run',)),
 }
@@ -68,6 +69,10 @@ def review_failure(error):
 def rendering_outcome(card, review_status=None):
     """Only trusted classifications can reach the summary or recent-design context."""
     status=card.get('status')
+    if status=='adjusted':
+        from .visual_adjustment import safe_adjustment
+        safe_adjustment(card.get('layout_adjustment'))
+        return {'source':'chatgpt','reason':'Pillow preserved ChatGPT’s design with measured placement adjustments'}
     if status=='accepted':return {'source':'chatgpt','reason':'Pillow validated and used ChatGPT’s layout choices'}
     if card.get('rejection'):
         return {'source':'fallback','reason':'Pillow rejected the proposal: '+safe_rejection(card['rejection'])['reason']}
@@ -79,6 +84,13 @@ def rendering_outcome(card, review_status=None):
     return {'source':'unknown','reason':'rendering decision not recorded in this older run'}
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Actual panel text contrast fails; never publish unreadable copy',
+    'Unboxed editorial body cannot set panel opacity',
+    'Unboxed editorial body requires automatic palette ink',
+    'Unsupported panel colour treatment',
+    'Unsupported fade treatment',
+    'Category text fails measured contrast',
+    'Folded answers are limited to two measured lines',
     'Actual glyphs exceed block width',
     'Actual photographic text contrast fails; never publish unreadable copy',
     'An unbreakable word exceeds the available width',

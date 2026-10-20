@@ -15,7 +15,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':16, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
+    return {'rendering_version':18, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -84,7 +84,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     palette_outcome={'source':'fallback','reason':'Review unavailable; using preparation palette'}
                 model_accepted=status=='reviewed' and plan['confidence']=='high'
                 plan=dict(plan,palette=palette) if model_accepted else default_plan(card)
-                rejection=None;palette_rejection=None
+                rejection=None;palette_rejection=None;layout_adjustment=None
                 stage='Pillow rendering'
                 def render_selected(selected_plan):
                     nonlocal palette,palette_outcome,palette_rejection
@@ -115,17 +115,31 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     rejection=rejection_diagnostic(error,plan)
                     write_json(output/f'{kind}-rejection-result.json',{'batch':date,'batch_id':package.get('batch_id'),
                                'card':kind,**rejection})
-                    print(f"::warning::{kind} composition rejected: {rejection['reason']}; using measured fallback without retry")
-                    # Palette was independently resolved; replacing the layout
-                    # must not replace a valid model-selected palette too.
-                    metrics=render_selected(default_plan(card))
-                    decision_status='rejected; safe hybrid fallback'
+                    from .visual_adjustment import nearest_valid_plan
+                    adjusted=nearest_valid_plan(card,plan,background) if model_accepted else None
+                    if adjusted is not None:
+                        try:
+                            metrics=render_selected(adjusted[0])
+                            layout_adjustment=adjusted[1];decision_status='adjusted'
+                            print(f'::notice::{kind} approved design retained with measured placement adjustments')
+                        except ValueError as adjusted_error:
+                            rejection=rejection_diagnostic(adjusted_error,adjusted[0])
+                            metrics=render_selected(default_plan(card))
+                            decision_status='rejected; safe hybrid fallback'
+                    else:
+                        # Unsupported/unreadable/impossible proposals still need
+                        # a safe exact-copy fallback, preserving the resolved palette.
+                        metrics=render_selected(default_plan(card))
+                        decision_status='rejected; safe hybrid fallback'
+                    if layout_adjustment is None:
+                        print(f"::warning::{kind} composition rejected: {rejection['reason']}; using measured fallback without retry")
                 decisions[kind]={'position':metrics['panel_position'],'status':decision_status,
                                  'palette':metrics['palette'],'design':metrics['design'],'category_style':metrics['category_style'],
                                  'heading_tone':metrics['heading_tone'],'example_tone':metrics['example_tone'],
                                  'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],
                                  'block_typography':metrics['block_typography'],'composition':metrics.get('composition'),
                                  'palette_outcome':palette_outcome,
+                                 **({'layout_adjustment':layout_adjustment} if layout_adjustment is not None else {}),
                                  **({'rejection':rejection} if rejection is not None else {}),
                                  **({'palette_rejection':palette_rejection} if palette_rejection is not None else {})}
                 if proposal.get('failure_reason') in REVIEW_FAILURES:

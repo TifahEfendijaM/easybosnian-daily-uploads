@@ -50,7 +50,7 @@ class VisualProvenanceTests(unittest.TestCase):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
         proposal['cards']['lesson']['palette']={'untrusted':'private model prose'}
         proposal['cards']['lesson']['blocks'][0]['style']='outlined'
-        proposal['cards']['word']['blocks'][0].update(style='outlined',y=200)
+        proposal['cards']['word']['blocks'][0].update(style='outlined',max_lines=1)
         placement,metrics=self.render(package,proposal)
         quiz,lesson,word=(placement['cards'][kind] for kind in ('quiz','lesson','word'))
         self.assertEqual([quiz['provenance'][key]['source'] for key in ('layout','palette')],['chatgpt','chatgpt'])
@@ -116,7 +116,7 @@ class VisualProvenanceTests(unittest.TestCase):
 
     def test_both_fields_fall_back_when_layout_is_invalid_too(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
-        proposal['cards']['word']['palette']='invalid';proposal['cards']['word']['blocks'][0]['y']=200
+        proposal['cards']['word']['palette']='invalid';proposal['cards']['word']['blocks'][0]['max_lines']=1
         placement,_=self.render(package,proposal)
         word=placement['cards']['word']
         self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['fallback','fallback'])
@@ -124,7 +124,7 @@ class VisualProvenanceTests(unittest.TestCase):
 
     def test_fallback_layout_can_also_require_a_palette_fallback(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
-        proposal['cards']['word']['blocks'][0]['y']=200
+        proposal['cards']['word']['blocks'][0]['max_lines']=1
         def render(card,palette,background,path,plan=None):
             if card['kind']=='word' and plan and plan['confidence']=='uncertain' and palette=='terracotta-sand':
                 raise ValueError('Unshaded photo text fails measured contrast')
@@ -163,7 +163,7 @@ class VisualProvenanceTests(unittest.TestCase):
     def test_summaries_and_markdown_html_json_reports_show_both_sources(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
         proposal['cards']['lesson']['palette']='invalid'
-        proposal['cards']['word']['blocks'][0]['y']=200
+        proposal['cards']['word']['blocks'][0]['max_lines']=1
         placement,_=self.render(package,proposal)
         data=with_rendering(report_data(package,results(),RUN),placement)
         text,markup=render_report(data);summary=visual_summary(content_data(package,RUN),placement)

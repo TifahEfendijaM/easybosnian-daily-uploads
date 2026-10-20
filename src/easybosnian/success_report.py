@@ -9,7 +9,8 @@ from urllib.parse import urlparse
 from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE)
+                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES, PANEL_STYLES,
+                      PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
 from .core import PROJECT, REPO, ROOT, read_json, write_json
 
@@ -98,6 +99,9 @@ def with_rendering(data,placement):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
                 rendered[LABELS[kind]][field]=result[field]
+        if result.get('layout_adjustment') is not None:
+            from .visual_adjustment import safe_adjustment
+            rendered[LABELS[kind]]['layout_adjustment']=safe_adjustment(result['layout_adjustment'])
         if result.get('composition') is not None:
             composition=approved_proposal(result['composition'])
             if composition is None:
@@ -107,6 +111,14 @@ def with_rendering(data,placement):
                     composition.get('palette',result['palette'])!=result['palette']):
                 raise ValueError('Final composition differs from rendered design metadata')
             rendered[LABELS[kind]]['composition']=composition
+        if result.get('layout_adjustment') is not None:
+            final=rendered[LABELS[kind]].get('composition')
+            if final is None:raise ValueError('Placement adjustment differs from rendered composition')
+            for move in rendered[LABELS[kind]]['layout_adjustment']['moves']:
+                target=final['photo_window'] if move['element']=='photo_window' else next(
+                    (b for b in final['blocks'] if b['role']==move['element']),None)
+                if target is None or any(target[k]!=v for k,v in move['to'].items()):
+                    raise ValueError('Placement adjustment differs from rendered composition')
         if result.get('rejection') is not None:rendered[LABELS[kind]]['rejection']=safe_rejection(result['rejection'])
         if result.get('palette_rejection') is not None:rendered[LABELS[kind]]['palette_rejection']=safe_rejection(result['palette_rejection'])
 
@@ -129,6 +141,13 @@ def decision_lines(rendering):
     if category:lines.append('Category: '+CATEGORY_CATALOGUE[category])
     tone=rendering.get('heading_tone')
     if tone:lines.append('Title: '+PHOTO_TONE_CATALOGUE[tone])
+    if composition:
+        lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
+        lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
+        if (composition.get('palette_exception')=='no_other_suitable_palette'
+                and rendering['palette']=='terracotta-sand'
+                and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):
+            lines.append('Repeated-palette exception: ChatGPT declared no other approved palette suitable.')
     for role,style in rendering['block_styles'].items():
         label='PRIMJER' if role=='example' else 'Explanation' if role=='body' else 'Answer '+role
         lines.append(label+': '+STYLE_CATALOGUE[style])
@@ -138,12 +157,23 @@ def decision_lines(rendering):
             lines.append('PRIMJER colours: '+PHOTO_TONE_CATALOGUE[rendering['example_tone']])
         if composition:
             block=next(b for b in composition['blocks'] if b['role']==role)
+            if style in PANEL_STYLES:
+                preset=block.get('panel_opacity')
+                alpha=PANEL_OPACITIES[preset] if preset else (235 if style=='overlay_light' else 255)
+                lines.append(label+' surface opacity: '+(preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
+                lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
+            if role=='example':lines.append('PRIMJER fade: '+block.get('fade_style','standard')+'.')
             vertical='upper' if block['y']<450 else 'middle' if block['y']<900 else 'lower'
             centre=block['x']+block['width']/2
             horizontal='left' if centre<450 else 'right' if centre>630 else 'centre'
             lines.append(label+' placement: '+vertical+' '+horizontal+
                          f"; x={block['x']}, y={block['y']}, width={block['width']}; "
                          f"target font {block['font_size']}px, line spacing {block['line_spacing']}×.")
+    if rendering.get('layout_adjustment'):
+        from .visual_adjustment import safe_adjustment
+        for move in safe_adjustment(rendering['layout_adjustment'])['moves']:
+            lines.append('Pillow placement adjustment — '+move['element']+': '+
+                         json.dumps(move['from'],sort_keys=True)+' → '+json.dumps(move['to'],sort_keys=True)+'.')
     return lines
 
 
@@ -195,7 +225,7 @@ def render_report(data):
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
-            text+='**Layout fallback:** '+markdown_text(safe['reason'])+'\n\n'
+            text+=('**Placement validation before adjustment:** ' if card['rendering'].get('layout_adjustment') else '**Layout fallback:** ')+markdown_text(safe['reason'])+'\n\n'
             text+='<details><summary>Rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(safe['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
         text+=prompt_block(card['prompt'])
     text+='### Publication results\n\n'
@@ -226,7 +256,8 @@ def render_report(data):
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
-            markup+='<p><strong>Layout fallback:</strong> '+html.escape(safe['reason'])+'</p><details><summary>Rejected approved rendering parameters</summary><pre>'+html.escape(json.dumps(safe['proposal'],ensure_ascii=False,indent=2))+'</pre></details>'
+            label='Placement validation before adjustment:' if card['rendering'].get('layout_adjustment') else 'Layout fallback:'
+            markup+='<p><strong>'+label+'</strong> '+html.escape(safe['reason'])+'</p><details><summary>Rejected approved rendering parameters</summary><pre>'+html.escape(json.dumps(safe['proposal'],ensure_ascii=False,indent=2))+'</pre></details>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'
     for platform in data['platforms']:

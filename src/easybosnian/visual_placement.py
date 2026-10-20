@@ -8,7 +8,8 @@ from PIL import Image, ImageOps
 from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
-                     CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE)
+                     CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
+                     PANEL_TONES, FADE_STYLES)
 
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
@@ -26,8 +27,11 @@ def block_schema(role, styles):
                 'line_spacing':{'type':'number','minimum':LEADING_RANGE[0],'maximum':LEADING_RANGE[1]},
                 'max_lines':{'anyOf':[{'type':'null'},{'type':'integer','minimum':1,'maximum':12}]},
                 'wrapping':{'enum':list(WRAPPING)},
+                **({'panel_opacity':{'enum':list(PANEL_OPACITIES)}} if role!='example' else {}),
+                **({'panel_tone':{'enum':list(PANEL_TONES)}} if role!='example' else {}),
                 **({'marker_style':{'enum':list(MARKER_STYLES)}} if role=='answer' else {}),
-                **({'photo_tone':{'enum':list(PHOTO_TONES)}} if role=='example' else {})}}
+                **({'photo_tone':{'enum':list(PHOTO_TONES)},
+                    'fade_style':{'enum':list(FADE_STYLES)}} if role=='example' else {})}}
 
 
 BLOCK_SCHEMA = {'anyOf':[block_schema('body',BODY_STYLES),
@@ -40,7 +44,10 @@ CARD_SCHEMA = {
         'design':{'enum':list(DESIGNS)},
         'palette':{'enum':list(read_json(ROOT/'data/design-palettes.json'))},
         'category_style':{'enum':list(CATEGORY_STYLES)},
+        'category_tone':{'enum':list(PANEL_TONES)},
         'heading_tone':{'enum':list(PHOTO_TONES)},
+        'heading_fade':{'enum':list(FADE_STYLES)},
+        'palette_exception':{'enum':['none','no_other_suitable_palette']},
         'photo_window':{'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,
             'required':['y','height','fit'],'properties':{'fit':{'enum':['contain','cover']},'y':{'type':'integer','minimum':250,'maximum':770},
                 'height':{'type':'integer','minimum':240,'maximum':800}}}]},
@@ -78,6 +85,8 @@ def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
     from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
+    from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
+    window=palette_window(recent)
     context=[]
     for card in package['cards']:
         blocks=[]
@@ -108,6 +117,15 @@ def review_compositions(package, candidates, recent=()):
         'or for matching the quiz. Similar photos may independently lead to the same palette, '
         'but never sacrifice a better per-image match for batch uniformity or forced variety. '
         'Complement real materials/light; never recolour the photo. '
+        'The following explicit terracotta-sand restriction takes precedence over preferring the single best match; alternatives must still be suitable. '
+        'Palette repetition rule: evaluate the last nine known image palettes in chronological '
+        'order, including choices earlier in this batch (quiz then lesson then word). If '
+        'terracotta-sand occurred THREE OR MORE times in that rolling window, first assess '
+        'every other approved palette that could fit this actual photo. Choose a suitable '
+        'alternative even if terracotta-sand would be slightly preferable. Only when absolutely '
+        'no other palette suits the photo may you select terracotta-sand with '
+        'palette_exception=no_other_suitable_palette; otherwise palette_exception=none. '
+        'Never choose a clashing alternative or change the photo to manufacture variety. '
         'Choose each block x,y,width freely in the 1080x1350 coordinate system, not from a fixed '
         'top/bottom menu. Category and serif heading stay fixed. Preserve all block roles in the '
         'given array order; no new text. A rectangular two-by-two answer grid is appropriate only with four existing options: align A/B on one row and C/D on another, with matching column anchors. With three options, choose an intentional three-card arrangement (for example centre C beneath A/B) rather than an accidental incomplete grid. Never invent a fourth option during visual review. Choose design=hybrid or editorial, and a supported style '
@@ -115,16 +133,29 @@ def review_compositions(package, candidates, recent=()):
         'not metadata: Pillow owns fonts, category/title anchors, borders and exact drawing. '
         'Choose category_style from the approved category catalogue independently of body/answer '
         'styles. The ribbon, underline and pill category designs are fully available. '
+        'For each body/answer panel choose panel_opacity=solid (100%), soft (about 90%) or '
+        'translucent (75%) to suit the actual photo. A softer surface can integrate the box '
+        'with the photograph, but text must remain clearly readable; busy or strongly contrasting '
+        'areas may need solid. Text, badges and decorative rules stay opaque. Plain editorial '
+        'body must use solid; examples have no panel_opacity. No arbitrary alpha. '
+        'Also choose panel_tone and category_tone: auto preserves the style default; ink_paper '
+        'means dark ink text/paper surface, paper_ink light paper text/ink surface, ink_accent '
+        'ink text/accent surface, and accent_ink accent text/ink surface. Mix these approved '
+        'palette roles per block when harmonious with the photograph and the rest of the card. '
+        'Do not assume text must be white or black. Exact composited contrast must pass. '
+        'Plain editorial copy requires panel_tone=auto. Newly available soft_corner panels '
+        'have three rounded corners and a square lower-left; folded_corner is an answer-only '
+        'top-right folded slip. All existing styles remain available. '
         'Choose heading_tone and example photo_tone only from the approved photo-colour catalogue: '
-        'auto, paper_dark, ink_light, paper_ink, ink_paper or accent_ink. These presets can produce '
+        'auto, paper_dark, ink_light, paper_ink, ink_paper, accent_ink, ink_accent, accent_dark, '
+        'accent_light or paper_accent. These presets can produce '
         'light text on a dark fade, dark text on a light fade, or palette-coloured text/fades. '
         'No custom colour or opacity. Auto lets Pillow select readable approved paper/ink text. '
-        'For titles over the photograph and photographic PRIMJER, prefer paper_dark: approved '
-        'light paper text with a renderer-owned dark fade when contrast requires it. This is the '
-        'default photographic text treatment. Reserve dark text over a light fade (ink_light or '
-        'ink_paper) for cases where it clearly suits this actual photograph better than the '
-        'light-text/dark-fade alternative in readability, colour harmony and composition. '
-        'Recent use or a desire for variety alone does not justify reversing that preference. '
+        'Compare suitable light, dark and palette-accent text/backing combinations for this '
+        'photograph; no white/black-text default overrides a more harmonious readable choice. '
+        'Choose heading_fade and photographic example fade_style independently: standard is '
+        'the existing strip feather, soft is a compact four-sided smoothly feathered backing '
+        'around the glyph region. Prefer compact low-impact shading; avoid large opaque washes. '
         'For a paper-surface heading (any photo_window) and editorial italic_footer use auto. '
         'For italic_photo there is NO fade even with an explicit tone; contrast must pass as-is. '
         'Choose colours for readability and harmony, never variety for its own sake. '
@@ -207,7 +238,8 @@ def review_compositions(package, candidates, recent=()):
         'Use high confidence only for a considered, readable composition. The wrapper independently '
         'measures fit/overlap/contrast and falls back rather than changing copy. Design catalogue: '
         +json.dumps(STYLE_CATALOGUE)+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
-        +' Photo-colour catalogue: '+json.dumps(PHOTO_TONE_CATALOGUE)+' Palette catalogue: '
+        +' Photo-colour catalogue: '+json.dumps(PHOTO_TONE_CATALOGUE)+' Palette repetition policy: '
+        +json.dumps(palette_policy(window))+' Rolling prior palette window: '+json.dumps(window)+' Palette catalogue: '
         +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Recent accepted choices: '
         +json.dumps(recent,ensure_ascii=False)+' Context: '+json.dumps(context,ensure_ascii=False))
     try:
@@ -224,8 +256,15 @@ def review_compositions(package, candidates, recent=()):
         for kind in KINDS:
             plan=result['cards'][kind]
             palette,palette_decisions[kind]=select_palette(plan if isinstance(plan,dict) else {},package['design_palette'])
+            if (palette_decisions[kind]['source']=='chatgpt' and palette==REPEATED_PALETTE and palette_policy(window)['alternatives_first']
+                    and isinstance(plan,dict) and plan.get('palette_exception')!='no_other_suitable_palette'):
+                palette=package['design_palette']
+                palette_decisions[kind]={'source':'fallback','reason':'Repeated palette lacks required suitability exception'}
+            window=(window+[palette])[-9:]
             if isinstance(plan,dict):plan['palette']=palette
-            if list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)):
+            from .visual_adjustment import adjustable_proposal
+            if (list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan))
+                    and adjustable_proposal(plan,model=True) is None):
                 # Reject this entire layout, never arbitrary field repairs or
                 # valid sibling layouts. Independently approved palette survives.
                 card_failures[kind]='review violated the declarative schema'
