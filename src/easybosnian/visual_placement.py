@@ -140,9 +140,12 @@ def review_compositions(package, candidates, recent=()):
         'opacity and placement before selecting the best-fitting combination. Do not force '
         'variety or prefer an unusual option merely because it is less familiar. '
         'The following explicit terracotta-sand restriction takes precedence over preferring the single best match; alternatives must still be suitable. '
-        'Palette repetition rule: evaluate the last nine known image palettes in chronological '
-        'order, including choices earlier in this batch (quiz then lesson then word). If '
-        'terracotta-sand occurred THREE OR MORE times in that rolling window, first assess '
+        'Palette repetition rule: normally use terracotta-sand AT MOST TWICE in any consecutive '
+        'nine image cards INCLUDING the card being chosen: count the eight preceding known '
+        'palettes in chronological order, including earlier choices in this batch '
+        '(quiz then lesson then word). Also avoid a SECOND use within the SAME BATCH. If '
+        'two of those preceding eight cards use terracotta-sand OR an earlier card in this '
+        'batch uses it, first assess '
         'every other approved palette that could fit this actual photo. Choose a suitable '
         'alternative even if terracotta-sand would be slightly preferable. Only when absolutely '
         'no other palette suits the photo may you select terracotta-sand with '
@@ -281,16 +284,17 @@ def review_compositions(package, candidates, recent=()):
         if (not isinstance(result,dict) or set(result)!={'cards'} or
                 not isinstance(result['cards'],dict) or set(result['cards'])!=set(KINDS)):
             raise ValueError('Invalid visual composition')
-        palette_decisions={};card_failures={}
+        palette_decisions={};card_failures={};batch_palettes=[]
         cards={card['kind']:card for card in package['cards']}
         for kind in KINDS:
             plan=result['cards'][kind]
             palette,palette_decisions[kind]=select_palette(plan if isinstance(plan,dict) else {},package['design_palette'])
-            if (palette_decisions[kind]['source']=='chatgpt' and palette==REPEATED_PALETTE and palette_policy(window)['alternatives_first']
+            if (palette_decisions[kind]['source']=='chatgpt' and palette==REPEATED_PALETTE and palette_policy(window,batch_palettes)['alternatives_first']
                     and isinstance(plan,dict) and plan.get('palette_exception')!='no_other_suitable_palette'):
                 palette=package['design_palette']
                 palette_decisions[kind]={'source':'fallback','reason':'Repeated palette lacks required suitability exception'}
             window=(window+[palette])[-9:]
+            batch_palettes.append(palette)
             if isinstance(plan,dict):plan['palette']=palette
             from .visual_adjustment import adjustable_proposal
             if (list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan))

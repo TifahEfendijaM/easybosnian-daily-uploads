@@ -22,10 +22,14 @@ def palette_window(recent):
     return values[-9:]
 
 
-def palette_policy(window):
-    return {'palette':REPEATED_PALETTE,'window_size':9,'known_images':len(window[-9:]),
-            'recent_uses':window[-9:].count(REPEATED_PALETTE),
-            'alternatives_first':window[-9:].count(REPEATED_PALETTE)>=3}
+def palette_policy(window, batch=()):
+    # The proposed card is the ninth image, so only eight preceding cards
+    # remain in its window. Batch usage also counts when older cards age out.
+    prior=window[-8:];recent_uses=prior.count(REPEATED_PALETTE)
+    batch_uses=batch.count(REPEATED_PALETTE)
+    return {'palette':REPEATED_PALETTE,'window_size':9,'known_images':len(prior),
+            'max_uses':2,'recent_uses':recent_uses,'max_per_batch':1,'batch_uses':batch_uses,
+            'alternatives_first':recent_uses>=2 or batch_uses>=1}
 
 
 def accepted_choices(placement):

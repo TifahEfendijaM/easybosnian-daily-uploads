@@ -33,6 +33,8 @@ class HybridCompositionTests(unittest.TestCase):
 
     def test_one_readonly_photo_call_chooses_free_geometry_and_palette_without_private_answers(self):
         result=self.decision()
+        for kind,palette in zip(KINDS,('blue-ice','forest-cream','terracotta-sand')):
+            result['cards'][kind]['palette']=palette
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(result)) as child:
             decisions,status=review_compositions(reviewed_fixture(),self.candidates())
         self.assertEqual(decisions['cards'],result['cards']);self.assertEqual(status,'reviewed');child.assert_called_once()
