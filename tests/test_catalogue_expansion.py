@@ -90,25 +90,29 @@ class CatalogueExpansionTests(unittest.TestCase):
 
     def test_repetition_exception_is_required_and_prior_batch_choices_update_window(self):
         package=reviewed_fixture();base={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='terracotta-sand') for c in package['cards']}}
+        package['design_palette']='forest-cream'
         candidates={k:{'sheet':Path(k+'.jpg')} for k in base['cards']}
         recent=[{'palette_observations':['terracotta-sand']*2+['forest-cream']*7}]
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(base)) as child:
             result,status=review_compositions(package,candidates,recent)
         self.assertEqual(status,'reviewed')
         self.assertEqual(result['palette_decisions']['quiz']['source'],'chatgpt')
-        # Quiz enters the rolling window; one old terracotta leaves, so it is
-        # still not at three. Use a full window with its old uses at the end.
+        self.assertEqual(result['palette_decisions']['lesson']['source'],'fallback')
+        self.assertEqual(result['palette_decisions']['word']['source'],'fallback')
+        # Two recent uses already occupy the preceding eight slots: a third
+        # requires the exception even for the first image in this batch.
         recent=[{'palette_observations':['forest-cream']*7+['terracotta-sand']*2}]
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(base)):
             result,_=review_compositions(package,candidates,recent)
-        self.assertEqual(result['palette_decisions']['quiz']['source'],'chatgpt')
+        self.assertEqual(result['palette_decisions']['quiz']['source'],'fallback')
         self.assertEqual(result['palette_decisions']['lesson']['source'],'fallback')
         allowed=copy.deepcopy(base)
         for plan in allowed['cards'].values():plan['palette_exception']='no_other_suitable_palette'
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(allowed)):
             result,_=review_compositions(package,candidates,recent)
         self.assertTrue(all(v['source']=='chatgpt' for v in result['palette_decisions'].values()))
-        self.assertIn('THREE OR MORE',child.call_args.args[0])
+        self.assertIn('AT MOST TWICE',child.call_args.args[0])
+        self.assertIn('SECOND use within the SAME BATCH',child.call_args.args[0])
 
     def test_nearby_geometry_translation_preserves_all_non_position_choices(self):
         card=reviewed_fixture()['cards'][2]

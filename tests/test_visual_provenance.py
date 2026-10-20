@@ -25,7 +25,8 @@ class VisualProvenanceTests(unittest.TestCase):
 
     def proposal(self,package):
         return {'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='terracotta-sand',
-                                      category_style='ribbon') for c in package['cards']}}
+                                      category_style='ribbon',palette_exception='no_other_suitable_palette')
+                         for c in package['cards']}}
 
     def render(self,package,proposal,render_override=None):
         stream=io.BytesIO();Image.new('RGB',(1024,1024),'#728192').save(stream,'JPEG')
