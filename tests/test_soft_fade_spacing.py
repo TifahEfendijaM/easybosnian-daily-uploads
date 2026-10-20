@@ -7,7 +7,7 @@ from unittest.mock import patch
 from PIL import Image
 from easybosnian.hybrid import (protect_text,serif,heading,default_plan,measured_plan,render_hybrid,
                                 EXAMPLE_BLOCK_GAP,HEADING_TOP,CATEGORY_TOP,CATEGORY_HEIGHT,
-                                TITLE_SHADE_LEVELS,TITLE_FADE_POWER)
+                                TITLE_SHADE_LEVELS,TITLE_FADE_POWER,TITLE_SURROUND_OPACITY)
 from easybosnian.visual_adjustment import nearest_valid_plan
 from easybosnian.render import measure
 from test_project import reviewed_fixture
@@ -21,7 +21,7 @@ class SoftFadeSpacingTests(unittest.TestCase):
         legacy=protect_text(old,(64,HEADING_TOP),rows,face,['#ffffff'],3,**settings)
         gentle=protect_text(new,(64,HEADING_TOP),rows,face,['#ffffff'],3,
                             feather_power=TITLE_FADE_POWER,**settings)
-        # Real title core stays readable and unchanged; it is not a blind 0.6 multiplier.
+        # The glyph core stays readable; only the surrounding shade gets weaker.
         self.assertEqual(gentle,legacy);self.assertGreaterEqual(gentle[1],3)
         self.assertEqual(new.getpixel((540,HEADING_TOP+20)),old.getpixel((540,HEADING_TOP+20)))
         for image in (old,new):
@@ -29,11 +29,38 @@ class SoftFadeSpacingTests(unittest.TestCase):
             self.assertEqual(image.getpixel((540,bottom+100)),source.getpixel((540,bottom+100)))
         old_opacity=255-old.getpixel((540,bottom+50))[0]
         new_opacity=255-new.getpixel((540,bottom+50))[0]
-        self.assertAlmostEqual(new_opacity/old_opacity,.60,delta=.03)
+        self.assertAlmostEqual(new_opacity/old_opacity,.35,delta=.03)
         steps=[new.getpixel((540,y))[0] for y in range(bottom,bottom+101)]
         self.assertLessEqual(max(abs(a-b) for a,b in zip(steps,steps[1:])),5)
         self.assertEqual(tuple(sorted(set(TITLE_SHADE_LEVELS))),TITLE_SHADE_LEVELS)
         self.assertTrue(set((90,130,170,210,240)).issubset(TITLE_SHADE_LEVELS))
+
+    def test_both_title_presets_reduce_unnecessary_full_width_opacity_but_keep_glyph_protection(self):
+        face=serif(74);rows=['rep'];source=Image.new('RGBA',(1080,1350),'white')
+        for preset in ('standard','defined'):
+            with self.subTest(preset=preset):
+                old=source.copy();new=source.copy()
+                settings=dict(region_limit=(0,127,1080,1350),feather=100,
+                              shade_levels=(130,),feather_power=TITLE_FADE_POWER,fade_style=preset)
+                legacy=protect_text(old,(64,HEADING_TOP),rows,face,['#ffffff'],3,**settings)
+                lighter=protect_text(new,(64,HEADING_TOP),rows,face,['#ffffff'],3,
+                                     surround_opacity=TITLE_SURROUND_OPACITY,**settings)
+                self.assertEqual(lighter,legacy);self.assertGreaterEqual(lighter[1],3)
+                self.assertEqual(new.getpixel((100,HEADING_TOP+20)),old.getpixel((100,HEADING_TOP+20)))
+                old_opacity=255-old.getpixel((1070,HEADING_TOP+20))[0]
+                new_opacity=255-new.getpixel((1070,HEADING_TOP+20))[0]
+                self.assertAlmostEqual(new_opacity/old_opacity,.35,delta=.02)
+                self.assertEqual(new.crop((0,0,1080,127)).tobytes(),source.crop((0,0,1080,127)).tobytes())
+                # The horizontal transition itself is smooth, not a new box edge.
+                samples=[new.getpixel((x,HEADING_TOP+20))[0] for x in range(1080)]
+                self.assertLessEqual(max(abs(a-b) for a,b in zip(samples,samples[1:])),2)
+
+    def test_title_can_use_very_faint_shading_when_it_satisfies_actual_contrast(self):
+        image=Image.new('RGBA',(1080,1350),'#979797')
+        _,score,alpha=protect_text(image,(64,HEADING_TOP),['Čuvaj riječ.'],serif(74),['#ffffff'],3,
+             (0,127,1080,1350),feather=100,shade_levels=TITLE_SHADE_LEVELS,
+             feather_power=TITLE_FADE_POWER,surround_opacity=TITLE_SURROUND_OPACITY)
+        self.assertEqual(alpha,12);self.assertGreaterEqual(score,3)
 
     def test_renderer_keeps_low_example_text_safe_but_allows_its_fade_to_finish(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)

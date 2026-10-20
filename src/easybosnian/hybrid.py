@@ -22,11 +22,13 @@ EXAMPLE_FADE_PADDING = 18
 PHOTO_FADE_FEATHER = 48
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
-# Lighter title candidates precede the original safety strengths. At the
-# midpoint of a feather, this exponent leaves about 60% of its former opacity;
-# the measured glyph band retains whatever strength readability actually needs.
-TITLE_SHADE_LEVELS = (54, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
-TITLE_FADE_POWER = 1.75
+# Start with faint title backings; stronger candidates require measured need.
+TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
+TITLE_FADE_POWER = 2.5
+# Fade unnecessary shade away from the measured title span. Keep the full
+# needed strength under its glyphs and the chosen preset's vertical edge type.
+TITLE_SURROUND_OPACITY = .35
+TITLE_SURROUND_FEATHER = 180
 
 
 def serif(size, italic=False):
@@ -262,7 +264,7 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -285,6 +287,17 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     # Never recolour the scene to fit the selected accent.
     best=None
     left,top,right,bottom=region_limit or (0,0,WIDTH,HEIGHT)
+    surround_mask=None
+    if surround_opacity<1:
+        # Renderer-only opacity profile, never a model-supplied drawing rule.
+        # One bright glyph must not darken an otherwise empty full-width band.
+        box=mask.getbbox();values=[]
+        for x in range(image.width):
+            distance=max(box[0]-20-x,x-box[2]-20,0)
+            t=min(1,distance/TITLE_SURROUND_FEATHER);t=t*t*(3-2*t)
+            values.append(round(255*(1-(1-surround_opacity)*t)))
+        surround_mask=Image.new('L',(image.width,1));surround_mask.putdata(values)
+        surround_mask=surround_mask.resize(image.size,Image.Resampling.NEAREST)
     soft_mask=None
     if fade_style=='soft':
         # A compact, four-sided feather around the exact glyph region, rather
@@ -323,6 +336,8 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                     else:t=1
                     t=max(0,min(1,t));opacity=round(alpha*(t*t*(3-2*t))**feather_power)
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
+            if surround_mask is not None:
+                overlay.putalpha(ImageChops.multiply(overlay.getchannel('A'),surround_mask))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)
             if score>=threshold:
@@ -490,7 +505,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
             (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
-            shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER)
+            shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
+            surround_opacity=TITLE_SURROUND_OPACITY)
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
