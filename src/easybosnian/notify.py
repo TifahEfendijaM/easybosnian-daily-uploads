@@ -17,6 +17,8 @@ NEXT={
 
 
 def next_step(stage,error):
+    if getattr(error,'reason',None)=='instagram_deletion_refused':
+        return 'Meta refused Instagram deletion with code 9/subcode 2207074. This is distinct from Story publishing-limit code 2207042. The exact deletion restriction/window is unverified; the publishing-quota counter does not establish deletion capacity. Inspect cleanup operation/kind and confirmed removal counts in this run. Retain uncertain IDs; no deletion retry or permission expansion is performed. New publishing remains independent.'
     if getattr(error,'reason',None)=='instagram_publishing_limit':
         return 'Meta refused Story publication as over its publishing limit, or the preflight found too few slots. Inspect the recorded quota snapshot: a refusal despite reported spare capacity is a counter/refusal mismatch, not proof of exhausted reported allowance. The quota uses a rolling window; another workflow run does not reset it. No automatic retry, delayed upload or catch-up is scheduled; confirmed feed posts and Facebook Stories remain published.'
     if stage.startswith('Facebook '):

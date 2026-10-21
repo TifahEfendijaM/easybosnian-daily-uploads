@@ -59,3 +59,28 @@ Before rendering/uploading Stories, query the already-verified Instagram Login a
 The quota reference describes a rolling window, not a midnight reset. Report the returned window and counts when available; do not invent an exact recovery time. Another manual workflow does not reset Meta's allowance. No delayed upload, catch-up, retry or alternate-credential fallback is added. Instagram Login still owns Stories/refresh and Facebook Login owns feed/polls. Feed publications, independent Facebook Stories, published-only history and batch-specific cleanup keep their existing behavior. `verify` now reads both authorized clients' numeric publishing quotas; the older detailed recorded-Facebook-object diagnostic remains available through `scripts/diagnose_publications.py` without the quota-only flag. Neither diagnostic publishes or deletes anything.
 
 Read-only verification [39491163615](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/39491163615) subsequently returned usage 51, total 100 and a 86,400-second window through both existing login paths. The old failed runs did not record quota snapshots, so their exact counters cannot be reconstructed from the later reading. This does not prove a separate Story limit or a Meta bug, nor guarantee that a Story would now be accepted. A future refusal after a preflight that reported enough room is explicitly marked `quota_counter_conflict` and described in the platform summary as a publishing-limit refusal despite reported spare quota. Keep both the snapshot and actual provider code; never claim measured exhaustion when that snapshot shows room, hardcode a lower undocumented cap, or retry through a different credential to test it.
+
+## October 21 Instagram cleanup / Story diagnosis
+
+The 05:00 Sarajevo run 39536214152 published its Instagram/Facebook/TikTok feeds,
+native poll and all Facebook Stories. Instagram confirmed two Stories before
+refusing the third with 9/2207042, despite a preflight reporting 49/100 used.
+The 05:26 manual latest replacement 39538544957 confirmed its Instagram/Facebook
+feeds, native poll and all Facebook Stories, but its first Instagram Story was
+refused with the same code after a 51/100 snapshot. These are explicit provider
+publishing-limit refusals despite reported spare quota, not readiness errors.
+
+The manual replacement's Instagram cleanup separately returned HTTP 400,
+code 9/subcode 2207074. Exact account and required deletion permissions passed
+a subsequent read-only check. The official media reference supports the existing
+Facebook Login DELETE operation but does not establish this subcode's exact
+restriction/window. Do not claim an exhausted measured deletion counter, a
+specific reset, or use the publishing counter as deletion capacity. Cleanup's
+existing stop-on-error behavior can leave the feed untouched when a Story fails
+first. New publication intentionally remains independent.
+
+Cleanup failures now retain the fixed failed operation/kind and confirmed partial
+removal counts in artifacts and Summary; all_today totals include confirmed work
+before a failure. No extra API call, deletion retry, catch-up, token switch or
+publication is added. The same manual run also had a TikTok API-volume rejection,
+confirmed in Buffer's error view (advises waiting 24 hours). No retry was clicked.

@@ -29,6 +29,13 @@ if platforms:
             text+='  Native Pitanje dana poll: '+result['poll']['status']+'\n'
         cleanup=result.get('replacement_cleanup',{})
         if cleanup.get('scope')=='all_today':text+=f"  All-today cleanup: {cleanup['status']}; {cleanup['removed']} removed, {cleanup['already_absent']} already absent\n"
+        elif cleanup.get('status'):text+='  Replacement cleanup: '+cleanup['status']+'\n'
+        if cleanup.get('error'):text+='  Cleanup error: '+cleanup['error']+'\n'
+        diagnostics=([cleanup['diagnostic']] if cleanup.get('diagnostic') else [])+cleanup.get('failures',[])
+        for diagnostic in diagnostics:
+            if diagnostic.get('error'):text+='  Cleanup batch error: '+diagnostic['error']+'\n'
+            if diagnostic.get('operation'):
+                text+=f"  Cleanup stopped at {diagnostic['kind']}/{diagnostic['operation']}; {diagnostic['removed']} confirmed removed, {diagnostic['already_absent']} already absent. Remaining cleanup was not completed.\n"
     if 'history_saved' in all_results:
         text+='\nPublished content history: '+('saved after confirmed feed publication' if all_results['history_saved'] else 'not saved; inspect publication/history failures')+'\n'
     if all_results.get('history_cleanup'):
