@@ -103,3 +103,5 @@ Stories have **no native poll**; Meta caption add-ons do not support them.
 Official references: [Caption add-ons](https://developers.facebook.com/documentation/instagram-platform/content-publishing/caption-add-ons),
 [IG User Media](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media),
 [Poll Attachment](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-media/poll_attachment).
+
+Fresh beginner-only A1/A2 captions and their contextual website invitations are English. The caption uses the exact reviewed English quiz question and the “Question of the day:” prefix when needed; higher-level captions retain “Pitanje dana:”. Bosnian answer choices, their original order, poll limits, difficulty mentions and the final 👉easybosnian.com line remain unchanged. Saved legacy captions without caption_language keep their old prefix.

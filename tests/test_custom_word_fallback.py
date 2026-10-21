@@ -8,7 +8,7 @@ from unittest.mock import patch
 from easybosnian.cli import fit_check
 from easybosnian.core import PROJECT, write_json
 from easybosnian.selection import check_selection, novelty_history, selection_context, word_levels
-from easybosnian.validate import validate
+from easybosnian.validate import validate,caption_language
 from test_project import reviewed_fixture
 
 
@@ -148,6 +148,7 @@ class CustomWordFallbackTests(unittest.TestCase):
                 def agent(*args):
                     package=self.market();self.change(package,1,'Cijenkati se','spelling_correction')
                     package['private_review']['language_policy_checked']=True
+                    package['caption_language']=caption_language(package)
                     for c,w in zip(package['cards'],package['words']):
                         c['question_language' if c['kind']=='quiz' else 'body_language']='en' if w.get('bosnian_level',package.get('bosnian_level')) in ('A1','A2') else 'bs'
                     if package['cards'][0]['question_language']=='en':package['cards'][0]['question']='What is the place where a seller displays goods at the market?'

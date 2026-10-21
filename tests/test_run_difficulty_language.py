@@ -28,7 +28,9 @@ def fresh(level='A2'):
         p['cards'][0]['question']='Which object protects you from the rain?'
         p['cards'][1]['body']='A cloud is a visible mass of tiny water droplets in the sky.'
         p['cards'][2]['body']='A puddle is a small area of water on the ground after rain.'
-    p['caption']=f'Danas uz jednostavne primjere vježbamo bosanski na nivou {level}.\nZa jasniji razgovor o vremenu učite s nama.\n👉easybosnian.com'
+    p['caption_language']='en' if level in ('A1','A2') else 'bs'
+    p['caption']=(f'Practise talking about rainy days in Bosnian at level {level}.\nContinue learning with free lessons on EasyBosnian.\n👉easybosnian.com'
+                  if p['caption_language']=='en' else f'Danas uz jednostavne primjere vježbamo bosanski na nivou {level}.\nZa jasniji razgovor o vremenu učite s nama.\n👉easybosnian.com')
     return p
 
 
