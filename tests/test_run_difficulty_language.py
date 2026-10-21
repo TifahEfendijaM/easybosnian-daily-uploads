@@ -23,8 +23,9 @@ def fresh(level='A2'):
         'target':3,'binary':False,'reason':'The quiz asks an objective non-binary question with three plausible choices.'})
     for c,w in zip(p['cards'],p['words']):
         w['bosnian_level']=level
-        if c['kind']!='quiz':c['body_language']='en' if level in ('A1','A2') else 'bs'
+        c['question_language' if c['kind']=='quiz' else 'body_language']='en' if level in ('A1','A2') else 'bs'
     if level in ('A1','A2'):
+        p['cards'][0]['question']='Which object protects you from the rain?'
         p['cards'][1]['body']='A cloud is a visible mass of tiny water droplets in the sky.'
         p['cards'][2]['body']='A puddle is a small area of water on the ground after rain.'
     p['caption']=f'Danas uz jednostavne primjere vježbamo bosanski na nivou {level}.\nZa jasniji razgovor o vremenu učite s nama.\n👉easybosnian.com'
@@ -60,6 +61,11 @@ class RunDifficultyLanguageTests(unittest.TestCase):
             p=fresh(level);validate(p,require_language_policy=True)
             bad=copy.deepcopy(p);bad['cards'][1]['body_language']='bs' if level in ('A1','A2') else 'en'
             with self.assertRaisesRegex(ValueError,'Explanation language'):validate(bad,require_language_policy=True)
+            for value in (None,'bs' if level in ('A1','A2') else 'en'):
+                bad=copy.deepcopy(p)
+                if value is None:bad['cards'][0].pop('question_language')
+                else:bad['cards'][0]['question_language']=value
+                with self.assertRaisesRegex(ValueError,'Quiz question language'):validate(bad,require_language_policy=True)
             bad=copy.deepcopy(p);bad['private_review'].pop('language_policy_checked')
             with self.assertRaisesRegex(ValueError,'reviewed beginner'):validate(bad,require_language_policy=True)
         p=fresh('B2');p['words'][1]['bosnian_level']='A1';p['cards'][1].update(body_language='en',body='A cloud is made of tiny water droplets.')
@@ -67,6 +73,21 @@ class RunDifficultyLanguageTests(unittest.TestCase):
         p['words'][1]['bosnian_level']=None;p['cards'][1]['body_language']='bs';validate(p,require_language_policy=True)
         p['cards'][2]['body']='An umbrella is useful in rain.'
         with self.assertRaisesRegex(ValueError,'leaks'):validate(p,require_language_policy=True)
+
+    def test_quiz_uses_its_own_level_and_poll_keeps_english_question_and_bosnian_options(self):
+        from easybosnian.instagram_poll import instagram_caption,quiz_poll
+        p=fresh('B2');quiz=p['cards'][0];original=copy.deepcopy(quiz['options'])
+        p['words'][0]['bosnian_level']='A1'
+        quiz.update(question_language='en',question='Which object protects you from the rain?')
+        validate(p,require_language_policy=True)
+        self.assertIn(quiz['question'],instagram_caption(p))
+        self.assertEqual(list(quiz_poll(p)[0].values()),[option['text'] for option in original])
+        self.assertEqual(quiz['options'],original)
+        p['words'][0]['bosnian_level']=None;quiz['question_language']='bs'
+        quiz['question']='Kako se zove predmet na slici?'
+        validate(p,require_language_policy=True)
+        bad=copy.deepcopy(p);bad['cards'][1]['question_language']='en'
+        with self.assertRaisesRegex(ValueError,'schema check'):validate(bad)
 
     def test_research_and_trusted_staging_share_one_level_snapshot_without_settings_read(self):
         from easybosnian.cli import prepare

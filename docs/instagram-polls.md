@@ -72,7 +72,7 @@ these limits, publish the unchanged carousel without the native poll and make
 the omission visible in the run Summary/result/success report. This is not a
 retry or a rewritten quiz. Invalid quiz structure is still a content failure.
 
-The Instagram caption includes the exact Bosnian quiz question and preserves
+The Instagram caption includes the exact reviewed quiz question (English at A1/A2, Bosnian at B1–C2) and preserves
 the reviewed difficulty prose and website invitation, ending with
 `👉easybosnian.com`. Existing hashtags appear before the final invitation.
 Legacy captions without this footer remain readable. The combined caption must
