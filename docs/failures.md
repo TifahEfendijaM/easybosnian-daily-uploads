@@ -79,6 +79,14 @@ specific reset, or use the publishing counter as deletion capacity. Cleanup's
 existing stop-on-error behavior can leave the feed untouched when a Story fails
 first. New publication intentionally remains independent.
 
+A subsequent audit of the October 20 artifacts found exactly 50 confirmed
+Instagram removals before the first 2207074 refusal: twelve cleanups removed four
+items each, then run 39485211516 removed two; the next cleanup (39493733221) was
+refused. No earlier workflow fell within the preceding evening. This strongly
+supports a separate deletion-action limit. It is observed evidence, not a
+documented quota contract: do not hardcode 50, invent a reset window, use another
+token to bypass it, or retry deletion to test the theory.
+
 Cleanup failures now retain the fixed failed operation/kind and confirmed partial
 removal counts in artifacts and Summary; all_today totals include confirmed work
 before a failure. No extra API call, deletion retry, catch-up, token switch or

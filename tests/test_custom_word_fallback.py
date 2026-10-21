@@ -149,7 +149,8 @@ class CustomWordFallbackTests(unittest.TestCase):
                     package=self.market();self.change(package,1,'Cijenkati se','spelling_correction')
                     package['private_review']['language_policy_checked']=True
                     for c,w in zip(package['cards'],package['words']):
-                        if c['kind']!='quiz':c['body_language']='en' if w.get('bosnian_level',package.get('bosnian_level')) in ('A1','A2') else 'bs'
+                        c['question_language' if c['kind']=='quiz' else 'body_language']='en' if w.get('bosnian_level',package.get('bosnian_level')) in ('A1','A2') else 'bs'
+                    if package['cards'][0]['question_language']=='en':package['cards'][0]['question']='What is the place where a seller displays goods at the market?'
                     package['cards'][2]['body']='The money a seller returns when you paid more than the price.'
                     package['private_review']['quiz_choice_review']={'target':3,'binary':False,
                         'reason':'This is a non-binary multiple-choice question with three distinct options.'}

@@ -72,9 +72,12 @@ def validate(package, history=None, include_today=False, require_website_footer=
     if require_language_policy and package['private_review'].get('language_policy_checked') is not True:
         raise ValueError('Fresh content requires reviewed beginner-English/advanced-Bosnian explanations')
     for card,word in zip(package['cards'],package['words']):
-        if card['kind']=='quiz':continue
         level=word.get('bosnian_level',package.get('bosnian_level'))
         expected='en' if level in ('A1','A2') else 'bs'
+        if card['kind']=='quiz':
+            if (require_language_policy or 'question_language' in card) and card.get('question_language')!=expected:
+                raise ValueError('Quiz question language must match the individual reviewed quiz word level')
+            continue
         if (require_language_policy or 'body_language' in card) and card.get('body_language')!=expected:
             raise ValueError('Explanation language must match the individual reviewed word level')
     quiz = package["cards"][0]

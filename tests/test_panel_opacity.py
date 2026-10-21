@@ -125,6 +125,9 @@ class PanelOpacityTests(unittest.TestCase):
             result,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',result)
         self.assertIn('panel_opacity as a NUMBER from 70 to 100',child.call_args.args[0])
+        self.assertIn('surface-opacity range equally',child.call_args.args[0])
+        self.assertIn('without favouring lower, higher or middle values',child.call_args.args[0])
+        self.assertNotIn('Prefer the lower suitable opacity',child.call_args.args[0])
         self.assertIn('never randomly',child.call_args.args[0])
         plan=proposal['cards']['word'];plan['blocks'][0]['panel_opacity']=72.5
         rendering={'palette':'gold-cream','design':'hybrid','block_styles':{'body':'rounded','example':'italic_photo_fade'},
