@@ -65,6 +65,10 @@ def safe_response_error(payload,http_status=None):
                 and type(meta.get('error_subcode')) is int and meta['error_subcode']==2207042):
             reason='instagram_publishing_limit'
             detail='Instagram publishing-limit refusal; inspect current quota; no automatic retry'
+        elif (isinstance(meta,dict) and type(meta.get('code')) is int and meta['code']==9
+                and type(meta.get('error_subcode')) is int and meta['error_subcode']==2207074):
+            reason='instagram_deletion_refused'
+            detail='Instagram deletion refused; exact restriction/window unverified; no automatic retry'
     prefix=f'HTTP {http_status}' if http_status is not None else 'Provider rejected the request'
     return SafeError(f'{prefix}; {codes}; {detail}',stage,http_status,
                      reason=reason,provider_code=code,provider_http_status=status,diagnostic_saved=stage=='FLUX generation' and payload.get('diagnostic_saved') is True)

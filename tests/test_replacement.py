@@ -283,7 +283,10 @@ class ReplacementTests(unittest.TestCase):
         from easybosnian.daily import daily
         from contextlib import ExitStack
         sequence=[];store=MagicMock();store.content.return_value=reviewed_fixture();store.history.return_value={'days':[]}
-        def deletion(*args):sequence.append('cleanup '+args[-1]);raise ValueError('authorization missing')
+        def deletion(*args):
+            sequence.append('cleanup '+args[-1]);error=ValueError('authorization missing')
+            error.cleanup_diagnostic={'operation':'ownership_listing','kind':'feed','removed':0,'already_absent':0}
+            raise error
         env={'GITHUB_ACTIONS':'true','DAILY_POSTING_ENABLED':'true','FACEBOOK_POSTING_ENABLED':'true','TIKTOK_POSTING_ENABLED':'false','INSTAGRAM_STORIES_ENABLED':'true','FACEBOOK_STORIES_ENABLED':'true'}
         with patch.dict(os.environ,env,clear=True),ExitStack() as stack:
             for name in ('verify_repository','write_json'):
@@ -301,6 +304,7 @@ class ReplacementTests(unittest.TestCase):
         for platform in ('instagram','facebook'):
             self.assertTrue(result[platform]['published'])
             self.assertIn('failed',result[platform]['replacement_cleanup']['status'])
+            self.assertEqual(result[platform]['replacement_cleanup']['diagnostic']['operation'],'ownership_listing')
         self.assertEqual(notice.call_count,2)
         self.assertTrue(all('new feed publication confirmed' in call.args[3] for call in notice.call_args_list))
 

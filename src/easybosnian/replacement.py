@@ -4,6 +4,7 @@ import os
 from .core import require_publishing
 from .meta import Facebook, InstagramDeletion
 from .batches import BATCH_ID
+from .http import redact
 
 
 def recorder(store, date, platform):
@@ -69,20 +70,29 @@ def cleanup(store, date, platform,all_known=False,expected_date=None):
         if not selected: continue
         # A complete authenticated edge distinguishes absence from a read error.
         # Errors stop this cleanup attempt, never the independently checked post.
-        owned = provider.owned_ids(kind)
-        for item in selected:
-            object_id = item['object_id']; require_publishing()
-            if object_id in owned:
-                provider.delete(object_id)
-                if platform == 'instagram' and object_id in provider.owned_ids(kind):
-                    # A successful DELETE response can disagree with the live
-                    # feed. Read once, retain the known ID and warn; never retry
-                    # the deletion or block independent replacement publishing.
-                    raise ValueError(f'Instagram accepted deletion but media {object_id} remains on its verified {kind} listing; identifier retained, no deletion retry')
-                result['removed'] += 1
-            else: result['already_absent'] += 1
-            # Retain identifiers after ambiguous deletion/storage failure.
-            store.forget(date, platform, object_id)
+        operation='ownership_listing'
+        try:
+            owned = provider.owned_ids(kind)
+            for item in selected:
+                object_id = item['object_id'];operation='publishing_guard';require_publishing()
+                if object_id in owned:
+                    operation='delete';provider.delete(object_id)
+                    operation='deletion_verification'
+                    if platform == 'instagram' and object_id in provider.owned_ids(kind):
+                        # A successful DELETE response can disagree with the live
+                        # feed. Read once, retain the known ID and warn; never retry
+                        # the deletion or block independent replacement publishing.
+                        raise ValueError(f'Instagram accepted deletion but media {object_id} remains on its verified {kind} listing; identifier retained, no deletion retry')
+                    result['removed'] += 1
+                else: result['already_absent'] += 1
+                # Retain identifiers after ambiguous deletion/storage failure.
+                operation='identifier_removal';store.forget(date, platform, object_id)
+        except Exception as error:
+            # Fixed operation labels and confirmed counters only; no provider
+            # prose, tokens, media contents or guessed limit/reset time.
+            error.cleanup_diagnostic={'operation':operation,'kind':kind,
+                                      'removed':result['removed'],'already_absent':result['already_absent']}
+            raise
     return result
 
 
@@ -95,7 +105,12 @@ def cleanup_day(store,batch_ids,date,platform):
         try:
             one=cleanup(store,batch_id,platform,all_known=True,expected_date=date)
             for key in ('removed','already_absent'):result[key]+=one.get(key,0)
-        except Exception as error:errors.append(error)
+        except Exception as error:
+            diagnostic=getattr(error,'cleanup_diagnostic',{})
+            for key in ('removed','already_absent'):result[key]+=diagnostic.get(key,0)
+            result.setdefault('failures',[]).append({'batch_id':batch_id,'error':redact(error),
+                **diagnostic})
+            errors.append(error)
     result['status']='failed; some earlier content may remain' if errors else 'supported current-date cleanup attempted'
     if platform=='facebook':result['story_deletion']='manual; not checked or performed'
     return result,errors

@@ -69,6 +69,7 @@ def daily(date=None,mode='preview',batch_id=None,replace=True,cleanup_all=False,
         except Exception as error:
             removed={'status':'failed; new publication will still be attempted',
                      'error':redact(error), 'prior_content':'may remain or be partly removed'}
+            if getattr(error,'cleanup_diagnostic',None):removed['diagnostic']=error.cleanup_diagnostic
             cleanup_warnings.append((name, error))
             print(name+' replacement cleanup failed; continuing with independently verified publishing')
         try:
