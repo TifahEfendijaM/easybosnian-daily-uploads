@@ -66,12 +66,13 @@ def accepted_choices(placement):
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
             example=next((b for b in blocks if isinstance(b,dict) and b.get('role')=='example'),{})
-            if example.get('fade_style') in REVIEW_FADE_STYLES:
+            if (example.get('fade_style') in REVIEW_FADE_STYLES
+                    and not card.get('render_policy',{}).get('example_fade')):
                 safe['example_fade']=example['fade_style']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
                        and valid_panel_opacity(b.get('panel_opacity'),legacy=False)}
-            if opacities:safe['panel_opacities']=opacities
+            if opacities and 'render_policy' not in card:safe['panel_opacities']=opacities
         choices[kind]=safe
     return choices
 

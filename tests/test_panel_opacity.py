@@ -124,11 +124,11 @@ class PanelOpacityTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             result,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',result)
-        self.assertIn('panel_opacity as a NUMBER from 70 to 100',child.call_args.args[0])
-        self.assertIn('surface-opacity range equally',child.call_args.args[0])
-        self.assertIn('without favouring lower, higher or middle values',child.call_args.args[0])
+        self.assertIn('uniformly samples ONE shared panel_opacity from 70 to 100',child.call_args.args[0])
+        self.assertIn('You do NOT choose the opacity',child.call_args.args[0])
+        self.assertIn('assigned_panel_opacity',child.call_args.args[0])
         self.assertNotIn('Prefer the lower suitable opacity',child.call_args.args[0])
-        self.assertIn('never randomly',child.call_args.args[0])
+        self.assertIn('Never request another sample',child.call_args.args[0])
         plan=proposal['cards']['word'];plan['blocks'][0]['panel_opacity']=72.5
         rendering={'palette':'gold-cream','design':'hybrid','block_styles':{'body':'rounded','example':'italic_photo_fade'},
                    'answer_badges':{},'composition':plan,'status':'accepted'}
@@ -147,14 +147,14 @@ class PanelOpacityTests(unittest.TestCase):
         proposal['cards']['word']['blocks'][0]['panel_opacity']=77.5
         proposal['cards']['word']['heading_tone']='paper_ink'
         proposal['cards']['word']['blocks'][-1]['photo_tone']='paper_ink'
-        placement,metrics=harness.render(harness.package,proposal)
+        placement,metrics=harness.render(harness.package,proposal,panel_opacity=77.5)
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
         self.assertEqual(metrics['word']['composition'],proposal['cards']['word'])
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertGreaterEqual(metrics['word']['body_contrast'],4.5)
         self.assertIn('Explanation surface opacity: 77.5%.',decision_lines(word))
-        self.assertEqual(accepted_choices(placement)['word']['panel_opacities'],{'body':77.5})
+        self.assertNotIn('panel_opacities',accepted_choices(placement)['word'])
 
     def test_out_of_range_opacity_cannot_be_repaired_or_invalidate_sibling_layouts(self):
         harness=provenance_harness.VisualProvenanceTests();harness.setUp()

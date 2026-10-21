@@ -114,6 +114,11 @@ def with_rendering(data,placement):
                     composition.get('palette',result['palette'])!=result['palette']):
                 raise ValueError('Final composition differs from rendered design metadata')
             rendered[LABELS[kind]]['composition']=composition
+        if 'render_policy' in result:
+            from .visual_policy import safe_policy
+            composition=rendered[LABELS[kind]].get('composition')
+            if composition is None:raise ValueError('Rendering policy requires the final composition')
+            rendered[LABELS[kind]]['render_policy']=safe_policy(result['render_policy'],composition)
         if result.get('layout_adjustment') is not None:
             final=rendered[LABELS[kind]].get('composition')
             if final is None:raise ValueError('Placement adjustment differs from rendered composition')
@@ -137,6 +142,13 @@ def decision_lines(rendering):
     """Describe the applied enums/geometry, never invent the model's reasoning."""
     lines=['Palette: '+rendering['palette']+'.', 'Design family: '+rendering['design']+'.']
     composition=rendering.get('composition')
+    policy=rendering.get('render_policy')
+    if policy:
+        lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from 70–100%, "+
+                     ('applied to every text/option panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
+        if policy['example_fade'] is not None:
+            lines.append('PRIMJER shade selection: independent random 50/50 draw — '+policy['example_fade']+
+                         (' applied.' if policy['example_fade_applied'] else ' inactive for this unshaded/paper example.'))
     window=composition.get('photo_window') if composition else None
     if composition:
         lines.append('Photo layout: '+('separate '+window['fit']+' photo window' if window else 'full photographic background')+'.')

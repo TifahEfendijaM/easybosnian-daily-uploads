@@ -79,14 +79,14 @@ class NeutralTitlesPaletteVarietyTests(unittest.TestCase):
                 self.assertEqual(accepted['palette_decisions']['word']['source'],'chatgpt')
                 self.assertNotIn('card_failures',accepted)
 
-    def test_prompt_gives_example_presets_equal_consideration_and_reporting_names_actual_title_backing(self):
+    def test_prompt_assigns_random_example_preset_and_reporting_names_actual_title_backing(self):
         package=reviewed_fixture();palettes=['gold-cream','forest-cream','blue-ice']
         plans={c['kind']:dict(default_plan(c),palette=p,confidence='high') for c,p in zip(package['cards'],palettes)}
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps({'cards':plans})) as child:
             reviewed,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in plans})
         self.assertEqual(status,'reviewed')
         prompt=child.call_args.args[0]
-        self.assertIn('Give BOTH PRIMJER presets equal consideration',prompt)
+        self.assertIn('true 50/50 probability',prompt)
         self.assertIn('restriction applies EQUALLY to EVERY approved palette',prompt)
         self.assertIn('ONLY neutral black or white',prompt)
         self.assertNotIn('explicit terracotta-sand restriction',prompt)
