@@ -97,7 +97,7 @@ class FixedFadeTests(unittest.TestCase):
                      'Pillow lightens the surrounding photograph',
                      'Pillow alone controls strength',
                      'This title preference does not change PRIMJER treatment',
-                     'Choose heading_fade for photographic titles and example fade_style',
+                     'Choose heading_fade for photographic titles from exactly two approved presets',
                      'standard has smoothly eased edges; defined preserves the earlier',
                      'with EITHER preset and EVERY design',
                      'Only the approved preset ID and text/fade COLOURS are selectable'):

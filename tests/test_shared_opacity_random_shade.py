@@ -1,0 +1,109 @@
+"""Shared surfaces and an independent, one-time fair PRIMJER shade draw."""
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from PIL import Image
+from easybosnian.hybrid import default_plan,editorial_plan,render_hybrid
+from easybosnian.visual_policy import panel_opacities,example_fades,apply_policy,policy_metadata,safe_policy
+from easybosnian.success_report import report_data,with_rendering,render_report
+from easybosnian.visual_history import accepted_choices
+from test_project import reviewed_fixture
+from test_success_report import RUN,results
+import test_visual_provenance as provenance_harness
+
+
+class SharedOpacityRandomShadeTests(unittest.TestCase):
+    def test_fair_draw_uses_two_equally_weighted_candidates_once_per_example(self):
+        cards=reviewed_fixture()['cards'];cards[1]['example']='Ovo je primjer.'
+        with patch('easybosnian.visual_policy.secrets.choice',side_effect=['standard','defined']) as draw:
+            selected=example_fades(cards)
+        self.assertEqual(selected,{'lesson':'standard','word':'defined'})
+        with patch('easybosnian.visual_policy.secrets.randbelow',side_effect=[0,75,300]) as opacity_draw:
+            opacities=panel_opacities(cards)
+        self.assertEqual(opacities,{'quiz':70,'lesson':77.5,'word':100})
+        self.assertEqual(opacity_draw.call_count,3)
+        self.assertTrue(all(call.args==(301,) for call in opacity_draw.call_args_list))
+        self.assertEqual(draw.call_count,2)
+        self.assertTrue(all(call.args==(('standard','defined'),) for call in draw.call_args_list))
+
+    def test_two_three_four_options_share_the_sampled_opacity_and_render_with_exact_copy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#728192').save(photo)
+            for count in (2,3,4):
+                card=copy.deepcopy(reviewed_fixture()['cards'][0])
+                card['options']=[{'label':label,'text':text} for label,text in
+                                  zip('ABCD',('Jabuka','Kruška','Šljiva','Dunja'))][:count]
+                source=copy.deepcopy(card);plan=default_plan(card)
+                for block,opacity in zip(plan['blocks'],(77.5,90,100,70)):
+                    block['panel_opacity']=opacity
+                original=copy.deepcopy(plan);applied=apply_policy(plan,panel_opacity=83.4)
+                expected=copy.deepcopy(plan)
+                for block in expected['blocks']:block['panel_opacity']=83.4
+                self.assertEqual(applied,expected);self.assertEqual(plan,original)
+                metrics=render_hybrid(card,'gold-cream',photo,root/f'quiz-{count}.jpg',applied)
+                self.assertEqual(metrics['composition'],expected)
+                self.assertGreaterEqual(metrics['body_contrast'],4.5)
+                self.assertEqual(card,source)
+                self.assertEqual(policy_metadata(applied,panel_opacity=83.4)['panel_opacity'],83.4)
+            # A different image is free to choose another opacity.
+            word=default_plan(reviewed_fixture()['cards'][2]);word['blocks'][0]['panel_opacity']=91
+            self.assertEqual(apply_policy(word,panel_opacity=91)['blocks'][0]['panel_opacity'],91)
+
+    def test_policy_changes_only_panel_opacity_and_active_example_preset(self):
+        card=reviewed_fixture()['cards'][2];plan=default_plan(card)
+        plan.update(heading_tone='accent_dark',heading_fade='standard')
+        plan['blocks'][0].update(style='soft_corner',panel_opacity=73.5)
+        plan['blocks'][-1]['photo_tone']='paper_ink'
+        original=copy.deepcopy(plan)
+        expected=copy.deepcopy(plan);expected['blocks'][-1]['fade_style']='defined'
+        self.assertEqual(apply_policy(plan,panel_opacity=73.5,example_fade='defined'),expected)
+        self.assertEqual(plan,original)
+        for style in ('italic_photo','italic_footer'):
+            inactive=editorial_plan(card) if style=='italic_footer' else default_plan(card)
+            inactive['blocks'][-1].update(style=style,fade_style='standard')
+            applied=apply_policy(inactive,panel_opacity=100,example_fade='defined')
+            self.assertEqual(applied,inactive)
+            self.assertFalse(policy_metadata(applied,panel_opacity=100,example_fade='defined')['example_fade_applied'])
+        quiz=default_plan(reviewed_fixture()['cards'][0])
+        quiz['blocks'][1]['panel_opacity']=69.9
+        with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(quiz,panel_opacity=100)
+        with self.assertRaisesRegex(ValueError,'assigned'):apply_policy(plan,panel_opacity=100,example_fade='custom')
+
+    def test_real_pipeline_keeps_the_draw_on_fallback_reports_it_and_does_not_attribute_it_to_chat(self):
+        h=provenance_harness.VisualProvenanceTests();h.setUp()
+        h.package['cards'][1]['example']='Ovo je primjer.'
+        proposal=h.proposal(h.package)
+        proposal['cards']['quiz']['blocks'][0]['panel_opacity']=87.5
+        proposal['cards']['quiz']['blocks'][1]['panel_opacity']=70
+        proposal['cards']['word']['blocks'][0]['max_lines']=1
+        placement,metrics=h.render(h.package,proposal,example_shade='defined',panel_opacity=87.5)
+        quiz=placement['cards']['quiz'];lesson=placement['cards']['lesson'];word=placement['cards']['word']
+        self.assertEqual(quiz['status'],'accepted')
+        self.assertTrue(all(b['panel_opacity']==87.5 for b in quiz['composition']['blocks']))
+        self.assertEqual(lesson['provenance']['layout']['source'],'chatgpt')
+        self.assertEqual(word['provenance']['layout']['source'],'fallback')
+        self.assertEqual(word['composition']['blocks'][0]['panel_opacity'],87.5)
+        for result in (lesson,word):
+            self.assertEqual(result['composition']['blocks'][-1]['fade_style'],'defined')
+            self.assertEqual(result['render_policy']['example_fade'],'defined')
+            self.assertTrue(result['render_policy']['example_fade_applied'])
+        self.assertEqual(lesson['composition']['heading_fade'],'standard')
+        self.assertNotIn('example_fade',accepted_choices(placement)['lesson'])
+        self.assertNotIn('panel_opacities',accepted_choices(placement)['quiz'])
+        text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
+        for document in (text,markup):
+            document=document.replace('\\.','.')
+            self.assertIn('Shared panel opacity: 87.5%',document)
+            self.assertIn('independent random 50/50 draw',document)
+            self.assertIn('defined applied',document)
+        bad=copy.deepcopy(placement);bad['cards']['quiz']['render_policy']['panel_opacity']=70
+        with self.assertRaisesRegex(ValueError,'Shared opacity'):
+            with_rendering(report_data(h.package,results(),RUN),bad)
+        bad=copy.deepcopy(placement);bad['cards']['lesson']['render_policy']['example_fade']='standard'
+        with self.assertRaisesRegex(ValueError,'Assigned shade'):
+            with_rendering(report_data(h.package,results(),RUN),bad)
+        invalid=dict(lesson['render_policy'],extra='untrusted prose')
+        with self.assertRaisesRegex(ValueError,'safe rendering policy'):safe_policy(invalid,lesson['composition'])

@@ -28,7 +28,7 @@ class VisualProvenanceTests(unittest.TestCase):
                                       category_style='ribbon',palette_exception='no_other_suitable_palette')
                          for c in package['cards']}}
 
-    def render(self,package,proposal,render_override=None,photo=None):
+    def render(self,package,proposal,render_override=None,photo=None,example_shade='standard',panel_opacity=100):
         stream=io.BytesIO();(photo if photo is not None else Image.new('RGB',(1024,1024),'#728192')).save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue()
         store=MagicMock()
@@ -37,6 +37,8 @@ class VisualProvenanceTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
+            shade_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.choice',return_value=example_shade))
+            opacity_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.randbelow',return_value=round((panel_opacity-70)*10)))
             child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
             if render_override:stack.enter_context(patch('easybosnian.artwork.render_hybrid',side_effect=render_override))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
@@ -44,6 +46,10 @@ class VisualProvenanceTests(unittest.TestCase):
             placement=json.loads((root/'build'/package['batch_id']/'image-placement-result.json').read_text())
             metrics={kind:asset['metrics'] for kind,asset in assets.items()}
             child.assert_called_once();self.assertEqual(provider.generate.call_count,3)
+            self.assertEqual(shade_draw.call_count,sum(bool(c.get('example')) for c in package['cards']))
+            self.assertTrue(all(call.args==(('standard','defined'),) for call in shade_draw.call_args_list))
+            self.assertEqual(opacity_draw.call_count,len(package['cards']))
+            self.assertTrue(all(call.args==(301,) for call in opacity_draw.call_args_list))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
         return placement,metrics
 
