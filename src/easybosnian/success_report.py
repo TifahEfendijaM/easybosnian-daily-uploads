@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, panel_alpha, PANEL_STYLES,
+                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, TITLE_TONE_CATALOGUE, panel_alpha, PANEL_STYLES,
                       PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
 from .core import PROJECT, REPO, ROOT, read_json, write_json
@@ -99,6 +99,9 @@ def with_rendering(data,placement):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
                 rendered[LABELS[kind]][field]=result[field]
+        if 'heading_backing' in result:
+            if result['heading_backing'] not in (None,'#000000','#ffffff'):raise ValueError('Invalid safe title backing metadata')
+            rendered[LABELS[kind]]['heading_backing']=result['heading_backing']
         if result.get('layout_adjustment') is not None:
             from .visual_adjustment import safe_adjustment
             rendered[LABELS[kind]]['layout_adjustment']=safe_adjustment(result['layout_adjustment'])
@@ -140,12 +143,13 @@ def decision_lines(rendering):
     category=rendering.get('category_style')
     if category:lines.append('Category: '+CATEGORY_CATALOGUE[category])
     tone=rendering.get('heading_tone')
-    if tone:lines.append('Title: '+PHOTO_TONE_CATALOGUE[tone])
+    if tone:lines.append('Title: '+(TITLE_TONE_CATALOGUE if 'heading_backing' in rendering else PHOTO_TONE_CATALOGUE)[tone])
+    if 'heading_backing' in rendering:
+        lines.append('Applied title backing: '+{None:'none needed','#000000':'neutral black','#ffffff':'neutral white'}[rendering['heading_backing']]+'.')
     if composition:
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
         if (composition.get('palette_exception')=='no_other_suitable_palette'
-                and rendering['palette']=='terracotta-sand'
                 and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):
             lines.append('Repeated-palette exception: ChatGPT declared no other approved palette suitable.')
     for role,style in rendering['block_styles'].items():

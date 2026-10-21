@@ -10,7 +10,7 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
                      PANEL_TONES, FADE_STYLES, REVIEW_FADE_STYLES, FADE_CATALOGUE,
-                     REVIEW_PHOTO_TONES, PANEL_OPACITY_RANGE)
+                     REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, TITLE_TONE_CATALOGUE, PANEL_OPACITY_RANGE)
 
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
@@ -64,8 +64,8 @@ CARD_SCHEMA = {
 # and balanced wrapping. Local renderer callers may still omit both defaults.
 def model_fields(properties, removed=()):
     fields={k:v for k,v in properties.items() if k not in removed}
-    for field in ('heading_tone','photo_tone'):
-        if field in fields:fields[field]={'enum':list(REVIEW_PHOTO_TONES)}
+    if 'heading_tone' in fields:fields['heading_tone']={'enum':list(REVIEW_TITLE_TONES)}
+    if 'photo_tone' in fields:fields['photo_tone']={'enum':list(REVIEW_PHOTO_TONES)}
     for field in ('heading_fade','fade_style'):
         if field in fields:fields[field]={'enum':list(REVIEW_FADE_STYLES)}
     if 'panel_opacity' in fields:fields['panel_opacity']=OPACITY_SCHEMA
@@ -104,7 +104,7 @@ def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
     from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP, EXAMPLE_FADE_PADDING
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
-    from .visual_history import palette_window, palette_policy, REPEATED_PALETTE
+    from .visual_history import palette_window, palette_policy, palette_policies
     window=palette_window(recent)
     context=[]
     for card in package['cards']:
@@ -142,16 +142,17 @@ def review_compositions(package, candidates, recent=()):
         'options for design families, block styles, category treatments, badges, colour pairings, '
         'opacity and placement before selecting the best-fitting combination. Do not force '
         'variety or prefer an unusual option merely because it is less familiar. '
-        'The following explicit terracotta-sand restriction takes precedence over preferring the single best match; alternatives must still be suitable. '
-        'Palette repetition rule: normally use terracotta-sand AT MOST TWICE in any consecutive '
+        'The following repetition restriction applies EQUALLY to EVERY approved palette and '
+        'takes precedence over preferring a repeatedly used single best match; alternatives must still be suitable. '
+        'Palette repetition rule: normally use ANY ONE palette AT MOST TWICE in any consecutive '
         'nine image cards INCLUDING the card being chosen: count the eight preceding known '
         'palettes in chronological order, including earlier choices in this batch '
         '(quiz then lesson then word). Also avoid a SECOND use within the SAME BATCH. If '
-        'two of those preceding eight cards use terracotta-sand OR an earlier card in this '
+        'two of those preceding eight cards use the candidate palette OR an earlier card in this '
         'batch uses it, first assess '
         'every other approved palette that could fit this actual photo. Choose a suitable '
-        'alternative even if terracotta-sand would be slightly preferable. Only when absolutely '
-        'no other palette suits the photo may you select terracotta-sand with '
+        'alternative even if the repeated palette would be slightly preferable. Only when absolutely '
+        'no other palette suits the photo may you repeat that palette with '
         'palette_exception=no_other_suitable_palette; otherwise palette_exception=none. '
         'Never choose a clashing alternative or change the photo to manufacture variety. '
         'Choose each block x,y,width freely in the 1080x1350 coordinate system, not from a fixed '
@@ -186,7 +187,11 @@ def review_compositions(package, candidates, recent=()):
         'Plain editorial copy requires panel_tone=auto. Newly available soft_corner panels '
         'have three rounded corners and a square lower-left; folded_corner is an answer-only '
         'top-right folded slip. All existing styles remain available. '
-        'Choose heading_tone and example photo_tone only from the approved photo-colour catalogue: '
+        'Choose heading_tone from the separate title-colour catalogue: title fades may be '
+        'ONLY neutral black or white, while title text may still use approved white, black, '
+        'palette paper, palette ink or palette accent colours. Never use a coloured title fade. '
+        'Choose example photo_tone from the approved photo-colour catalogue; PRIMJER retains '
+        'its existing neutral AND palette-coloured fade options independently of the title. '
         'paper_dark is white text with the fixed black fade; ink_light is black text with the '
         'fixed white fade. Other enum choices pair approved palette ink, paper or accent text '
         'with approved palette or neutral fade colours. Compare all compatible colour pairings '
@@ -207,7 +212,9 @@ def review_compositions(package, candidates, recent=()):
         'edges and category/title spacing. This title preference does not change PRIMJER treatment. '
         'Choose heading_fade for photographic titles and example fade_style from exactly two '
         'approved presets: standard has smoothly eased edges; defined preserves the earlier '
-        'more defined full-width linear shade. Compare both and choose whichever looks nicer '
+        'more defined full-width linear shade. Give BOTH PRIMJER presets equal consideration, '
+        'with no preference for smooth edges, a newer treatment or the first-listed preset. '
+        'Compare both against the actual photograph and choose whichever looks nicer '
         'on this photograph; do not collapse defined into the smooth treatment. Both example '
         f'presets extend {EXAMPLE_FADE_PADDING}px below the last row before tapering. PRIMJER still needs at least '
         f'{EXAMPLE_BLOCK_GAP}px clearance from other text blocks, preferably 40..56px when suitable, '
@@ -305,8 +312,9 @@ def review_compositions(package, candidates, recent=()):
         'measures fit/overlap/contrast and falls back rather than changing copy. Design catalogue: '
         +json.dumps(STYLE_CATALOGUE)+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
         +' Fade catalogue: '+json.dumps(FADE_CATALOGUE)
-        +' Photo-colour catalogue: '+json.dumps({k:PHOTO_TONE_CATALOGUE[k] for k in REVIEW_PHOTO_TONES})+' Palette repetition policy: '
-        +json.dumps(palette_policy(window))+' Rolling prior palette window: '+json.dumps(window)+' Palette catalogue: '
+        +' Title-colour catalogue: '+json.dumps({k:TITLE_TONE_CATALOGUE[k] for k in REVIEW_TITLE_TONES})
+        +' PRIMJER photo-colour catalogue: '+json.dumps({k:PHOTO_TONE_CATALOGUE[k] for k in REVIEW_PHOTO_TONES})+' Palette repetition policy for EVERY palette: '
+        +json.dumps(palette_policies(window))+' Rolling prior palette window: '+json.dumps(window)+' Palette catalogue: '
         +json.dumps(read_json(ROOT/'data/design-palettes.json'))+' Recent accepted choices: '
         +json.dumps(recent,ensure_ascii=False)+' Context: '+json.dumps(context,ensure_ascii=False))
     try:
@@ -323,7 +331,7 @@ def review_compositions(package, candidates, recent=()):
         for kind in KINDS:
             plan=result['cards'][kind]
             palette,palette_decisions[kind]=select_palette(plan if isinstance(plan,dict) else {},package['design_palette'])
-            if (palette_decisions[kind]['source']=='chatgpt' and palette==REPEATED_PALETTE and palette_policy(window,batch_palettes)['alternatives_first']
+            if (palette_decisions[kind]['source']=='chatgpt' and palette_policy(window,batch_palettes,palette)['alternatives_first']
                     and isinstance(plan,dict) and plan.get('palette_exception')!='no_other_suitable_palette'):
                 palette=package['design_palette']
                 palette_decisions[kind]={'source':'fallback','reason':'Repeated palette lacks required suitability exception'}

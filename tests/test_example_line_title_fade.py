@@ -76,7 +76,7 @@ class ExampleLineTitleFadeTests(unittest.TestCase):
         h=provenance_harness.VisualProvenanceTests();h.setUp()
         h.package['cards'][2]['example']=EXAMPLE
         proposal=h.proposal(h.package)
-        for plan in proposal['cards'].values():plan['palette']='forest-cream'
+        for plan,palette in zip(proposal['cards'].values(),('gold-cream','blue-ice','forest-cream')):plan['palette']=palette
         proposal['cards']['word']=dict(self.plan,palette='forest-cream')
         return h,proposal
 
