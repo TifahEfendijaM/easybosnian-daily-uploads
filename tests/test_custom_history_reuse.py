@@ -8,7 +8,7 @@ from unittest.mock import patch
 from easybosnian.cli import fit_check, prepare
 from easybosnian.core import PROJECT, read_json, write_json
 from easybosnian.selection import check_selection, novelty_history, selection_context
-from easybosnian.validate import validate
+from easybosnian.validate import validate,caption_language
 import test_custom_word_fallback as fallback
 from test_project import reviewed_fixture
 
@@ -123,6 +123,7 @@ class CustomHistoryReuseTests(unittest.TestCase):
                     package = copy.deepcopy(self.package)
                     package.update(batch_id=context['batch']['batch_id'], date=context['batch']['date'])
                     package['private_review']['language_policy_checked']=True
+                    package['caption_language']=caption_language(package)
                     for c,w in zip(package['cards'],package['words']):
                         c['question_language' if c['kind']=='quiz' else 'body_language']='en' if w.get('bosnian_level',package.get('bosnian_level')) in ('A1','A2') else 'bs'
                     if package['cards'][0]['question_language']=='en':package['cards'][0]['question']='What is the place where a seller displays goods at the market?'

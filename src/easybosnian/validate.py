@@ -44,6 +44,13 @@ def caption_levels(package):
     return ranked if len(ranked)==1 else [ranked[0],ranked[-1]]
 
 
+def caption_language(package):
+    """Beginner-only lessons use English; a mixed B1+ lesson stays Bosnian."""
+    if any(word.get('bosnian_level',package.get('bosnian_level')) in ('B1','B2','C1','C2') for word in package['words']):
+        return 'bs'
+    return 'en' if caption_levels(package)[-1] in ('A1','A2') else 'bs'
+
+
 def validate(package, history=None, include_today=False, require_website_footer=False, require_quiz_format=False, target_cefr=None, word_level_targets=None, require_caption_level=False, quiz_option_target=None, require_language_policy=False):
     schema = json.loads((ROOT / "data/content.schema.json").read_text())
     try:
@@ -71,6 +78,8 @@ def validate(package, history=None, include_today=False, require_website_footer=
             raise ValueError("Each card must use its assigned distinct word")
     if require_language_policy and package['private_review'].get('language_policy_checked') is not True:
         raise ValueError('Fresh content requires reviewed beginner-English/advanced-Bosnian explanations')
+    if (require_language_policy or 'caption_language' in package) and package.get('caption_language')!=caption_language(package):
+        raise ValueError('Caption language must match the actual reviewed lesson levels')
     for card,word in zip(package['cards'],package['words']):
         level=word.get('bosnian_level',package.get('bosnian_level'))
         expected='en' if level in ('A1','A2') else 'bs'
@@ -123,19 +132,27 @@ def validate(package, history=None, include_today=False, require_website_footer=
     if require_caption_level:
         expected=set(caption_levels(package))
         mentioned=set(re.findall(r'(?<!\w)[ABC][12](?!\w)',package['caption']))
-        abrupt=any(re.fullmatch(r'\s*(?:(?:nivo|razina)\s*:?\s*)?[ABC][12](?:\s*[-–]\s*[ABC][12])?\s*\.?\s*',line,re.I) for line in package['caption'].splitlines())
-        if (None in expected or mentioned!=expected or abrupt or not re.search(r'\b(?:nivo|nivou|nivoa|nivoe|nivoima|razina|razini|razine)\b',caption)):
-            raise ValueError('New captions need the actual lesson CEFR level/range naturally in Bosnian prose')
+        abrupt=any(re.fullmatch(r'\s*(?:(?:nivo|razina|levels?|cefr(?:\s+levels?)?)\s*:?\s*)?[ABC][12](?:\s*[-–]\s*[ABC][12])?\s*\.?\s*',line,re.I) for line in package['caption'].splitlines())
+        # Old saved captions without language metadata keep their Bosnian checks.
+        level_words=r'\b(?:levels?|cefr)\b' if package.get('caption_language')=='en' else r'\b(?:nivo|nivou|nivoa|nivoe|nivoima|razina|razini|razine)\b'
+        if (None in expected or mentioned!=expected or abrupt or not re.search(level_words,caption)):
+            raise ValueError('New captions need the actual lesson CEFR level/range naturally in their reviewed language')
     if require_website_footer:
         lines = package['caption'].strip().splitlines()
         if (len(lines) < 2 or lines[-1] != '👉easybosnian.com'
                 or not lines[-2].strip() or package['caption'].count('easybosnian.com') != 1):
-            raise ValueError('New captions need a contextual Bosnian invitation followed by 👉easybosnian.com on the final line')
-    if re.search(r"\b(?:mala ispravka|ispravka prethodn\w*|prethodn\w* objav\w*|(?:obrisan|izbrisan)\w* objav\w*|nova verzija objave)\b", caption):
+            raise ValueError('New captions need a contextual invitation in their reviewed language followed by 👉easybosnian.com on the final line')
+    if re.search(r"\b(?:mala ispravka|ispravka prethodn\w*|prethodn\w* objav\w*|(?:obrisan|izbrisan)\w* objav\w*|nova verzija objave|small correction|previous post|deleted post|new version of (?:the|this) post)\b", caption):
         raise ValueError("Captions must stand alone without referring to corrections or deleted posts")
-    if re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?[abcd](?!\w)", caption):
+    answer_intro=r'(?:odgovor|rjesenje|tacno)\s*(?:je\s*)?[:=]?\s*|correct\s+answer\s*(?:is\s*)?[:=]?\s*|(?:answer|correct)\s*(?:is\s*[:=]?\s*|[:=]\s*)'
+    # Keep case/punctuation here: English "answer a question" and "answer is a
+    # word" use an article, not option A. Lowercase a alone still counts as a key.
+    english_letter=re.search(r'\b(?i:correct(?:\s+answer)?|answer)(?:\s+(?i:is)\s*[:=]?\s*|\s*[:=]\s*|\s+)(?:[ABCDbcd](?!\w)|a(?=\s*(?:[.!?;:]|$)))',package['caption'])
+    legacy_letter=package.get('caption_language')!='en' and re.search(r'(?:correct|answer)\s*(?:je\s*)?[abcd](?!\w)',caption)
+    if english_letter or legacy_letter or re.search(r'(?:odgovor|rjesenje|tacno)\s*(?:je\s*)?[:=]?\s*[abcd](?!\w)',caption) or re.search(r'\b[abcd]\s+is\s+(?:the\s+)?(?:correct|right)\b',caption):
         raise ValueError("Public caption identifies an answer letter")
-    if binary and re.search(r"(?:odgovor|rjesenje|tacno|correct|answer)\s*(?:je\s*)?(?:da|ne)(?!\w)", outside_quiz):
+    english_binary=re.search(r'\b(?:answer|correct)\s*[:=]\s*(?:da|ne|yes|no)(?!\w)',public_text(package),re.I)
+    if binary and (english_binary or re.search(r'(?:'+answer_intro+r')(?:da|ne|yes|no)(?!\w)', outside_quiz)):
         raise ValueError("Public text identifies the yes/no answer")
     # The selected word may be the correct option; it is metadata, never a quiz heading.
     if not binary and normalise(review["correct_text"]) in normalise(quiz["question"]):

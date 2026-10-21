@@ -84,7 +84,8 @@ def instagram_caption(package):
     else:  # Legacy content stays readable without inventing a new invitation.
         caption += '\n\n' + hashtags
     if question not in caption:
-        caption = 'Pitanje dana: ' + question + '\n\n' + caption
+        label='Question of the day: ' if package.get('caption_language')=='en' else 'Pitanje dana: '
+        caption = label + question + '\n\n' + caption
     if len(caption) > 2200 or len(re.findall(r'(?<!\w)#\w+', caption)) > 30 or len(re.findall(r'(?<!\w)@\w+', caption)) > 20:
         raise ValueError('Instagram caption exceeds Meta’s 2200 characters, 30 hashtags or 20 mentions; rewrite reviewed copy, never truncate')
     return caption
