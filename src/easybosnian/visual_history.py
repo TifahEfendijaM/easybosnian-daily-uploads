@@ -5,9 +5,9 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_FADE_STYLES, valid_panel_opacity, PANEL_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, valid_panel_opacity, PANEL_STYLES
 
-REPEATED_PALETTE='terracotta-sand'
+REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
 
 def palette_window(recent):
@@ -22,14 +22,19 @@ def palette_window(recent):
     return values[-9:]
 
 
-def palette_policy(window, batch=()):
+def palette_policy(window, batch=(), palette=REPEATED_PALETTE):
     # The proposed card is the ninth image, so only eight preceding cards
     # remain in its window. Batch usage also counts when older cards age out.
-    prior=window[-8:];recent_uses=prior.count(REPEATED_PALETTE)
-    batch_uses=batch.count(REPEATED_PALETTE)
-    return {'palette':REPEATED_PALETTE,'window_size':9,'known_images':len(prior),
+    prior=window[-8:];recent_uses=prior.count(palette)
+    batch_uses=batch.count(palette)
+    return {'palette':palette,'window_size':9,'known_images':len(prior),
             'max_uses':2,'recent_uses':recent_uses,'max_per_batch':1,'batch_uses':batch_uses,
             'alternatives_first':recent_uses>=2 or batch_uses>=1}
+
+
+def palette_policies(window,batch=()):
+    from .core import ROOT,read_json
+    return {palette:palette_policy(window,batch,palette) for palette in read_json(ROOT/'data/design-palettes.json')}
 
 
 def accepted_choices(placement):
@@ -50,7 +55,7 @@ def accepted_choices(placement):
         # A preserved ChatGPT layout may now use a fallback palette. Do not
         # attribute that colour choice to the model in its recent-design context.
         if card.get('palette_outcome',{}).get('source')=='chatgpt':safe['palette']=card['palette']
-        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',REVIEW_PHOTO_TONES),('example_tone',(*REVIEW_PHOTO_TONES,None))):
+        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',REVIEW_TITLE_TONES),('example_tone',(*REVIEW_PHOTO_TONES,None))):
             if card.get(field) in allowed:safe[field]=card.get(field)
         badges=card.get('answer_badges',{})
         if isinstance(badges,dict) and all(r in ('A','B','C','D') and s in MARKER_STYLES for r,s in badges.items()):

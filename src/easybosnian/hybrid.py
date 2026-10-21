@@ -264,6 +264,16 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
+def title_colours(palette,tone='auto'):
+    """Title text keeps its approved colour; every title backing is neutral."""
+    colours,_=photo_colours(palette,tone)
+    if tone=='auto':return colours,None
+    # Read older paired-tone IDs too, without restoring coloured title fades.
+    white=tone in ('ink_light','ink_paper','ink_accent','accent_light')
+    backing=(255,255,255) if white else (0,0,0)
+    return colours,[(colours[0],backing)]
+
+
 def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
@@ -497,9 +507,10 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         image=ImageOps.fit(photo,(WIDTH,HEIGHT),method=Image.Resampling.LANCZOS).convert('RGBA')
     title_face,title_rows,header_end=heading(card)
     heading_tone=plan.get('heading_tone','auto')
+    heading_backing=None
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
-        colours,backings=photo_colours(palette,heading_tone)
+        colours,backings=title_colours(palette,heading_tone)
         # Photographic title shading starts below the entire category strip;
         # even its feather must never appear behind a category chip or underline.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
@@ -507,6 +518,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY)
+        if heading_shading:
+            heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.
@@ -584,6 +597,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),
             'category_style':category['style'],'category_contrast':category['contrast'],
             'heading_tone':heading_tone,'heading_colour':heading_colour,
+            'heading_backing':heading_backing,
             'example_tone':next((b.get('photo_tone','auto') for b in blocks if b['role']=='example'),None),'example_colour':example_colour,
             'answer_badges':{b['role']:b.get('marker_style','circle') for b in blocks if b['role'] not in ('body','example')},
             'block_typography':{b['role']:{k:b[k] for k in ('font_size','line_spacing','max_lines','wrapping')} for b in blocks},'heading_font':'Lora SemiBold','body_font':'Inter',

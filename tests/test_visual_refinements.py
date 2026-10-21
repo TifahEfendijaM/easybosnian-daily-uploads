@@ -132,7 +132,8 @@ class VisualRefinementTests(unittest.TestCase):
         self.assertIn('each actual photograph independently',prompt)
         self.assertIn('no preference for one shared batch palette',prompt)
         self.assertIn('never sacrifice a better per-image match',prompt)
-        self.assertIn('Category catalogue:',prompt);self.assertIn('Photo-colour catalogue:',prompt)
+        self.assertIn('Category catalogue:',prompt);self.assertIn('PRIMJER photo-colour catalogue:',prompt)
+        self.assertIn('Title-colour catalogue:',prompt)
         self.assertNotIn('private_review',prompt)
 
     def test_success_report_exposes_safe_rejection_but_refuses_arbitrary_diagnostics(self):

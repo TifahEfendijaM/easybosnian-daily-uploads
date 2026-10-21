@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image, ImageChops
 from jsonschema import Draft202012Validator
-from easybosnian.designs import REVIEW_PHOTO_TONES, PANEL_OPACITIES
+from easybosnian.designs import REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, PANEL_OPACITIES
 from easybosnian.hybrid import default_plan, render_hybrid, measured_plan, protect_text, serif, photo_colours
 from easybosnian.render import font, measure
 from easybosnian.core import ROOT, read_json
@@ -22,14 +22,17 @@ from test_success_report import RUN, results
 class FixedFadeTests(unittest.TestCase):
     def proposal(self):
         package=reviewed_fixture()
-        return package,{'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='forest-cream') for c in package['cards']}}
+        return package,{'cards':{c['kind']:dict(default_plan(c),confidence='high',palette=p) for c,p in zip(package['cards'],('gold-cream','blue-ice','forest-cream'))}}
 
     def test_new_model_allows_colour_pairs_and_two_presets_but_no_free_shape_or_strength(self):
         package,base=self.proposal();model=Draft202012Validator(MODEL_CARD_SCHEMA)
         self.assertIn('paper_dark',REVIEW_PHOTO_TONES);self.assertIn('ink_light',REVIEW_PHOTO_TONES)
         for tone in REVIEW_PHOTO_TONES:
             plan=copy.deepcopy(base['cards']['word'])
-            plan['heading_tone']=tone;plan['blocks'][-1]['photo_tone']=tone
+            plan['blocks'][-1]['photo_tone']=tone
+            self.assertFalse(list(model.iter_errors(plan)),tone)
+        for tone in REVIEW_TITLE_TONES:
+            plan=copy.deepcopy(base['cards']['word']);plan['heading_tone']=tone
             self.assertFalse(list(model.iter_errors(plan)),tone)
         self.assertFalse(list(model.iter_errors(base['cards']['word'])))
         for preset in ('standard','defined'):
@@ -100,7 +103,7 @@ class FixedFadeTests(unittest.TestCase):
                      'Only the approved preset ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)
         self.assertNotIn('favour one that is clearly readable with little or no added shading',prompt)
-        shown=prompt.split(' Photo-colour catalogue: ',1)[1].split(' Palette repetition policy:',1)[0]
+        shown=prompt.split(' PRIMJER photo-colour catalogue: ',1)[1].split(' Palette repetition policy for EVERY palette:',1)[0]
         self.assertEqual(set(json.loads(shown)),set(REVIEW_PHOTO_TONES))
 
     def test_recent_accepted_colours_are_whitelisted_but_fade_controls_are_not_recommended(self):
@@ -124,7 +127,7 @@ class FixedFadeTests(unittest.TestCase):
             plan.update(heading_tone='accent_dark',heading_fade='soft')
             for b in plan['blocks']:
                 if b['role']=='example':b.update(photo_tone='paper_ink',fade_style='soft')
-            placement['cards'][card['kind']]={'status':'accepted','position':'free','palette':'forest-cream',
+            placement['cards'][card['kind']]={'status':'accepted','position':'free','palette':plan['palette'],
                 'design':plan['design'],'composition':plan,'block_styles':{b['role']:b['style'] for b in plan['blocks']},
                 'answer_badges':{},'heading_tone':'accent_dark',
                 'example_tone':'paper_ink' if card.get('example') else None}
