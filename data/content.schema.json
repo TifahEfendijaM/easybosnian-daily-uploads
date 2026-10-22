@@ -12,7 +12,7 @@
     "date":{"type":"string","format":"date"},
     "theme":{"type":"object","additionalProperties":false,"required":["name","equivalence_keys"],"properties":{"name":{"$ref":"#/$defs/text"},"equivalence_keys":{"$ref":"#/$defs/keys"}}},
     "words":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["lemma","equivalence_keys"],"properties":{"lemma":{"$ref":"#/$defs/text"},"equivalence_keys":{"$ref":"#/$defs/keys"},"bosnian_level":{"enum":["A1","A2","B1","B2","C1","C2",null]}}}},
-    "design_palette":{"enum":["gold-cream","forest-cream","terracotta-sand","blue-ice","rose-ivory","lavender-pearl","mint-linen","coral-cream","slate-silver","plum-blush","charcoal-lemon"]},
+    "design_palette":{"enum":["gold-cream","forest-cream","terracotta-sand","blue-ice","rose-ivory","lavender-pearl","mint-linen","coral-cream","slate-silver","plum-blush","charcoal-lemon","burgundy-oat","olive-stone","indigo-mist","copper-linen","teal-seaglass","aubergine-apricot","espresso-almond","graphite-chalk","cobalt-peach","ochre-parchment","pine-rose"]},
     "cards":{"type":"array","minItems":3,"maxItems":3,"items":{"$ref":"#/$defs/card"}},
     "caption":{"type":"string","minLength":10,"maxLength":1600},
     "caption_language":{"enum":["en","bs"]},
