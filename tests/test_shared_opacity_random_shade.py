@@ -67,6 +67,10 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
             applied=apply_policy(inactive,panel_opacity=100)
             self.assertEqual(applied,inactive)
             self.assertFalse(policy_metadata(applied,panel_opacity=100)['example_fade_applied'])
+            accepted={'status':'accepted','palette':'gold-cream','design':applied['design'],
+                'block_styles':{b['role']:b['style'] for b in applied['blocks']},
+                'composition':applied,'render_policy':policy_metadata(applied,panel_opacity=100)}
+            self.assertNotIn('example_fade',accepted_choices({'cards':{'word':accepted}})['word'])
         quiz=default_plan(reviewed_fixture()['cards'][0])
         quiz['blocks'][1]['panel_opacity']=69.9
         with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(quiz,panel_opacity=100)

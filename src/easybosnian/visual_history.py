@@ -71,7 +71,8 @@ def accepted_choices(placement):
             if ((card.get('render_policy',{}).get('version')==4
                      and example.get('style')=='italic_photo_fade'
                      and example.get('fade_style') in REVIEW_EXAMPLE_FADE_STYLES)
-                    or (example.get('fade_style') in REVIEW_FADE_STYLES
+                    or (card.get('render_policy',{}).get('version')!=4
+                        and example.get('fade_style') in REVIEW_FADE_STYLES
                         and not card.get('render_policy',{}).get('example_fade'))):
                 safe['example_fade']=example['fade_style']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
