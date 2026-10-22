@@ -16,7 +16,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':30, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
+    return {'rendering_version':31, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 

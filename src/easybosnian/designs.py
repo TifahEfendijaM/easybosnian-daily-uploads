@@ -35,7 +35,7 @@ FADE_CATALOGUE = {
     'defined': 'Earlier full-width linear shade with more defined edges, not the smooth preset. PRIMJER backing extends 18px below the last row before its 48px taper.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
-PANEL_OPACITY_RANGE = (70, 100)
+PANEL_OPACITY_RANGE = (85, 100)
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size
@@ -46,8 +46,8 @@ STYLE_CATALOGUE = {
     'rounded': 'Paper panel, 24px rounded corners, inset accent rule; independently chosen approved quiz badge.',
     'outlined': 'Square paper panel with 3px accent outline; inset rule and independently chosen approved quiz badge.',
     'plain': 'Unboxed Inter body on editorial paper only; no background, rule or border. Not valid for answers.',
-    'overlay_dark': 'Approved ink panel with paper text and paper-filled approved answer badge. Surface opacity is a declared 70–100 percent.',
-    'overlay_light': 'Approved paper panel, square corners, accent underline. Legacy omitted opacity retains alpha 235; new choices declare 70–100 percent. Actual glyph contrast must pass after compositing.',
+    'overlay_dark': 'Approved ink panel with paper text and paper-filled approved answer badge. Explanation surface opacity is assigned 85–100 percent; answers are fully opaque.',
+    'overlay_light': 'Approved paper panel, square corners, accent underline. Legacy omitted opacity retains alpha 235; new explanations use 85–100 percent and answers use 100 percent. Actual glyph contrast must pass after compositing.',
     'side_rule': 'Square paper panel with full-height 12px left accent bar; approved answer badge.',
     'bottom_sheet': 'Wide paper sheet with 54px rounded top corners and square bottom; centered accent handle. Must start at y700 or lower and be at least 660px wide.',
     'split_panel': 'Square paper panel with a full-height 82px accent rail; answer label in rail, body text in its own column.',

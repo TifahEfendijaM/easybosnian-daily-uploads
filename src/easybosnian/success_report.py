@@ -144,8 +144,13 @@ def decision_lines(rendering):
     composition=rendering.get('composition')
     policy=rendering.get('render_policy')
     if policy:
-        lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from 70–100%, "+
-                     ('applied to every text/option panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
+        answers=composition and any(b['role'] in ('A','B','C','D') for b in composition['blocks'])
+        if policy.get('version')==2 and answers:
+            lines.append('Answer panel opacity: fixed at 100%; every option surface is fully opaque.')
+        else:
+            limits='85–100%' if policy.get('version')==2 else '70–100%'
+            lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
+                         ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
             lines.append('PRIMJER shade selection: independent random 50/50 draw — '+policy['example_fade']+
                          (' applied.' if policy['example_fade_applied'] else ' inactive for this unshaded/paper example.'))

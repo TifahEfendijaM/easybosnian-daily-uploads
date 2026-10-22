@@ -15,7 +15,7 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE
 KINDS = ('quiz', 'lesson', 'word')
 VISUAL_REVIEW_TIMEOUT = 600
 OPACITY_SCHEMA = {'type':'number','minimum':PANEL_OPACITY_RANGE[0],'maximum':PANEL_OPACITY_RANGE[1]}
-# Saved numeric 50–69.999...% choices remain readable, never newly selectable.
+# Saved numeric 50–84.999...% choices remain readable, never newly selectable.
 LEGACY_OPACITY_SCHEMA = {**OPACITY_SCHEMA,'minimum':50}
 def block_schema(role, styles):
     low,high=FONT_RANGES[role]
@@ -68,7 +68,9 @@ def model_fields(properties, removed=()):
     if 'photo_tone' in fields:fields['photo_tone']={'enum':list(REVIEW_PHOTO_TONES)}
     for field in ('heading_fade','fade_style'):
         if field in fields:fields[field]={'enum':list(REVIEW_FADE_STYLES)}
-    if 'panel_opacity' in fields:fields['panel_opacity']=OPACITY_SCHEMA
+    if 'panel_opacity' in fields:
+        fields['panel_opacity']=({**OPACITY_SCHEMA,'minimum':100} if
+                                 fields.get('role',{}).get('enum')==['A','B','C','D'] else OPACITY_SCHEMA)
     return fields
 
 
@@ -168,8 +170,9 @@ def review_compositions(package, candidates, recent=()):
         'strip. Choose underlined only when the actual photo supports readable bare label '
         'text; otherwise choose a bounded approved category chip. Pillow rejects unreadable '
         'bare labels instead of adding a fade or silently changing the category design. '
-        'The trusted pipeline uniformly samples ONE shared panel_opacity from 70 to 100 percent '
-        'inclusive, in 0.1-percent steps, independently for each image. It is supplied as '
+        'The trusted pipeline uniformly samples ONE explanation panel_opacity from 85 to 100 percent '
+        'inclusive, in 0.1-percent steps, independently for each lesson/word image. Answer '
+        'panels are ALWAYS fully opaque at 100 percent; no answer-opacity draw is made. It is supplied as '
         'assigned_panel_opacity in the image context. You do NOT choose the opacity. '
         'Use the assigned value on every bounded body/answer panel and choose readable '
         'approved colours, styles and placements for that opacity and photograph. '
@@ -209,11 +212,14 @@ def review_compositions(package, candidates, recent=()):
         'where measured readability needs it. Pillow lightens the surrounding photograph instead '
         'of applying that stronger opacity across the whole width. '
         'Keep the existing light-on-dark preference and all approved colour pairings. Pillow alone '
-        'controls strength; do not supply a fade-strength parameter. Preserve the current smooth '
+        'controls strength; do not supply a fade-strength parameter. Preserve the selected preset’s distinct '
         'edges and category/title spacing. This title preference does not change PRIMJER treatment. '
         'Choose heading_fade for photographic titles from exactly two approved presets: '
         'standard has smoothly eased edges; defined preserves the earlier more defined '
         'full-width linear shade. Title preset selection remains your creative decision. '
+        'Give standard and defined title shades equal consideration for either black or white '
+        'backings; neither edge type has priority. White title shading has a slightly lighter '
+        'outer shade and finer low-strength steps, while still meeting measured glyph contrast. '
         'For PRIMJER the trusted pipeline draws standard or defined independently AFTER '
         'this review with a true 50/50 probability. Use standard as the example fade_style '
         'placeholder; the wrapper assigns the actual preset after your design proposal. '
@@ -276,6 +282,10 @@ def review_compositions(package, candidates, recent=()):
         'otherwise preserve them through a full-background hybrid or complete contained photo. '
         'For hybrid examples prefer a wide calm lower photo area, like pluralizam and Identitet '
         'nije izbor, over a cramped top-right example. Do not enforce this if it obscures the subject. '
+        'PRIMJER does NOT have to appear below the explanation panel: it may be ABOVE it '
+        'when that fits this photo, hierarchy and reading flow better. Keep the required '
+        'breathing room and protected regions. Preserve the blocks array role order, but '
+        'choose their y positions independently; array order does not impose vertical order. '
         'Keep important faces, identifying objects and actions visible, and preserve reading flow. '
         'A body may be higher/middle/lower and its example elsewhere; quiz options may be separately '
         'placed INDEPENDENTLY with separate x/y/width, ordered A then B then C then D by y then x. You are not placing a single answer-card stack. For an ordinary quiz, consider a staggered left/right arrangement or different vertical regions around visible subjects when readable, like Mandat at upper-left, Kvorum middle-right and Kampanja lower-left. Stacking is allowed when the photo or exact copy benefits, never a mechanical default. Select each answer badge independently: marker_style=circle, rounded_square, square or triangle. Consistent panel/badge designs are often appealing, but mixed approved styles/badges are allowed when they make a coherent composition. Each answer also retains its own bounded typography. All colours remain from the card palette. Never use design to signal the correct answer; no answer key is provided. Do not move everything lower by habit. '

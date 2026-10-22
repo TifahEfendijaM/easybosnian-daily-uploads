@@ -38,7 +38,7 @@ class VisualProvenanceTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             shade_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.choice',return_value=example_shade))
-            opacity_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.randbelow',return_value=round((panel_opacity-70)*10)))
+            opacity_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.randbelow',return_value=round((panel_opacity-85)*10)))
             child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
             if render_override:stack.enter_context(patch('easybosnian.artwork.render_hybrid',side_effect=render_override))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
@@ -48,8 +48,8 @@ class VisualProvenanceTests(unittest.TestCase):
             child.assert_called_once();self.assertEqual(provider.generate.call_count,3)
             self.assertEqual(shade_draw.call_count,sum(bool(c.get('example')) for c in package['cards']))
             self.assertTrue(all(call.args==(('standard','defined'),) for call in shade_draw.call_args_list))
-            self.assertEqual(opacity_draw.call_count,len(package['cards']))
-            self.assertTrue(all(call.args==(301,) for call in opacity_draw.call_args_list))
+            self.assertEqual(opacity_draw.call_count,sum(c['kind']!='quiz' for c in package['cards']))
+            self.assertTrue(all(call.args==(151,) for call in opacity_draw.call_args_list))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
         return placement,metrics
 
