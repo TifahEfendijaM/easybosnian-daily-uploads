@@ -5,7 +5,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, valid_panel_opacity, PANEL_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, valid_panel_opacity, PANEL_STYLES
 
 REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
@@ -61,15 +61,18 @@ def accepted_choices(placement):
         if isinstance(badges,dict) and all(r in ('A','B','C','D') and s in MARKER_STYLES for r,s in badges.items()):
             safe['answer_badges']=badges
         composition=card.get('composition',{})
-        fixed_white=(card.get('render_policy',{}).get('version')==3 and
+        fixed_white=(card.get('render_policy',{}).get('version') in (3,4) and
                      (card.get('heading_backing')=='#ffffff' or card.get('heading_tone') in ('ink_light','ink_paper','ink_accent','accent_light')))
         if isinstance(composition,dict) and composition.get('heading_fade') in REVIEW_FADE_STYLES and not fixed_white:
             safe['heading_fade']=composition['heading_fade']
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
             example=next((b for b in blocks if isinstance(b,dict) and b.get('role')=='example'),{})
-            if (example.get('fade_style') in REVIEW_FADE_STYLES
-                    and not card.get('render_policy',{}).get('example_fade')):
+            if ((card.get('render_policy',{}).get('version')==4
+                     and example.get('style')=='italic_photo_fade'
+                     and example.get('fade_style') in REVIEW_EXAMPLE_FADE_STYLES)
+                    or (example.get('fade_style') in REVIEW_FADE_STYLES
+                        and not card.get('render_policy',{}).get('example_fade'))):
                 safe['example_fade']=example['fade_style']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES

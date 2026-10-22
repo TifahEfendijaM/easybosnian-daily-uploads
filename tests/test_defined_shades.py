@@ -59,7 +59,7 @@ class DefinedShadeTests(unittest.TestCase):
         for plan in proposal['cards'].values():
             if plan['photo_window'] is None:plan['heading_fade']='defined'
             for block in plan['blocks']:
-                if block['style']=='italic_photo_fade':block['fade_style']='defined'
+                if block['style']=='italic_photo_fade':block['fade_style']='sharp'
         original=copy.deepcopy(h.package['cards'])
         placement,metrics=h.render(h.package,proposal)
         word=placement['cards']['word']
@@ -76,7 +76,7 @@ class DefinedShadeTests(unittest.TestCase):
             self.assertIn('PRIMJER fade: sharp',document)
         recent=accepted_choices(placement)['word']
         self.assertEqual(recent['heading_fade'],'defined')
-        self.assertNotIn('example_fade',recent)  # Random policy is not a ChatGPT choice.
+        self.assertEqual(recent['example_fade'],'sharp')  # Accepted reviewer choice, not a wrapper override.
 
     def test_inactive_and_unsupported_presets_are_rejected_without_adding_shading(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)

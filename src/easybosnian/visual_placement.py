@@ -9,7 +9,7 @@ from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
-                     PANEL_TONES, FADE_STYLES, TITLE_FADE_STYLES, REVIEW_FADE_STYLES, FADE_CATALOGUE,
+                     PANEL_TONES, FADE_STYLES, TITLE_FADE_STYLES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, FADE_CATALOGUE,
                      REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, TITLE_TONE_CATALOGUE, PANEL_OPACITY_RANGE)
 
 KINDS = ('quiz', 'lesson', 'word')
@@ -66,15 +66,15 @@ def model_fields(properties, removed=()):
     fields={k:v for k,v in properties.items() if k not in removed}
     if 'heading_tone' in fields:fields['heading_tone']={'enum':list(REVIEW_TITLE_TONES)}
     if 'photo_tone' in fields:fields['photo_tone']={'enum':list(REVIEW_PHOTO_TONES)}
-    for field in ('heading_fade','fade_style'):
-        if field in fields:fields[field]={'enum':list(REVIEW_FADE_STYLES)}
+    if 'heading_fade' in fields:fields['heading_fade']={'enum':list(REVIEW_FADE_STYLES)}
+    if 'fade_style' in fields:fields['fade_style']={'enum':list(REVIEW_EXAMPLE_FADE_STYLES)}
     if 'panel_opacity' in fields:
         fields['panel_opacity']=({**OPACITY_SCHEMA,'minimum':100} if
                                  fields.get('role',{}).get('enum')==['A','B','C','D'] else OPACITY_SCHEMA)
     return fields
 
 
-# Only two fixed presets are newly selectable; old soft metadata is archive-only.
+# Separate title/example preset catalogues; old soft/defined example metadata is archive-only.
 # Position adjustment uses this same strict model contract.
 MODEL_BLOCK_SCHEMA = {'anyOf':[
     {**branch,'properties':model_fields(branch['properties']),
@@ -202,7 +202,7 @@ def review_compositions(package, candidates, recent=()):
         'for actual photo fit, harmony and readability. Light text on a dark fade remains the '
         'usual direction; use dark text on a light fade when the photo suits it better. Pillow owns the '
         f'fixed fade shape and contrast-driven strength: titles retain the earlier {TITLE_FADE_FEATHER}px '
-        'vertical feather, while photographic examples use the fixed sharp band with lower padding beyond their '
+        'vertical feather, while photographic examples use the selected smooth or sharp preset with lower padding beyond their '
         'measured text band. Weak or no shading remains valid; shading is added only when contrast needs it. '
         'For the TITLE specifically, keep a softly shaded appearance when the photo needs a backing, '
         'with the photograph still visible through it. Favour a gentle fade over a pronounced dark '
@@ -221,16 +221,17 @@ def review_compositions(package, candidates, recent=()):
         'the best fit. WHITE title backings ALWAYS use defined, enforced by Pillow, including '
         'automatic text-tone selection. White title shading is very gentle outside the letters '
         'and uses fine contrast-safe strength steps. Do not request a smooth white title shade. '
-        'For PRIMJER, the trusted pipeline ALWAYS uses sharp: a crisp straight-edged full-width '
-        'translucent band with NO feather or rounded box. '
-        'This is distinct from defined, which still has a linear taper. Keep the approved '
-        'text/backing colours. Use standard as the example fade_style placeholder; the wrapper '
-        'sets sharp for a shaded photographic example before validation and rendering. '
-        'There is no random PRIMJER shade draw. The same sharp preset survives placement '
-        'repair, palette rejection and fallback. '
-        'Unshaded italic_photo and paper italic_footer remain available; the assigned preset '
-        'does not add a fade to them. The sharp example '
-        f'shade extends {EXAMPLE_FADE_PADDING}px below the last row and ends cleanly instead of tapering. PRIMJER still needs at least '
+        'For PRIMJER with italic_photo_fade, choose fade_style=standard or sharp for EACH actual '
+        'photograph. Standard blends smoothly into the image; sharp is a translucent full-width '
+        'strip with crisp straight top/bottom edges and no feather or rounded box. Actively compare '
+        'both against the photograph, negative space, text length, hierarchy and overall balance; '
+        'choose whichever fits this case better. Give both equal consideration: neither is the '
+        'default or preferred, and do not rotate, alternate or randomly choose between them. '
+        'Pillow preserves your approved preset through validation, placement repair and palette-only '
+        'fallback; a rejected entire layout uses the deterministic fallback and is reported as such. '
+        'Keep the approved text/backing colours. Unshaded italic_photo and paper italic_footer remain '
+        'available; use their inactive standard placeholder, which adds no backing. Both photographic '
+        f'shades extend {EXAMPLE_FADE_PADDING}px below the final row before their smooth or crisp edge. PRIMJER still needs at least '
         f'{EXAMPLE_BLOCK_GAP}px clearance from other text blocks, preferably 40..56px when suitable, '
         'with EVERY shade treatment and EVERY design. No fade may cover the category strip. '
         'Only the approved preset ID and text/fade COLOURS are selectable; never custom geometry, '

@@ -151,7 +151,7 @@ class PanelOpacityTests(unittest.TestCase):
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
         from easybosnian.visual_policy import apply_policy
-        self.assertEqual(metrics['word']['composition'],apply_policy(proposal['cards']['word'],panel_opacity=87.5,example_fade='sharp'))
+        self.assertEqual(metrics['word']['composition'],apply_policy(proposal['cards']['word'],panel_opacity=87.5))
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertGreaterEqual(metrics['word']['body_contrast'],4.5)
         self.assertIn('Explanation surface opacity: 87.5%.',decision_lines(word))
