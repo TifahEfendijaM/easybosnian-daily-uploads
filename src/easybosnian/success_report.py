@@ -148,14 +148,14 @@ def decision_lines(rendering):
     policy=rendering.get('render_policy')
     if policy:
         answers=composition and any(b['role'] in ('A','B','C','D') for b in composition['blocks'])
-        if policy.get('version') in (2,3,4) and answers:
+        if policy.get('version') in (2,3,4,5) and answers:
             lines.append('Answer panel opacity: fixed at 100%; every option surface is fully opaque.')
         else:
-            limits='85–100%' if policy.get('version') in (2,3,4) else '70–100%'
+            limits='85–100%' if policy.get('version') in (2,3,4,5) else '70–100%'
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
-            if policy.get('version')==4:
+            if policy.get('version') in (4,5):
                 source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — '}.get(
                     rendering.get('provenance',{}).get('layout',{}).get('source'),'source not recorded — ')
             else:

@@ -68,10 +68,10 @@ def accepted_choices(placement):
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
             example=next((b for b in blocks if isinstance(b,dict) and b.get('role')=='example'),{})
-            if ((card.get('render_policy',{}).get('version')==4
+            if ((card.get('render_policy',{}).get('version') in (4,5)
                      and example.get('style')=='italic_photo_fade'
                      and example.get('fade_style') in REVIEW_EXAMPLE_FADE_STYLES)
-                    or (card.get('render_policy',{}).get('version')!=4
+                    or (card.get('render_policy',{}).get('version') not in (4,5)
                         and example.get('fade_style') in REVIEW_FADE_STYLES
                         and not card.get('render_policy',{}).get('example_fade'))):
                 safe['example_fade']=example['fade_style']

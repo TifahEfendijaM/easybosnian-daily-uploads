@@ -1,4 +1,4 @@
-"""Crisp example bands and defined white titles are actual renderer policies."""
+"""Crisp examples, freely chosen title edges and honest archived rendering policies."""
 import copy
 import tempfile
 import unittest
@@ -42,7 +42,7 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
                 self.assertEqual(image.getpixel((10,1040)),original.getpixel((10,1040)))
                 self.assertEqual(image.getpixel((1059,1040)),pixel)
 
-    def test_selected_examples_survive_and_only_white_title_intent_is_overridden(self):
+    def test_selected_example_and_title_presets_survive_for_both_neutral_backings(self):
         cards=reviewed_fixture()['cards']
         for tone in ('paper_dark','ink_light','ink_paper','accent_dark','accent_light'):
             for preset in ('standard','defined'):
@@ -50,38 +50,44 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
                 original=copy.deepcopy(plan)
                 final=apply_policy(plan,panel_opacity=90)
                 self.assertEqual(final['blocks'][-1]['fade_style'],plan['blocks'][-1]['fade_style'])
-                self.assertEqual(final['heading_fade'],'defined' if tone in ('ink_light','ink_paper','accent_light') else preset)
+                self.assertEqual(final['heading_fade'],preset)
                 self.assertEqual(plan,original)
         final['heading_fade']='sharp'
         self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(final)))
 
-    def test_automatic_white_backing_uses_defined_edges_and_reports_the_effective_preset(self):
+    def test_automatic_white_backing_preserves_both_edge_choices_with_real_pixel_checks(self):
         card=reviewed_fixture()['cards'][2];card['heading']='Čuvaj svoju riječ.'
-        plan=default_plan(card);plan.update(heading_tone='auto',heading_fade='standard')
-        original=copy.deepcopy(plan)
+        pixels=[]
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);photo=root/'photo.jpg'
             image=Image.new('RGB',(1080,1350),'black');ImageDraw.Draw(image).rectangle((160,0,1079,1349),fill='white');image.save(photo)
-            result=render_hybrid(card,'gold-cream',photo,root/'title.jpg',plan)
-        self.assertEqual(result['heading_backing'],'#ffffff')
-        self.assertEqual(result['composition']['heading_fade'],'defined')
-        self.assertGreaterEqual(result['heading_contrast'],3)
-        self.assertEqual(plan,original)
+            for preset in ('standard','defined'):
+                plan=default_plan(card);plan.update(heading_tone='auto',heading_fade=preset)
+                original=copy.deepcopy(plan);output=root/f'{preset}.jpg'
+                result=render_hybrid(card,'gold-cream',photo,output,plan)
+                self.assertEqual(result['heading_backing'],'#ffffff')
+                self.assertEqual(result['composition']['heading_fade'],preset)
+                self.assertGreaterEqual(result['heading_contrast'],3)
+                self.assertEqual(plan,original)
+                with Image.open(output) as rendered:pixels.append(rendered.crop((0,145,1080,285)).tobytes())
+        self.assertNotEqual(*pixels)
 
     def test_pipeline_and_reports_show_model_selected_sharp_and_read_archived_policies(self):
         h=provenance_harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
         proposal['cards']['word']['heading_tone']='ink_light'
         proposal['cards']['word']['blocks'][-1]['fade_style']='sharp'
         placement,_=h.render(h.package,proposal)
-        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],4)
-        self.assertEqual(word['composition']['heading_fade'],'defined')
-        self.assertNotIn('heading_fade',accepted_choices(placement)['word'])
+        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],5)
+        self.assertEqual(word['composition']['heading_fade'],'standard')
+        self.assertEqual(accepted_choices(placement)['word']['heading_fade'],'standard')
         self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'sharp')
         text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
         for document in (text,markup):
             self.assertIn('ChatGPT',document);self.assertIn('sharp applied',document)
             self.assertNotIn('random 50/50',document)
-        for version in (None,2,3):
+            self.assertIn('Title fade: standard',document)
+            self.assertNotIn('White title edge: fixed',document)
+        for version in (None,2,3,4):
             plan=default_plan(h.package['cards'][2])
             old={'panel_opacity':100,'panel_opacity_applied':True,'example_fade':'standard','example_fade_applied':True}
             if version is not None:old['version']=version
@@ -89,6 +95,7 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
                 old['example_fade']='sharp';plan['blocks'][-1]['fade_style']='sharp'
             self.assertEqual(safe_policy(old,plan),old)
         bad=copy.deepcopy(placement);bad['cards']['word']['heading_backing']='#ffffff'
+        bad['cards']['word']['render_policy']['version']=4
         bad['cards']['word']['composition']['heading_fade']='standard'
         with self.assertRaisesRegex(ValueError,'White title edge'):
             with_rendering(report_data(h.package,results(),RUN),bad)
