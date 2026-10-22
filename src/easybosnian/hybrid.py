@@ -24,10 +24,14 @@ PHOTO_FADE_FEATHER = 48
 TITLE_FADE_FEATHER = 100
 # Start with faint title backings; stronger candidates require measured need.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
+# Finer steps avoid unnecessarily whitening a photograph when a weaker white
+# title backing already passes contrast. Black backings keep their existing preset.
+TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(8,145,8)) | {156,190,225}))
 TITLE_FADE_POWER = 2.5
 # Fade unnecessary shade away from the measured title span. Keep the full
 # needed strength under its glyphs and the chosen preset's vertical edge type.
 TITLE_SURROUND_OPACITY = .35
+TITLE_WHITE_SURROUND_OPACITY = .25
 TITLE_SURROUND_FEATHER = 180
 
 
@@ -274,7 +278,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None):
     """Real glyph contrast with approved feathered fades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -297,17 +301,20 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     # Never recolour the scene to fit the selected accent.
     best=None
     left,top,right,bottom=region_limit or (0,0,WIDTH,HEIGHT)
-    surround_mask=None
-    if surround_opacity<1:
+    def surrounding_mask(opacity):
+        if opacity>=1:return None
         # Renderer-only opacity profile, never a model-supplied drawing rule.
         # One bright glyph must not darken an otherwise empty full-width band.
         box=mask.getbbox();values=[]
         for x in range(image.width):
             distance=max(box[0]-20-x,x-box[2]-20,0)
             t=min(1,distance/TITLE_SURROUND_FEATHER);t=t*t*(3-2*t)
-            values.append(round(255*(1-(1-surround_opacity)*t)))
-        surround_mask=Image.new('L',(image.width,1));surround_mask.putdata(values)
-        surround_mask=surround_mask.resize(image.size,Image.Resampling.NEAREST)
+            values.append(round(255*(1-(1-opacity)*t)))
+        result=Image.new('L',(image.width,1));result.putdata(values)
+        return result.resize(image.size,Image.Resampling.NEAREST)
+    surround_mask=surrounding_mask(surround_opacity)
+    light_surround_mask=(surrounding_mask(light_surround_opacity)
+                         if light_surround_opacity is not None else surround_mask)
     soft_mask=None
     if fade_style=='soft':
         # A compact, four-sided feather around the exact glyph region, rather
@@ -321,7 +328,10 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     # Only trusted callers select these presets, never model-supplied fields.
     # Examples keep the original contrast-driven strengths and feather profile.
     for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
-        for alpha in shade_levels:
+        white=backing==(255,255,255)
+        levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
+        current_surround=light_surround_mask if white else surround_mask
+        for alpha in levels:
             overlay=Image.new('RGBA',image.size)
             if soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
@@ -346,8 +356,8 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                     else:t=1
                     t=max(0,min(1,t));opacity=round(alpha*(t*t*(3-2*t))**feather_power)
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
-            if surround_mask is not None:
-                overlay.putalpha(ImageChops.multiply(overlay.getchannel('A'),surround_mask))
+            if current_surround is not None:
+                overlay.putalpha(ImageChops.multiply(overlay.getchannel('A'),current_surround))
             candidate=Image.alpha_composite(image,overlay)
             score=lowest(candidate,colour)
             if score>=threshold:
@@ -517,7 +527,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
-            surround_opacity=TITLE_SURROUND_OPACITY)
+            surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
+            light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY)
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
     example_contrast=None;example_shading=0;example_colour=None

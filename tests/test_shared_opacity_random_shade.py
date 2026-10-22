@@ -21,11 +21,11 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         with patch('easybosnian.visual_policy.secrets.choice',side_effect=['standard','defined']) as draw:
             selected=example_fades(cards)
         self.assertEqual(selected,{'lesson':'standard','word':'defined'})
-        with patch('easybosnian.visual_policy.secrets.randbelow',side_effect=[0,75,300]) as opacity_draw:
+        with patch('easybosnian.visual_policy.secrets.randbelow',side_effect=[0,150]) as opacity_draw:
             opacities=panel_opacities(cards)
-        self.assertEqual(opacities,{'quiz':70,'lesson':77.5,'word':100})
-        self.assertEqual(opacity_draw.call_count,3)
-        self.assertTrue(all(call.args==(301,) for call in opacity_draw.call_args_list))
+        self.assertEqual(opacities,{'quiz':100,'lesson':85,'word':100})
+        self.assertEqual(opacity_draw.call_count,2)
+        self.assertTrue(all(call.args==(151,) for call in opacity_draw.call_args_list))
         self.assertEqual(draw.call_count,2)
         self.assertTrue(all(call.args==(('standard','defined'),) for call in draw.call_args_list))
 
@@ -37,17 +37,17 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 card['options']=[{'label':label,'text':text} for label,text in
                                   zip('ABCD',('Jabuka','Kruška','Šljiva','Dunja'))][:count]
                 source=copy.deepcopy(card);plan=default_plan(card)
-                for block,opacity in zip(plan['blocks'],(77.5,90,100,70)):
+                for block,opacity in zip(plan['blocks'],(85,90,100,95)):
                     block['panel_opacity']=opacity
-                original=copy.deepcopy(plan);applied=apply_policy(plan,panel_opacity=83.4)
+                original=copy.deepcopy(plan);applied=apply_policy(plan,panel_opacity=100)
                 expected=copy.deepcopy(plan)
-                for block in expected['blocks']:block['panel_opacity']=83.4
+                for block in expected['blocks']:block['panel_opacity']=100
                 self.assertEqual(applied,expected);self.assertEqual(plan,original)
                 metrics=render_hybrid(card,'gold-cream',photo,root/f'quiz-{count}.jpg',applied)
                 self.assertEqual(metrics['composition'],expected)
                 self.assertGreaterEqual(metrics['body_contrast'],4.5)
                 self.assertEqual(card,source)
-                self.assertEqual(policy_metadata(applied,panel_opacity=83.4)['panel_opacity'],83.4)
+                self.assertEqual(policy_metadata(applied,panel_opacity=100)['panel_opacity'],100)
             # A different image is free to choose another opacity.
             word=default_plan(reviewed_fixture()['cards'][2]);word['blocks'][0]['panel_opacity']=91
             self.assertEqual(apply_policy(word,panel_opacity=91)['blocks'][0]['panel_opacity'],91)
@@ -55,11 +55,11 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
     def test_policy_changes_only_panel_opacity_and_active_example_preset(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)
         plan.update(heading_tone='accent_dark',heading_fade='standard')
-        plan['blocks'][0].update(style='soft_corner',panel_opacity=73.5)
+        plan['blocks'][0].update(style='soft_corner',panel_opacity=93.5)
         plan['blocks'][-1]['photo_tone']='paper_ink'
         original=copy.deepcopy(plan)
         expected=copy.deepcopy(plan);expected['blocks'][-1]['fade_style']='defined'
-        self.assertEqual(apply_policy(plan,panel_opacity=73.5,example_fade='defined'),expected)
+        self.assertEqual(apply_policy(plan,panel_opacity=93.5,example_fade='defined'),expected)
         self.assertEqual(plan,original)
         for style in ('italic_photo','italic_footer'):
             inactive=editorial_plan(card) if style=='italic_footer' else default_plan(card)
@@ -76,13 +76,13 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         h=provenance_harness.VisualProvenanceTests();h.setUp()
         h.package['cards'][1]['example']='Ovo je primjer.'
         proposal=h.proposal(h.package)
-        proposal['cards']['quiz']['blocks'][0]['panel_opacity']=87.5
-        proposal['cards']['quiz']['blocks'][1]['panel_opacity']=70
+        proposal['cards']['quiz']['blocks'][0]['panel_opacity']=100
+        proposal['cards']['quiz']['blocks'][1]['panel_opacity']=100
         proposal['cards']['word']['blocks'][0]['max_lines']=1
         placement,metrics=h.render(h.package,proposal,example_shade='defined',panel_opacity=87.5)
         quiz=placement['cards']['quiz'];lesson=placement['cards']['lesson'];word=placement['cards']['word']
         self.assertEqual(quiz['status'],'accepted')
-        self.assertTrue(all(b['panel_opacity']==87.5 for b in quiz['composition']['blocks']))
+        self.assertTrue(all(b['panel_opacity']==100 for b in quiz['composition']['blocks']))
         self.assertEqual(lesson['provenance']['layout']['source'],'chatgpt')
         self.assertEqual(word['provenance']['layout']['source'],'fallback')
         self.assertEqual(word['composition']['blocks'][0]['panel_opacity'],87.5)

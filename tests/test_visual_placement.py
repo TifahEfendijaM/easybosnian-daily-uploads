@@ -277,7 +277,7 @@ class PreparedArtworkTests(unittest.TestCase):
     def setUp(self):
         self.recent=patch('easybosnian.visual_history.recent_choices',return_value=([],'available'))
         self.recent.start();self.addCleanup(self.recent.stop)
-        opacity=patch('easybosnian.visual_policy.secrets.randbelow',return_value=300)
+        opacity=patch('easybosnian.visual_policy.secrets.randbelow',return_value=150)
         self.opacity_draw=opacity.start();self.addCleanup(opacity.stop)
         shade=patch('easybosnian.visual_policy.secrets.choice',return_value='standard')
         self.shade_draw=shade.start();self.addCleanup(shade.stop)
@@ -295,10 +295,10 @@ class PreparedArtworkTests(unittest.TestCase):
             for candidate in review.call_args.args[1].values():
                 with Image.open(candidate['sheet']) as sheet:self.assertEqual(sheet.size,(1440,900))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
-            self.assertEqual(self.opacity_draw.call_count,3)
+            self.assertEqual(self.opacity_draw.call_count,2)
             self.assertEqual(self.shade_draw.call_count,sum(bool(c.get('example')) for c in package['cards']))
             result=artwork(store,package,expose=True,require_prepared=True)
-            self.assertEqual(self.opacity_draw.call_count,3)
+            self.assertEqual(self.opacity_draw.call_count,2)
             self.assertEqual(self.shade_draw.call_count,sum(bool(c.get('example')) for c in package['cards']))
             self.assertEqual(provider.generate.call_count,3);review.assert_called_once()
             self.assertEqual(store.put_file.call_count,3);self.assertEqual(store.expose.call_count,3);self.assertEqual(visible.call_count,3)
