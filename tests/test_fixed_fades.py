@@ -99,7 +99,7 @@ class FixedFadeTests(unittest.TestCase):
                      'This title preference does not change PRIMJER treatment',
                      'Choose heading_fade for photographic titles from exactly two approved presets',
                      'standard has smoothly eased edges; defined preserves the earlier',
-                     'with EITHER preset and EVERY design',
+                     'with EVERY shade treatment and EVERY design',
                      'Only the approved preset ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)
         self.assertNotIn('favour one that is clearly readable with little or no added shading',prompt)

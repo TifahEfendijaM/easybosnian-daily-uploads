@@ -16,7 +16,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':31, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
+    return {'rendering_version':32, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -75,8 +75,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             from .visual_history import recent_choices
             recent,recent_status=recent_choices()
             proposal,status=review_compositions(package,candidates,recent)
-            # Draw after review so the model cannot condition its example style
-            # on which preset was sampled. Never redraw on a safety fallback.
+            # Trusted fixed shade policy; no example-style random draw.
             shade_choices=example_fades(package['cards'])
             decisions={}
         for card in package['cards']:

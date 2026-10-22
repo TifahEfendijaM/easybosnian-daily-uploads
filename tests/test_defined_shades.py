@@ -61,19 +61,19 @@ class DefinedShadeTests(unittest.TestCase):
             for block in plan['blocks']:
                 if block['style']=='italic_photo_fade':block['fade_style']='defined'
         original=copy.deepcopy(h.package['cards'])
-        placement,metrics=h.render(h.package,proposal,example_shade='defined')
+        placement,metrics=h.render(h.package,proposal)
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertEqual(word['composition']['heading_fade'],'defined')
-        self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'defined')
+        self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'sharp')
         self.assertGreaterEqual(metrics['word']['heading_contrast'],3)
         self.assertGreaterEqual(metrics['word']['example_contrast'],4.5)
         self.assertEqual(h.package['cards'],original)
         text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
         for document in (text,markup):
             self.assertIn('Title fade: defined',document)
-            self.assertIn('PRIMJER fade: defined',document)
+            self.assertIn('PRIMJER fade: sharp',document)
         recent=accepted_choices(placement)['word']
         self.assertEqual(recent['heading_fade'],'defined')
         self.assertNotIn('example_fade',recent)  # Random policy is not a ChatGPT choice.

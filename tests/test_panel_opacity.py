@@ -150,7 +150,8 @@ class PanelOpacityTests(unittest.TestCase):
         placement,metrics=harness.render(harness.package,proposal,panel_opacity=87.5)
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
-        self.assertEqual(metrics['word']['composition'],proposal['cards']['word'])
+        from easybosnian.visual_policy import apply_policy
+        self.assertEqual(metrics['word']['composition'],apply_policy(proposal['cards']['word'],panel_opacity=87.5,example_fade='sharp'))
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertGreaterEqual(metrics['word']['body_contrast'],4.5)
         self.assertIn('Explanation surface opacity: 87.5%.',decision_lines(word))

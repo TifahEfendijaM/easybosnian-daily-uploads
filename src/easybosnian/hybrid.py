@@ -1,5 +1,6 @@
 """Measured photographic compositions from data, never model-generated drawing code."""
 import json
+import copy
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
@@ -17,6 +18,7 @@ CATEGORY_HEIGHT = 62
 HEADING_TOP = 174
 EXAMPLE_BLOCK_GAP = 32
 EXAMPLE_FADE_PADDING = 18
+SHARP_EXAMPLE_TOP_PADDING = 12
 # Renderer-owned vertical feathers beyond each measured text band.
 # Keep PRIMJER compact while restoring the title's earlier, broader gradient.
 PHOTO_FADE_FEATHER = 48
@@ -26,12 +28,12 @@ TITLE_FADE_FEATHER = 100
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
 # title backing already passes contrast. Black backings keep their existing preset.
-TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(8,145,8)) | {156,190,225}))
+TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(2,145,2)) | {156,190,225}))
 TITLE_FADE_POWER = 2.5
 # Fade unnecessary shade away from the measured title span. Keep the full
 # needed strength under its glyphs and the chosen preset's vertical edge type.
 TITLE_SURROUND_OPACITY = .35
-TITLE_WHITE_SURROUND_OPACITY = .25
+TITLE_WHITE_SURROUND_OPACITY = .10
 TITLE_SURROUND_FEATHER = 180
 
 
@@ -193,7 +195,7 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
-        if style!='italic_photo_fade' and block.get('fade_style')=='defined':
+        if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp'):
             raise ValueError('Only photographic faded examples can select a shade preset')
         if style=='plain' and block.get('panel_opacity',100) not in (100,'solid'):
             raise ValueError('Unboxed editorial body cannot set panel opacity')
@@ -278,9 +280,10 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None):
-    """Real glyph contrast with approved feathered fades, never an example box."""
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, light_fade_style=None):
+    """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
+    if light_fade_style is not None and light_fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
     text_height,_=measure(rows,face,line_spacing)
     mask=Image.new('L',image.size)
@@ -297,7 +300,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     score,colour=max(choices)
     if score>=threshold:return colour,score,0
     if not allow_fade:raise ValueError('Unshaded photo text fails measured contrast')
-    # A fixed neutral/palette feathered gradient protects only this text region.
+    # A fixed neutral/palette shade protects only this text region.
     # Never recolour the scene to fit the selected accent.
     best=None
     left,top,right,bottom=region_limit or (0,0,WIDTH,HEIGHT)
@@ -331,15 +334,23 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         white=backing==(255,255,255)
         levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
         current_surround=light_surround_mask if white else surround_mask
+        current_fade=light_fade_style if white and light_fade_style is not None else fade_style
         for alpha in levels:
             overlay=Image.new('RGBA',image.size)
-            if soft_mask is not None:
+            if current_fade=='sharp':
+                # A real straight-edged translucent strip, not a linear or
+                # smooth feather. Padding protects both label and last row.
+                od=ImageDraw.Draw(overlay)
+                band_top=max(round(top),int(text_top)-SHARP_EXAMPLE_TOP_PADDING)
+                band_bottom=min(round(bottom)-1,round(text_bottom+bottom_padding))
+                od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
+            elif current_fade=='soft' and soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
                 overlay.putalpha(soft_mask.point([round(v*alpha/255) for v in range(256)]))
             else:
                 od=ImageDraw.Draw(overlay)
                 for y in range(round(top),round(bottom)):
-                    if fade_style=='defined':
+                    if current_fade=='defined':
                         # Retain the earlier linear, more defined strip. Padding
                         # belongs to both presets; never stop at the last glyph.
                         distance=max(text_top-y,y-text_bottom-bottom_padding,0)
@@ -492,7 +503,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     catalogue=json.loads((ROOT/'data/design-palettes.json').read_text())
     if palette_id not in catalogue:raise ValueError('Unknown approved palette')
     palette=catalogue[palette_id]
-    plan=plan or default_plan(card)
+    plan=copy.deepcopy(plan) if plan is not None else default_plan(card)
     if plan.get('palette',palette_id)!=palette_id:raise ValueError('Composition palette differs from rendering palette')
     blocks=measured_plan(card,plan)
     ink,accent,paper=palette['ink'],palette['accent'],palette['panel']
@@ -528,9 +539,10 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
-            light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY)
+            light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,light_fade_style='defined')
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
+            if heading_backing=='#ffffff':plan['heading_fade']='defined'
     example_contrast=None;example_shading=0;example_colour=None
     # Apply photographic shading before drawing any panels or heading glyphs,
     # so a nearby example's fade cannot wash out an already-rendered panel.

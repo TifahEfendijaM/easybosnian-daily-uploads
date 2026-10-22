@@ -119,6 +119,9 @@ def with_rendering(data,placement):
             composition=rendered[LABELS[kind]].get('composition')
             if composition is None:raise ValueError('Rendering policy requires the final composition')
             rendered[LABELS[kind]]['render_policy']=safe_policy(result['render_policy'],composition)
+            if (result['render_policy'].get('version')==3 and result.get('heading_backing')=='#ffffff'
+                    and composition.get('heading_fade')!='defined'):
+                raise ValueError('White title edge differs from the fixed rendering policy')
         if result.get('layout_adjustment') is not None:
             final=rendered[LABELS[kind]].get('composition')
             if final is None:raise ValueError('Placement adjustment differs from rendered composition')
@@ -145,14 +148,15 @@ def decision_lines(rendering):
     policy=rendering.get('render_policy')
     if policy:
         answers=composition and any(b['role'] in ('A','B','C','D') for b in composition['blocks'])
-        if policy.get('version')==2 and answers:
+        if policy.get('version') in (2,3) and answers:
             lines.append('Answer panel opacity: fixed at 100%; every option surface is fully opaque.')
         else:
-            limits='85–100%' if policy.get('version')==2 else '70–100%'
+            limits='85–100%' if policy.get('version') in (2,3) else '70–100%'
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
-            lines.append('PRIMJER shade selection: independent random 50/50 draw — '+policy['example_fade']+
+            source='fixed crisp-edged preset — ' if policy.get('version')==3 else 'independent random 50/50 draw — '
+            lines.append('PRIMJER shade selection: '+source+policy['example_fade']+
                          (' applied.' if policy['example_fade_applied'] else ' inactive for this unshaded/paper example.'))
     window=composition.get('photo_window') if composition else None
     if composition:
@@ -163,6 +167,8 @@ def decision_lines(rendering):
     if tone:lines.append('Title: '+(TITLE_TONE_CATALOGUE if 'heading_backing' in rendering else PHOTO_TONE_CATALOGUE)[tone])
     if 'heading_backing' in rendering:
         lines.append('Applied title backing: '+{None:'none needed','#000000':'neutral black','#ffffff':'neutral white'}[rendering['heading_backing']]+'.')
+        if rendering['heading_backing']=='#ffffff' and policy and policy.get('version')==3:
+            lines.append('White title edge: fixed defined treatment; very gentle outer shade with measured contrast.')
     if composition:
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
