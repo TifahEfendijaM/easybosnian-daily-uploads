@@ -160,7 +160,7 @@ class PerCardReviewIsolationTests(unittest.TestCase):
         self.assertEqual(placement['status'],'reviewed')
         for kind in ('quiz','word'):
             self.assertEqual(placement['cards'][kind]['provenance']['layout']['source'],'chatgpt')
-            self.assertEqual(metrics[kind]['composition'],apply_policy(proposal['cards'][kind],panel_opacity=100,example_fade='sharp' if kind=='word' else None))
+            self.assertEqual(metrics[kind]['composition'],apply_policy(proposal['cards'][kind],panel_opacity=100))
         lesson=placement['cards']['lesson']
         self.assertEqual(lesson['provenance']['layout'],{'source':'fallback','reason':'review violated the declarative schema'})
         self.assertEqual(lesson['provenance']['palette']['source'],'chatgpt')

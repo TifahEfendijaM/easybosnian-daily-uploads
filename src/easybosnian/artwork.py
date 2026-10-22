@@ -8,7 +8,7 @@ from .core import ROOT, read_json, write_json
 from .http import SafeError, request
 from .providers import provider
 from .hybrid import default_plan, render_hybrid
-from .visual_policy import panel_opacities, example_fades, apply_policy, policy_metadata
+from .visual_policy import panel_opacities, apply_policy, policy_metadata
 from .visual_diagnostics import (rejection_diagnostic, rendering_outcome, rendering_provenance,
     select_palette, safe_palette_outcome, PALETTE_RENDER_FAILURES, REVIEW_FAILURES)
 from .store import wait_for_image
@@ -16,7 +16,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':32, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
+    return {'rendering_version':33, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -39,7 +39,6 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     for kind in saved['metrics'] for suffix in ('background','card')):
                 raise ValueError('Prepared artwork is incomplete; no generation or publication retry')
         candidates={}
-        shade_choices={}
         opacity_choices=panel_opacities(package['cards']) if review_images else {}
         if not require_prepared:
             if reused_backgrounds is not None:
@@ -75,8 +74,6 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             from .visual_history import recent_choices
             recent,recent_status=recent_choices()
             proposal,status=review_compositions(package,candidates,recent)
-            # Trusted fixed shade policy; no example-style random draw.
-            shade_choices=example_fades(package['cards'])
             decisions={}
         for card in package['cards']:
             kind=card['kind']; background=output/f'{kind}-background.jpg'
@@ -108,7 +105,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     return render_hybrid(card,palette,background,path,selected_plan)
                 def render_selected(selected_plan):
                     nonlocal palette,palette_outcome,palette_rejection
-                    selected_plan=apply_policy(selected_plan,panel_opacity=opacity_choices[kind],example_fade=shade_choices.get(kind))
+                    selected_plan=apply_policy(selected_plan,panel_opacity=opacity_choices[kind])
                     try:
                         return draw_plan(selected_plan)
                     except ValueError as error:
@@ -162,7 +159,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                                  'palette':metrics['palette'],'design':metrics['design'],'category_style':metrics['category_style'],
                                  'heading_tone':metrics['heading_tone'],'example_tone':metrics['example_tone'],
                                  'heading_backing':metrics.get('heading_backing'),
-                                 'render_policy':policy_metadata(metrics['composition'],panel_opacity=opacity_choices[kind],example_fade=shade_choices.get(kind)),
+                                 'render_policy':policy_metadata(metrics['composition'],panel_opacity=opacity_choices[kind]),
                                  'block_styles':metrics['block_styles'],'answer_badges':metrics['answer_badges'],
                                  'block_typography':metrics['block_typography'],'composition':metrics.get('composition'),
                                  'palette_outcome':palette_outcome,

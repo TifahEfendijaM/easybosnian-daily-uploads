@@ -86,7 +86,8 @@ class NeutralTitlesPaletteVarietyTests(unittest.TestCase):
             reviewed,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in plans})
         self.assertEqual(status,'reviewed')
         prompt=child.call_args.args[0]
-        self.assertIn('trusted pipeline ALWAYS uses sharp',prompt)
+        self.assertIn('choose fade_style=standard or sharp for EACH actual',prompt)
+        self.assertIn('neither is the default or preferred',prompt)
         self.assertIn('restriction applies EQUALLY to EVERY approved palette',prompt)
         self.assertIn('ONLY neutral black or white',prompt)
         self.assertNotIn('explicit terracotta-sand restriction',prompt)

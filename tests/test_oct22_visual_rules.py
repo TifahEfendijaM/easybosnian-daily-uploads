@@ -62,7 +62,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
         source=copy.deepcopy(card);plan=default_plan(card);plan['heading_tone']='paper_dark'
         plan['blocks'][0]['y']=900
         plan['blocks'][1].update(y=520,photo_tone='paper_dark')
-        plan=apply_policy(plan,panel_opacity=91,example_fade='sharp')
+        plan=apply_policy(plan,panel_opacity=91)
         body,example=measured_plan(card,plan)
         self.assertLess(example['bounds'][3]+32,body['bounds'][1])
         self.assertEqual([b['role'] for b in plan['blocks']],['body','example'])
@@ -72,7 +72,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
         self.assertGreaterEqual(result['example_contrast'],4.5)
         self.assertGreaterEqual(result['body_contrast'],4.5)
         self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
-        self.assertTrue(policy_metadata(plan,panel_opacity=91,example_fade='sharp')['example_fade_applied'])
+        self.assertTrue(policy_metadata(plan,panel_opacity=91)['example_fade_applied'])
 
     def test_new_theme_checks_all_retained_rows_and_renamed_aliases_but_not_removed_rows(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32

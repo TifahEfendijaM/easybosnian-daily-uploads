@@ -37,9 +37,9 @@ class FixedFadeTests(unittest.TestCase):
         self.assertFalse(list(model.iter_errors(base['cards']['word'])))
         for preset in ('standard','defined'):
             plan=copy.deepcopy(base['cards']['word'])
-            plan['heading_fade']=preset;plan['blocks'][-1]['fade_style']=preset
+            plan['heading_fade']=preset;plan['blocks'][-1]['fade_style']='standard'
             self.assertFalse(list(model.iter_errors(plan)))
-        for scope,key,value in [('card','heading_fade','soft'),('example','fade_style','soft')]:
+        for scope,key,value in [('card','heading_fade','soft'),('example','fade_style','soft'),('example','fade_style','defined')]:
             plan=copy.deepcopy(base['cards']['word'])
             target=plan if scope=='card' else next(b for b in plan['blocks'] if b['role']=='example')
             target[key]=value
