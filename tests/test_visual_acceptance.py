@@ -146,6 +146,8 @@ class ReviewerFitDataTests(unittest.TestCase):
         self.assertIn('samples are not a geometry or creativity menu',prompt)
         self.assertIn('Do not place an example using an estimated body height',prompt)
         self.assertIn('Choose each block x,y,width freely',prompt)
+        self.assertIn('There is NO maximum gap and no requirement for adjacency',prompt)
+        self.assertIn('Do not automatically attach it just below or just above the explanation',prompt)
         self.assertNotIn('correct_option',prompt)
         self.assertEqual(result['cards'],decisions['cards'])
 
