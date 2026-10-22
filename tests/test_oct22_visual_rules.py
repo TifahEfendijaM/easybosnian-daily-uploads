@@ -56,23 +56,31 @@ class OctoberVisualRulesTests(unittest.TestCase):
                     self.assertLess(new.getpixel((1070,220))[0],old.getpixel((1070,220))[0])
                 else:self.assertEqual(new.tobytes(),old.tobytes())
 
-    def test_example_above_explanation_passes_geometry_and_real_pixel_checks(self):
+    def test_examples_keep_large_independent_gaps_above_or_below_with_either_shade(self):
         card=reviewed_fixture()['cards'][2]
         card.update(body='A short explanation.',example='Ovo je naš primjer.')
-        source=copy.deepcopy(card);plan=default_plan(card);plan['heading_tone']='paper_dark'
-        plan['blocks'][0]['y']=900
-        plan['blocks'][1].update(y=520,photo_tone='paper_dark')
-        plan=apply_policy(plan,panel_opacity=91)
-        body,example=measured_plan(card,plan)
-        self.assertLess(example['bounds'][3]+32,body['bounds'][1])
-        self.assertEqual([b['role'] for b in plan['blocks']],['body','example'])
+        source=copy.deepcopy(card)
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#202020').save(photo)
-            result=render_hybrid(card,'gold-cream',photo,root/'above.jpg',plan)
-        self.assertGreaterEqual(result['example_contrast'],4.5)
-        self.assertGreaterEqual(result['body_contrast'],4.5)
-        self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
-        self.assertTrue(policy_metadata(plan,panel_opacity=91)['example_fade_applied'])
+            root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#b0b0b0').save(photo)
+            for body_y,example_y in ((450,1080),(900,420)):
+                for preset in ('standard','sharp'):
+                    with self.subTest(body_y=body_y,example_y=example_y,preset=preset):
+                        plan=default_plan(card);plan['heading_tone']='paper_dark'
+                        plan['blocks'][0]['y']=body_y
+                        plan['blocks'][1].update(y=example_y,photo_tone='paper_dark',fade_style=preset)
+                        plan=apply_policy(plan,panel_opacity=91)
+                        body,example=measured_plan(card,plan)
+                        gap=(example['bounds'][1]-body['bounds'][3] if example_y>body_y
+                             else body['bounds'][1]-example['bounds'][3])
+                        self.assertGreater(gap,300)
+                        self.assertLessEqual(example['bounds'][3],1170)
+                        self.assertEqual([b['role'] for b in plan['blocks']],['body','example'])
+                        result=render_hybrid(card,'gold-cream',photo,root/f'{body_y}-{preset}.jpg',plan)
+                        self.assertGreaterEqual(result['example_contrast'],4.5)
+                        self.assertGreaterEqual(result['body_contrast'],4.5)
+                        self.assertGreater(result['example_shading'],0)
+                        self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
+                        self.assertTrue(policy_metadata(plan,panel_opacity=91)['example_fade_applied'])
 
     def test_new_theme_checks_all_retained_rows_and_renamed_aliases_but_not_removed_rows(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
