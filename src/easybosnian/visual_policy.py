@@ -12,9 +12,8 @@ def panel_opacities(cards):
 
 
 def example_fades(cards):
-    """One independent fair draw per example, never redrawn after rejection."""
-    return {card['kind']:secrets.choice(REVIEW_FADE_STYLES)
-            for card in cards if card.get('example')}
+    """Fixed crisp-edged example treatment, without a random draw."""
+    return {card['kind']:'sharp' for card in cards if card.get('example')}
 
 
 def apply_policy(plan, *, panel_opacity, example_fade=None):
@@ -22,7 +21,7 @@ def apply_policy(plan, *, panel_opacity, example_fade=None):
 
     Validate every declared value before synchronization, so this cannot repair
     an invalid cosmetic field. Layout, copy, typography and colours stay intact.
-    The random example preset applies only to an existing photographic shade.
+    The fixed example preset applies only to an existing photographic shade.
     """
     result=copy.deepcopy(plan)
     if not valid_panel_opacity(panel_opacity,legacy=False):
@@ -35,19 +34,21 @@ def apply_policy(plan, *, panel_opacity, example_fade=None):
             raise ValueError('Answer panels require fully opaque surfaces')
         for block in panels:block['panel_opacity']=panel_opacity
     if example_fade is not None:
-        if example_fade not in REVIEW_FADE_STYLES:raise ValueError('Invalid assigned example shade')
+        if example_fade!='sharp':raise ValueError('Invalid assigned example shade')
         for block in result['blocks']:
             if block['role']=='example' and block['style']=='italic_photo_fade':
-                if block.get('fade_style','standard') not in REVIEW_FADE_STYLES:
+                if block.get('fade_style','standard') not in (*REVIEW_FADE_STYLES,'sharp'):
                     raise ValueError('Unsupported example shade')
                 block['fade_style']=example_fade
+    if plan['photo_window'] is None and plan.get('heading_tone') in ('ink_light','ink_paper','ink_accent','accent_light'):
+        result['heading_fade']='defined'
     return result
 
 
 def policy_metadata(plan, *, panel_opacity, example_fade=None):
     panels=[b for b in plan['blocks'] if b['style'] in PANEL_STYLES]
     example=next((b for b in plan['blocks'] if b['role']=='example'),None)
-    return safe_policy({'version':2,'panel_opacity':panel_opacity,'panel_opacity_applied':bool(panels),
+    return safe_policy({'version':3,'panel_opacity':panel_opacity,'panel_opacity_applied':bool(panels),
                         'example_fade':example_fade,
                         'example_fade_applied':bool(example_fade is not None and example and
                                                      example['style']=='italic_photo_fade')},plan)
@@ -57,14 +58,14 @@ def safe_policy(value, plan):
     """Only fixed, checked policy metadata may reach the private run report."""
     fields={'panel_opacity','panel_opacity_applied','example_fade','example_fade_applied'}
     if (not isinstance(value,dict) or set(value) not in (fields,fields|{'version'})
-            or ('version' in value and (type(value['version']) is not int or value['version']!=2))
-            or value['example_fade'] not in (None,*REVIEW_FADE_STYLES)
+            or ('version' in value and (type(value['version']) is not int or value['version'] not in (2,3)))
+            or value['example_fade'] not in ((None,'sharp') if value.get('version')==3 else (None,*REVIEW_FADE_STYLES))
             or type(value['example_fade_applied']) is not bool
             or type(value['panel_opacity_applied']) is not bool):
         raise ValueError('Invalid safe rendering policy metadata')
     panels=[b for b in plan['blocks'] if b['style'] in PANEL_STYLES]
     opacity=value['panel_opacity']
-    current=value.get('version')==2
+    current=value.get('version') in (2,3)
     if (type(opacity) not in (int,float) or not valid_panel_opacity(opacity,legacy=not current) or (not current and opacity<70) or
             any(b.get('panel_opacity')!=opacity for b in panels)
             or value['panel_opacity_applied']!=bool(panels)

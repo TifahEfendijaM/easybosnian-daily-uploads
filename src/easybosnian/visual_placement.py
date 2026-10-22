@@ -9,7 +9,7 @@ from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
-                     PANEL_TONES, FADE_STYLES, REVIEW_FADE_STYLES, FADE_CATALOGUE,
+                     PANEL_TONES, FADE_STYLES, TITLE_FADE_STYLES, REVIEW_FADE_STYLES, FADE_CATALOGUE,
                      REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, TITLE_TONE_CATALOGUE, PANEL_OPACITY_RANGE)
 
 KINDS = ('quiz', 'lesson', 'word')
@@ -50,7 +50,7 @@ CARD_SCHEMA = {
         'category_style':{'enum':list(CATEGORY_STYLES)},
         'category_tone':{'enum':list(PANEL_TONES)},
         'heading_tone':{'enum':list(PHOTO_TONES)},
-        'heading_fade':{'enum':list(FADE_STYLES)},
+        'heading_fade':{'enum':list(TITLE_FADE_STYLES)},
         'palette_exception':{'enum':['none','no_other_suitable_palette']},
         'photo_window':{'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,
             'required':['y','height','fit'],'properties':{'fit':{'enum':['contain','cover']},'y':{'type':'integer','minimum':250,'maximum':770},
@@ -104,7 +104,7 @@ def composition_sheet(background, output):
 
 def review_compositions(package, candidates, recent=()):
     from .cloud_prepare import AgentIntegrityError, run_codex
-    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, PHOTO_FADE_FEATHER, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP, EXAMPLE_FADE_PADDING
+    from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP, EXAMPLE_FADE_PADDING
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, palette_policies
     window=palette_window(recent)
@@ -202,7 +202,7 @@ def review_compositions(package, candidates, recent=()):
         'for actual photo fit, harmony and readability. Light text on a dark fade remains the '
         'usual direction; use dark text on a light fade when the photo suits it better. Pillow owns the '
         f'fixed fade shape and contrast-driven strength: titles retain the earlier {TITLE_FADE_FEATHER}px '
-        f'vertical feather, while examples use a compact {PHOTO_FADE_FEATHER}px feather plus lower padding beyond their '
+        'vertical feather, while photographic examples use the fixed sharp band with lower padding beyond their '
         'measured text band. Weak or no shading remains valid; shading is added only when contrast needs it. '
         'For the TITLE specifically, keep a softly shaded appearance when the photo needs a backing, '
         'with the photograph still visible through it. Favour a gentle fade over a pronounced dark '
@@ -216,21 +216,23 @@ def review_compositions(package, candidates, recent=()):
         'edges and category/title spacing. This title preference does not change PRIMJER treatment. '
         'Choose heading_fade for photographic titles from exactly two approved presets: '
         'standard has smoothly eased edges; defined preserves the earlier more defined '
-        'full-width linear shade. Title preset selection remains your creative decision. '
-        'Give standard and defined title shades equal consideration for either black or white '
-        'backings; neither edge type has priority. White title shading has a slightly lighter '
-        'outer shade and finer low-strength steps, while still meeting measured glyph contrast. '
-        'For PRIMJER the trusted pipeline draws standard or defined independently AFTER '
-        'this review with a true 50/50 probability. Use standard as the example fade_style '
-        'placeholder; the wrapper assigns the actual preset after your design proposal. '
-        'Do not choose or request a PRIMJER preset based on preference. '
-        'Pillow applies the same draw through validation, placement repair and fallback. '
-        'This is an independent random draw, not forced alternation or an exact batch quota. '
+        'full-width linear shade. Black-title preset selection remains your creative decision. '
+        'For BLACK title backings, give standard and defined equal consideration and choose '
+        'the best fit. WHITE title backings ALWAYS use defined, enforced by Pillow, including '
+        'automatic text-tone selection. White title shading is very gentle outside the letters '
+        'and uses fine contrast-safe strength steps. Do not request a smooth white title shade. '
+        'For PRIMJER, the trusted pipeline ALWAYS uses sharp: a crisp straight-edged full-width '
+        'translucent band with NO feather or rounded box. '
+        'This is distinct from defined, which still has a linear taper. Keep the approved '
+        'text/backing colours. Use standard as the example fade_style placeholder; the wrapper '
+        'sets sharp for a shaded photographic example before validation and rendering. '
+        'There is no random PRIMJER shade draw. The same sharp preset survives placement '
+        'repair, palette rejection and fallback. '
         'Unshaded italic_photo and paper italic_footer remain available; the assigned preset '
-        'does not add a fade to them. Both example '
-        f'presets extend {EXAMPLE_FADE_PADDING}px below the last row before tapering. PRIMJER still needs at least '
+        'does not add a fade to them. The sharp example '
+        f'shade extends {EXAMPLE_FADE_PADDING}px below the last row and ends cleanly instead of tapering. PRIMJER still needs at least '
         f'{EXAMPLE_BLOCK_GAP}px clearance from other text blocks, preferably 40..56px when suitable, '
-        'with EITHER preset and EVERY design. No fade may cover the category strip. '
+        'with EVERY shade treatment and EVERY design. No fade may cover the category strip. '
         'Only the approved preset ID and text/fade COLOURS are selectable; never custom geometry, '
         'border, opacity, strength or filter shape. The old soft preset is not newly selectable. '
         'For paper headings, italic_footer and unshaded italic_photo, use standard as the inactive preset. '

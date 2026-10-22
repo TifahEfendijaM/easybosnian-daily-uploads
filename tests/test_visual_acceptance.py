@@ -12,6 +12,7 @@ from easybosnian.hybrid import block_spec, default_plan, measured_plan, render_h
 from easybosnian.render import draw_rows, font, measure
 from easybosnian.visual_measurements import block_measurements, PROFILE_COLUMNS
 from easybosnian.visual_placement import KINDS, review_compositions
+from easybosnian.visual_policy import apply_policy
 from test_project import reviewed_fixture
 import test_visual_provenance as provenance_tests
 
@@ -159,7 +160,7 @@ class PerCardReviewIsolationTests(unittest.TestCase):
         self.assertEqual(placement['status'],'reviewed')
         for kind in ('quiz','word'):
             self.assertEqual(placement['cards'][kind]['provenance']['layout']['source'],'chatgpt')
-            self.assertEqual(metrics[kind]['composition'],proposal['cards'][kind])
+            self.assertEqual(metrics[kind]['composition'],apply_policy(proposal['cards'][kind],panel_opacity=100,example_fade='sharp' if kind=='word' else None))
         lesson=placement['cards']['lesson']
         self.assertEqual(lesson['provenance']['layout'],{'source':'fallback','reason':'review violated the declarative schema'})
         self.assertEqual(lesson['provenance']['palette']['source'],'chatgpt')

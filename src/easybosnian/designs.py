@@ -29,10 +29,12 @@ TITLE_TONE_CATALOGUE = {
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
 REVIEW_FADE_STYLES = ('standard', 'defined')
-FADE_STYLES = (*REVIEW_FADE_STYLES, 'soft')  # soft is archive-only
+TITLE_FADE_STYLES = (*REVIEW_FADE_STYLES, 'soft')  # soft is archive-only
+FADE_STYLES = (*TITLE_FADE_STYLES, 'sharp')  # sharp is a trusted example-only preset
 FADE_CATALOGUE = {
     'standard': 'Smoothly eased edges within protected bounds; gentler outer title fade.',
     'defined': 'Earlier full-width linear shade with more defined edges, not the smooth preset. PRIMJER backing extends 18px below the last row before its 48px taper.',
+    'sharp': 'Fixed PRIMJER-only full-width translucent band with crisp straight top/bottom boundaries, 12px above the label and 18px below the final row; no feather, rounded box or border.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
 PANEL_OPACITY_RANGE = (85, 100)
@@ -60,7 +62,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed approved Lora Italic example and label over photograph, using either the approved smooth standard fade or earlier defined linear shade when needed. Both extend below the text; colours are approved and dimensions/strength are renderer-owned.',
+    'italic_photo_fade': 'Unboxed Lora Italic example and label over the fixed crisp-edged full-width translucent sharp shade when contrast requires it. Approved colours remain selectable; the band extends below the text and its geometry/strength are renderer-owned. Earlier standard/defined treatments remain readable in saved plans.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {

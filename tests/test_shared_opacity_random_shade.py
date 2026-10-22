@@ -16,18 +16,17 @@ import test_visual_provenance as provenance_harness
 
 
 class SharedOpacityRandomShadeTests(unittest.TestCase):
-    def test_fair_draw_uses_two_equally_weighted_candidates_once_per_example(self):
+    def test_example_preset_is_fixed_without_a_draw_and_opacity_keeps_its_random_range(self):
         cards=reviewed_fixture()['cards'];cards[1]['example']='Ovo je primjer.'
-        with patch('easybosnian.visual_policy.secrets.choice',side_effect=['standard','defined']) as draw:
+        with patch('easybosnian.visual_policy.secrets.choice',side_effect=AssertionError('no example draw allowed')) as draw:
             selected=example_fades(cards)
-        self.assertEqual(selected,{'lesson':'standard','word':'defined'})
+        self.assertEqual(selected,{'lesson':'sharp','word':'sharp'})
         with patch('easybosnian.visual_policy.secrets.randbelow',side_effect=[0,150]) as opacity_draw:
             opacities=panel_opacities(cards)
         self.assertEqual(opacities,{'quiz':100,'lesson':85,'word':100})
         self.assertEqual(opacity_draw.call_count,2)
         self.assertTrue(all(call.args==(151,) for call in opacity_draw.call_args_list))
-        self.assertEqual(draw.call_count,2)
-        self.assertTrue(all(call.args==(('standard','defined'),) for call in draw.call_args_list))
+        draw.assert_not_called()
 
     def test_two_three_four_options_share_the_sampled_opacity_and_render_with_exact_copy(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -58,15 +57,15 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         plan['blocks'][0].update(style='soft_corner',panel_opacity=93.5)
         plan['blocks'][-1]['photo_tone']='paper_ink'
         original=copy.deepcopy(plan)
-        expected=copy.deepcopy(plan);expected['blocks'][-1]['fade_style']='defined'
-        self.assertEqual(apply_policy(plan,panel_opacity=93.5,example_fade='defined'),expected)
+        expected=copy.deepcopy(plan);expected['blocks'][-1]['fade_style']='sharp'
+        self.assertEqual(apply_policy(plan,panel_opacity=93.5,example_fade='sharp'),expected)
         self.assertEqual(plan,original)
         for style in ('italic_photo','italic_footer'):
             inactive=editorial_plan(card) if style=='italic_footer' else default_plan(card)
             inactive['blocks'][-1].update(style=style,fade_style='standard')
-            applied=apply_policy(inactive,panel_opacity=100,example_fade='defined')
+            applied=apply_policy(inactive,panel_opacity=100,example_fade='sharp')
             self.assertEqual(applied,inactive)
-            self.assertFalse(policy_metadata(applied,panel_opacity=100,example_fade='defined')['example_fade_applied'])
+            self.assertFalse(policy_metadata(applied,panel_opacity=100,example_fade='sharp')['example_fade_applied'])
         quiz=default_plan(reviewed_fixture()['cards'][0])
         quiz['blocks'][1]['panel_opacity']=69.9
         with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(quiz,panel_opacity=100)
@@ -79,7 +78,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         proposal['cards']['quiz']['blocks'][0]['panel_opacity']=100
         proposal['cards']['quiz']['blocks'][1]['panel_opacity']=100
         proposal['cards']['word']['blocks'][0]['max_lines']=1
-        placement,metrics=h.render(h.package,proposal,example_shade='defined',panel_opacity=87.5)
+        placement,metrics=h.render(h.package,proposal,panel_opacity=87.5)
         quiz=placement['cards']['quiz'];lesson=placement['cards']['lesson'];word=placement['cards']['word']
         self.assertEqual(quiz['status'],'accepted')
         self.assertTrue(all(b['panel_opacity']==100 for b in quiz['composition']['blocks']))
@@ -87,8 +86,8 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         self.assertEqual(word['provenance']['layout']['source'],'fallback')
         self.assertEqual(word['composition']['blocks'][0]['panel_opacity'],87.5)
         for result in (lesson,word):
-            self.assertEqual(result['composition']['blocks'][-1]['fade_style'],'defined')
-            self.assertEqual(result['render_policy']['example_fade'],'defined')
+            self.assertEqual(result['composition']['blocks'][-1]['fade_style'],'sharp')
+            self.assertEqual(result['render_policy']['example_fade'],'sharp')
             self.assertTrue(result['render_policy']['example_fade_applied'])
         self.assertEqual(lesson['composition']['heading_fade'],'standard')
         self.assertNotIn('example_fade',accepted_choices(placement)['lesson'])
@@ -97,13 +96,13 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         for document in (text,markup):
             document=document.replace('\\.','.')
             self.assertIn('Shared panel opacity: 87.5%',document)
-            self.assertIn('independent random 50/50 draw',document)
-            self.assertIn('defined applied',document)
+            self.assertIn('fixed crisp',document)
+            self.assertIn('sharp applied',document)
         bad=copy.deepcopy(placement);bad['cards']['quiz']['render_policy']['panel_opacity']=70
         with self.assertRaisesRegex(ValueError,'Shared opacity'):
             with_rendering(report_data(h.package,results(),RUN),bad)
         bad=copy.deepcopy(placement);bad['cards']['lesson']['render_policy']['example_fade']='standard'
-        with self.assertRaisesRegex(ValueError,'Assigned shade'):
+        with self.assertRaisesRegex(ValueError,'safe rendering policy'):
             with_rendering(report_data(h.package,results(),RUN),bad)
         invalid=dict(lesson['render_policy'],extra='untrusted prose')
         with self.assertRaisesRegex(ValueError,'safe rendering policy'):safe_policy(invalid,lesson['composition'])

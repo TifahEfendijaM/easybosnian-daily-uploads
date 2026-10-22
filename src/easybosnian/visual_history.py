@@ -61,7 +61,9 @@ def accepted_choices(placement):
         if isinstance(badges,dict) and all(r in ('A','B','C','D') and s in MARKER_STYLES for r,s in badges.items()):
             safe['answer_badges']=badges
         composition=card.get('composition',{})
-        if isinstance(composition,dict) and composition.get('heading_fade') in REVIEW_FADE_STYLES:
+        fixed_white=(card.get('render_policy',{}).get('version')==3 and
+                     (card.get('heading_backing')=='#ffffff' or card.get('heading_tone') in ('ink_light','ink_paper','ink_accent','accent_light')))
+        if isinstance(composition,dict) and composition.get('heading_fade') in REVIEW_FADE_STYLES and not fixed_white:
             safe['heading_fade']=composition['heading_fade']
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
