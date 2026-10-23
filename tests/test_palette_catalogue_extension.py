@@ -23,7 +23,7 @@ NEW_PALETTES=('burgundy-oat','olive-stone','indigo-mist','copper-linen',
     'cobalt-peach','ochre-parchment','pine-rose',
     'royal-blue-sun','emerald-lime','ruby-cream','violet-citrus','ocean-tangerine',
     'magenta-porcelain','scarlet-vanilla','peacock-coral','sapphire-lime',
-    'grape-lemon','paprika-aqua','ultramarine-orchid')
+    'grape-lemon','paprika-aqua','ultramarine-orchid','cherry-lime','petrol-cyan')
 
 
 class ExpandedPaletteCatalogueTests(unittest.TestCase):

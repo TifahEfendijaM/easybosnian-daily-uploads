@@ -1,6 +1,6 @@
 # Approved palette catalogue
 
-`data/design-palettes.json` is the authoritative registry of 34 palettes. The original eleven remain unchanged. These eleven additions broaden the catalogue with more tinted surfaces, earthy neutrals and contrasting colour families:
+`data/design-palettes.json` is the authoritative registry of 36 palettes. The original eleven remain unchanged. These eleven additions broaden the catalogue with more tinted surfaces, earthy neutrals and contrasting colour families:
 
 | Palette ID | Colour character |
 |---|---|
@@ -22,7 +22,7 @@ The preparation schema and visual-review enum must contain exactly the registry'
 
 ## Saturated additions
 
-The existing 22 palettes remain unchanged. Twelve additional families add richer saturated inks and vivid accents, alongside coordinated light surfaces:
+The existing 22 palettes remain unchanged. Fourteen additional families add richer saturated inks and vivid accents, alongside coordinated light surfaces:
 
 | Palette ID | Colour character |
 |---|---|
@@ -38,5 +38,7 @@ The existing 22 palettes remain unchanged. Twelve additional families add richer
 | grape-lemon | Deep grape and lemon |
 | paprika-aqua | Paprika and aqua |
 | ultramarine-orchid | Ultramarine and orchid |
+| cherry-lime | Deep cherry and vivid lime |
+| petrol-cyan | Deep petrol blue and bright cyan |
 
 Every palette already supports a dark surface: choose panel_tone=paper_ink (bright paper text on the dark ink surface) or accent_ink (vivid accent text on dark ink). This is independent of shape, not restricted to overlay_dark. Compare dark and light pairings equally. Keep neutral/light surfaces as available combinations rather than adding palettes that invert the trusted ink/paper roles; this preserves Story/category/contrast compatibility. No new palette is preferred over the original options, and saturated does not mean using every vivid colour at once.
