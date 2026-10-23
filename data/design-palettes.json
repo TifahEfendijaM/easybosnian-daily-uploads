@@ -20,5 +20,17 @@
   "graphite-chalk": {"ink":"#24282b","accent":"#bfc6c8","panel":"#ebece8","scrim":"#101416"},
   "cobalt-peach": {"ink":"#163b7a","accent":"#f3be9c","panel":"#e6edf5","scrim":"#081d41"},
   "ochre-parchment": {"ink":"#44340b","accent":"#e4bd60","panel":"#f1e0ad","scrim":"#231a04"},
-  "pine-rose": {"ink":"#183c33","accent":"#e8b2b0","panel":"#e3eadd","scrim":"#092119"}
+  "pine-rose": {"ink":"#183c33","accent":"#e8b2b0","panel":"#e3eadd","scrim":"#092119"},
+  "royal-blue-sun": {"ink":"#102c96","accent":"#ffd43b","panel":"#f3f7ff","scrim":"#061449"},
+  "emerald-lime": {"ink":"#074d35","accent":"#b9ef32","panel":"#f3fff0","scrim":"#02281a"},
+  "ruby-cream": {"ink":"#740e32","accent":"#ff83b5","panel":"#fff4f8","scrim":"#380418"},
+  "violet-citrus": {"ink":"#4c1689","accent":"#ffc94d","panel":"#fcf3ff","scrim":"#21063f"},
+  "ocean-tangerine": {"ink":"#03435f","accent":"#ff9b36","panel":"#f1fbff","scrim":"#022938"},
+  "magenta-porcelain": {"ink":"#680649","accent":"#ff7ccb","panel":"#fff2fb","scrim":"#3b042a"},
+  "scarlet-vanilla": {"ink":"#861c16","accent":"#ffc957","panel":"#fff6ea","scrim":"#400b06"},
+  "peacock-coral": {"ink":"#003e3d","accent":"#ff8b70","panel":"#edfffa","scrim":"#002a28"},
+  "sapphire-lime": {"ink":"#153788","accent":"#c9ed43","panel":"#f2f6ff","scrim":"#081844"},
+  "grape-lemon": {"ink":"#50134e","accent":"#ffe05c","panel":"#fff3fc","scrim":"#260724"},
+  "paprika-aqua": {"ink":"#842d08","accent":"#83e4d5","panel":"#fff5eb","scrim":"#3f1403"},
+  "ultramarine-orchid": {"ink":"#252295","accent":"#df8cff","panel":"#f6f3ff","scrim":"#100e48"}
 }

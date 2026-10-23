@@ -22,6 +22,9 @@ SHARP_EXAMPLE_TOP_PADDING = 12
 # Renderer-owned vertical feathers beyond each measured text band.
 # Keep PRIMJER compact while restoring the title's earlier, broader gradient.
 PHOTO_FADE_FEATHER = 48
+# Qualitative PRIMJER intent maps to trusted alpha, never arbitrary opacity.
+EXAMPLE_SHADE_MINIMUMS = {'soft':64, 'medium':128, 'strong':192}
+EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
 # Start with faint title backings; stronger candidates require measured need.
@@ -119,7 +122,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
             **({'marker_style':'circle'} if role not in ('body','example') else {}),
-            **({'photo_tone':'auto','fade_style':'standard'} if role=='example' else {}),
+            **({'photo_tone':'auto','fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
 
@@ -201,6 +204,8 @@ def measured_plan(card, plan):
         style=block['style']
         if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp'):
             raise ValueError('Only photographic faded examples can select a shade preset')
+        if style!='italic_photo_fade' and block.get('shade_strength','soft')!='soft':
+            raise ValueError('Only photographic faded examples can select shade strength')
         if style=='plain' and block.get('panel_opacity',100) not in (100,'solid'):
             raise ValueError('Unboxed editorial body cannot set panel opacity')
         if style=='plain' and block.get('panel_tone','auto')!='auto':
@@ -570,7 +575,10 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             example_colour,example_contrast,example_shading=protect_text(
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[((x,y),['PRIMJER'],label_face)],
-                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings,fade_style=block.get('fade_style','standard'),bottom_padding=EXAMPLE_FADE_PADDING)
+                line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings,fade_style=block.get('fade_style','standard'),bottom_padding=EXAMPLE_FADE_PADDING,
+                shade_levels=EXAMPLE_SHADE_LEVELS if 'shade_strength' in block else (90,130,170,210,240),
+                minimum_shade=EXAMPLE_SHADE_MINIMUMS[block['shade_strength']]
+                    if block['style']=='italic_photo_fade' and 'shade_strength' in block else 0)
             block['photo_colour']=example_colour;block['photo_contrast']=example_contrast
             block['photo_shading']=example_shading
     # Another block's preset fade must not invalidate already-chosen glyph

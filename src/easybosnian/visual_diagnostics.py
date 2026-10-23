@@ -99,6 +99,7 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     result={'position':metrics['panel_position'],'status':status,
             **{key:metrics.get(key) for key in ('palette','design','category_style','heading_tone','example_tone',
                'heading_backing','block_styles','answer_badges','block_typography','composition')},
+            **({'example_shading':metrics['example_shading']} if 'example_shading' in metrics else {}),
             'render_policy':policy,'palette_outcome':palette_outcome,**extra}
     result['outcome']=rendering_outcome(result,review_status)
     result['provenance']=rendering_provenance(result,review_status)
@@ -149,6 +150,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Paper headings cannot select a photographic shade',
     'Stronger title shading requires a photographic quiz',
     'Only photographic faded examples can select a shade preset',
+    'Only photographic faded examples can select shade strength',
     'Paper styles require the editorial design',
     'Photo window intersects heading or logo strip',
     'Photographic caption requires a full-background hybrid card',
