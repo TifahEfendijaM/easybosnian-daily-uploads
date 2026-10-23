@@ -93,7 +93,12 @@ class FixedFadeTests(unittest.TestCase):
                      'do not stop at the first acceptable','review ALL compatible',
                      'For the TITLE specifically, keep a softly shaded appearance',
                      'Favour a gentle fade over a pronounced dark band',
-                     'Do not select a worse-fitting colour pair simply to avoid shading',
+                     'For lesson/word titles ONLY (Znaš li? and Riječ dana)',
+                     'FIRST consider changing it to a harmonious approved palette text colour',
+                     'ONLY consider a lesson/word title shade when the title would otherwise remain unreadable or barely readable',
+                     'Do not add lesson/word title shading merely for decoration, balance or visual emphasis',
+                     'This readability-first restriction DOES NOT apply to quizzes',
+                     'even if the bare text already passes contrast',
                      'Pillow first tries very light title strengths and a more transparent outer fade',
                      'stronger protection is reserved for the actual glyph area',
                      'Pillow lightens the surrounding photograph',
@@ -104,7 +109,8 @@ class FixedFadeTests(unittest.TestCase):
                      'with EVERY shade treatment and EVERY design',
                      'Only the approved preset ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)
-        self.assertNotIn('favour one that is clearly readable with little or no added shading',prompt)
+        self.assertNotIn('Do not select a worse-fitting colour pair simply to avoid shading',prompt)
+        self.assertNotIn('Do not remove a gentle title backing solely because an example backing exists',prompt)
         shown=prompt.split(' PRIMJER photo-colour catalogue: ',1)[1].split(' Palette repetition policy for EVERY palette:',1)[0]
         self.assertEqual(set(json.loads(shown)),set(REVIEW_PHOTO_TONES))
 
