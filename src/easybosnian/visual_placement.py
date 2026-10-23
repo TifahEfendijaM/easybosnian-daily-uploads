@@ -69,8 +69,7 @@ def model_fields(properties, removed=()):
     if 'heading_fade' in fields:fields['heading_fade']={'enum':list(REVIEW_FADE_STYLES)}
     if 'fade_style' in fields:fields['fade_style']={'enum':list(REVIEW_EXAMPLE_FADE_STYLES)}
     if 'panel_opacity' in fields:
-        fields['panel_opacity']=({**OPACITY_SCHEMA,'minimum':100} if
-                                 fields.get('role',{}).get('enum')==['A','B','C','D'] else OPACITY_SCHEMA)
+        fields['panel_opacity']={**OPACITY_SCHEMA,'minimum':100}
     return fields
 
 
@@ -170,16 +169,16 @@ def review_compositions(package, candidates, recent=()):
         'strip. Choose underlined only when the actual photo supports readable bare label '
         'text; otherwise choose a bounded approved category chip. Pillow rejects unreadable '
         'bare labels instead of adding a fade or silently changing the category design. '
-        'The trusted pipeline uniformly samples ONE explanation panel_opacity from 85 to 100 percent '
-        'inclusive, in 0.1-percent steps, independently for each lesson/word image. Answer '
-        'panels are ALWAYS fully opaque at 100 percent; no answer-opacity draw is made. It is supplied as '
+        'Explanation and answer panels are ALWAYS fully opaque: panel_opacity=100 percent. '
+        'There is no opacity draw. This keeps the approved panel colours intact instead of '
+        'washing them out or tinting them with the photograph. It is supplied as '
         'assigned_panel_opacity in the image context. You do NOT choose the opacity. '
         'Use the assigned value on every bounded body/answer panel and choose readable '
         'approved colours, styles and placements for that opacity and photograph. '
         'Option A/B/C/D opacities must never vary within one image, even with different styles '
-        'or badges. Pillow applies the same sample to every panel before checking the whole '
+        'or badges. Pillow applies 100 percent to every panel before checking the whole '
         'composition and final contrast, including placement repair and safe fallback. '
-        'Never request another sample or sacrifice measured glyph contrast; an unsafe final '
+        'Never request transparency or sacrifice measured glyph contrast; an unsafe final '
         'composition cannot publish. Text, badges and decorative rules stay opaque. '
         'Plain editorial body must use 100; examples have no panel_opacity. '
         'This controls bounded panels only, never fade strength or category opacity. '

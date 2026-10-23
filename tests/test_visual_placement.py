@@ -277,9 +277,9 @@ class PreparedArtworkTests(unittest.TestCase):
     def setUp(self):
         self.recent=patch('easybosnian.visual_history.recent_choices',return_value=([],'available'))
         self.recent.start();self.addCleanup(self.recent.stop)
-        opacity=patch('easybosnian.visual_policy.secrets.randbelow',return_value=150)
+        opacity=patch('secrets.randbelow',side_effect=AssertionError('no opacity draw allowed'))
         self.opacity_draw=opacity.start();self.addCleanup(opacity.stop)
-        shade=patch('easybosnian.visual_policy.secrets.choice',return_value='standard')
+        shade=patch('secrets.choice',return_value='standard')
         self.shade_draw=shade.start();self.addCleanup(shade.stop)
     def test_prepare_then_expose_generates_once_and_reuses_exact_safe_hybrid_artwork(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
@@ -295,10 +295,10 @@ class PreparedArtworkTests(unittest.TestCase):
             for candidate in review.call_args.args[1].values():
                 with Image.open(candidate['sheet']) as sheet:self.assertEqual(sheet.size,(1440,900))
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
-            self.assertEqual(self.opacity_draw.call_count,2)
+            self.opacity_draw.assert_not_called()
             self.shade_draw.assert_not_called()
             result=artwork(store,package,expose=True,require_prepared=True)
-            self.assertEqual(self.opacity_draw.call_count,2)
+            self.opacity_draw.assert_not_called()
             self.shade_draw.assert_not_called()
             self.assertEqual(provider.generate.call_count,3);review.assert_called_once()
             self.assertEqual(store.put_file.call_count,3);self.assertEqual(store.expose.call_count,3);self.assertEqual(visible.call_count,3)

@@ -48,7 +48,7 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
             for preset in ('standard','defined'):
                 plan=default_plan(cards[2]);plan.update(heading_tone=tone,heading_fade=preset)
                 original=copy.deepcopy(plan)
-                final=apply_policy(plan,panel_opacity=90)
+                final=apply_policy(plan,panel_opacity=100)
                 self.assertEqual(final['blocks'][-1]['fade_style'],plan['blocks'][-1]['fade_style'])
                 self.assertEqual(final['heading_fade'],preset)
                 self.assertEqual(plan,original)
@@ -77,7 +77,7 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
         proposal['cards']['word']['heading_tone']='ink_light'
         proposal['cards']['word']['blocks'][-1]['fade_style']='sharp'
         placement,_=h.render(h.package,proposal)
-        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],5)
+        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],6)
         self.assertEqual(word['composition']['heading_fade'],'standard')
         self.assertEqual(accepted_choices(placement)['word']['heading_fade'],'standard')
         self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'sharp')

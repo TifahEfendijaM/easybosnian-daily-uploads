@@ -43,7 +43,7 @@ class ExpandedPaletteCatalogueTests(unittest.TestCase):
         _,outcome=select_palette({'palette':'unapproved-custom-colours'},'gold-cream')
         self.assertEqual(outcome['source'],'fallback')
 
-    def test_each_new_palette_renders_at_minimum_panel_opacity_and_carries_to_stories(self):
+    def test_each_new_palette_renders_with_opaque_panels_and_carries_to_stories(self):
         catalogue=read_json(ROOT/'data/design-palettes.json');package=reviewed_fixture()
         card=package['cards'][2];source=copy.deepcopy(card)
         with tempfile.TemporaryDirectory() as temp:
@@ -52,7 +52,7 @@ class ExpandedPaletteCatalogueTests(unittest.TestCase):
                 with self.subTest(palette=name):
                     plan=default_plan(card);plan.update(palette=name,heading_tone='accent_dark',category_style='ribbon')
                     plan['blocks'][-1]['photo_tone']='paper_ink'
-                    plan=apply_policy(plan,panel_opacity=85)
+                    plan=apply_policy(plan,panel_opacity=100)
                     feed=root/f'{name}-post.jpg';story=root/f'{name}-story.jpg'
                     rendered=render_hybrid(card,name,photo,feed,plan)
                     self.assertGreaterEqual(rendered['heading_contrast'],3)
