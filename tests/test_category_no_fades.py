@@ -73,7 +73,7 @@ class CategoryNoFadeTests(unittest.TestCase):
         proposal['cards']['word'].update(category_style='underlined',category_tone='paper_ink')
         placement,metrics=harness.render(harness.package,proposal)
         word=placement['cards']['word']
-        self.assertEqual(word['provenance']['layout']['source'],'fallback')
+        self.assertEqual(word['provenance']['layout']['source'],'mixed')
         self.assertEqual(word['provenance']['palette']['source'],'chatgpt')
         self.assertEqual(word['rejection']['reason'],'Category text fails measured contrast')
         self.assertEqual(metrics['word']['category_style'],'rounded')

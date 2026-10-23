@@ -1,4 +1,5 @@
 """Independent visual fallback using real Pillow renders and mocked external calls."""
+from test_project import accepted_photo_review
 import contextlib
 import copy
 import io
@@ -35,6 +36,7 @@ class VisualProvenanceTests(unittest.TestCase):
         with contextlib.ExitStack() as stack:
             root=Path(stack.enter_context(tempfile.TemporaryDirectory()))
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
+            stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             shade_draw=stack.enter_context(patch('secrets.choice',side_effect=AssertionError('no visual draw expected')))
@@ -42,7 +44,7 @@ class VisualProvenanceTests(unittest.TestCase):
             child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
             if render_override:stack.enter_context(patch('easybosnian.artwork.render_hybrid',side_effect=render_override))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
-            assets=artwork(store,package,review_images=True)
+            assets=artwork(store,package,review_images=True,design_attempt_limit=1)
             placement=json.loads((root/'build'/package['batch_id']/'image-placement-result.json').read_text())
             metrics={kind:asset['metrics'] for kind,asset in assets.items()}
             child.assert_called_once();self.assertEqual(provider.generate.call_count,3)
@@ -64,8 +66,10 @@ class VisualProvenanceTests(unittest.TestCase):
         self.assertEqual(lesson['category_style'],'ribbon');self.assertEqual(lesson['block_styles']['body'],'outlined')
         expected=copy.deepcopy(proposal['cards']['lesson']);expected['palette']=package['design_palette']
         self.assertEqual(metrics['lesson']['composition'],expected)
-        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['fallback','chatgpt'])
-        self.assertEqual(word['palette'],'terracotta-sand');self.assertEqual(word['block_styles']['body'],'rounded')
+        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['mixed','chatgpt'])
+        self.assertEqual(word['palette'],'terracotta-sand');self.assertEqual(word['block_styles']['body'],'outlined')
+        self.assertEqual(word['element_recovery']['fallback'],['body'])
+        self.assertEqual(metrics['word']['composition']['blocks'][1],proposal['cards']['word']['blocks'][1])
         self.assertNotIn('private model prose',str(placement))
         # Recent context must not claim a fallback palette was a model decision.
         recent=accepted_choices(placement)
@@ -97,7 +101,8 @@ class VisualProvenanceTests(unittest.TestCase):
             self.assertEqual(status,'reviewed');child.assert_called_once()
             self.assertEqual(reviewed['cards']['quiz'],base['cards']['quiz'])
             self.assertEqual(reviewed['cards']['lesson'],base['cards']['lesson'])
-            self.assertEqual(reviewed['cards']['word']['confidence'],'uncertain')
+            self.assertEqual(reviewed['cards']['word']['confidence'],'high')
+            self.assertIn('heading' if field=='heading_tone' else 'category',reviewed['card_invalid_elements']['word'])
             self.assertEqual(reviewed['card_failures'],{'word':'review violated the declarative schema'})
             self.assertTrue(all(p['source']=='chatgpt' for p in reviewed['palette_decisions'].values()))
 
@@ -113,21 +118,22 @@ class VisualProvenanceTests(unittest.TestCase):
         placement,metrics=self.render(package,proposal,render)
         word=placement['cards']['word']
         self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['chatgpt','fallback'])
-        self.assertEqual(len(seen),2)
+        self.assertTrue(any(p==package['design_palette'] for p,_ in seen))
         expected=copy.deepcopy(seen[0][1]);expected['palette']=package['design_palette']
-        self.assertEqual(seen[1][1],expected);self.assertEqual(metrics['word']['composition'],expected)
+        self.assertEqual(metrics['word']['composition'],expected)
         self.assertEqual(word['palette_rejection']['proposal'],seen[0][1])
         self.assertNotIn('rejection',word)
 
-    def test_both_fields_fall_back_when_layout_is_invalid_too(self):
+    def test_only_bad_element_and_bad_palette_fall_back_independently(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
         proposal['cards']['word']['palette']='invalid';proposal['cards']['word']['blocks'][0]['max_lines']=1
         placement,_=self.render(package,proposal)
         word=placement['cards']['word']
-        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['fallback','fallback'])
+        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['mixed','fallback'])
+        self.assertEqual(word['element_recovery']['fallback'],['body'])
         self.assertEqual(word['palette'],package['design_palette'])
 
-    def test_fallback_layout_can_also_require_a_palette_fallback(self):
+    def test_partial_recovery_avoids_unnecessary_full_layout_and_palette_fallback(self):
         package=copy.deepcopy(self.package);proposal=self.proposal(package)
         proposal['cards']['word']['blocks'][0]['max_lines']=1
         def render(card,palette,background,path,plan=None):
@@ -136,8 +142,9 @@ class VisualProvenanceTests(unittest.TestCase):
             return render_hybrid(card,palette,background,path,plan)
         placement,_=self.render(package,proposal,render)
         word=placement['cards']['word']
-        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['fallback','fallback'])
-        self.assertIn('rejection',word);self.assertIn('palette_rejection',word)
+        self.assertEqual([word['provenance'][key]['source'] for key in ('layout','palette')],['mixed','chatgpt'])
+        self.assertIn('rejection',word);self.assertNotIn('palette_rejection',word)
+        self.assertEqual(word['element_recovery']['fallback'],['body'])
 
     def test_palette_fallback_still_requires_measured_layout_and_failures_remain_fatal(self):
         from easybosnian.http import SafeError
@@ -150,7 +157,9 @@ class VisualProvenanceTests(unittest.TestCase):
             return render_hybrid(card,palette,background,path,plan)
         placement,_=self.render(package,proposal,render)
         self.assertEqual([placement['cards']['word']['provenance'][key]['source'] for key in ('layout','palette')],['fallback','fallback'])
-        self.assertEqual(seen,[('terracotta-sand','high'),(package['design_palette'],'high'),(package['design_palette'],'uncertain')])
+        self.assertIn(('terracotta-sand','high'),seen)
+        self.assertIn((package['design_palette'],'high'),seen)
+        self.assertEqual(seen[-1],(package['design_palette'],'uncertain'))
         def unreadable(card,palette,background,path,plan=None):
             if card['kind']=='word' and plan:raise ValueError('Unshaded photo text fails measured contrast')
             return render_hybrid(card,palette,background,path,plan)
@@ -173,7 +182,7 @@ class VisualProvenanceTests(unittest.TestCase):
         data=with_rendering(report_data(package,results(),RUN),placement)
         text,markup=render_report(data);summary=visual_summary(content_data(package,RUN),placement)
         for body in (text,markup,summary):
-            for phrase in ('Layout source: chatgpt','Layout source: fallback',
+            for phrase in ('Layout source: chatgpt','Layout source: mixed',
                            'Palette source: chatgpt','Palette source: fallback','ChatGPT palette not approved'):
                 self.assertIn(phrase,body)
             self.assertNotIn('Photo-reviewed final palette',body)

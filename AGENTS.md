@@ -1,5 +1,9 @@
 # EasyBosnian project instructions
 
+## Active October 23 recovery policy
+
+Read docs/element-design-recovery.md. It supersedes older single-call/whole-layout-fallback wording: up to three defect-triggered photo candidates and three Pillow-rejected design proposals per card, element-only nearest-safe recovery preserving accepted elements, explicit best-effort photo reporting, and exact custom same_image&design retention. No API-error, authentication, publication, cleanup or dispatch retries are authorized. All other visual choices and safeguards remain intact.
+
 Operate exclusively on private TifahEfendijaM/easybosnian-daily-uploads and its existing isolated Cloudflare Worker/D1/KV. Call easybosnian.core.verify_repository(remote=True) immediately before every Git operation, and use the guarded gh() wrapper for GitHub operations. Never inspect or modify another user repository or reuse another chat's state. Use this chat, the immutable docs/master-prompt.md attachment and the original transparent assets/watermark.png only. No paid API, paid fallback, R2, upgrade, new Worker or copied desktop session.
 
 The latest user instructions replace the attachment's old reservation, queue, publication-state and monitoring design. Each independently identified history batch holds a content date, creation time, theme, words with equivalence metadata and reviewed content. No reservation keys/table, immutable package hash, GitHub queue save/read-back, publication state machine, generation intents, optimistic concurrency, reconciliation, watchdog, Healthchecks or missing-run notification. These removals are deliberate. A manually repeated daily run can post again, including after an ambiguous response. Never restore these protections without a new user request.

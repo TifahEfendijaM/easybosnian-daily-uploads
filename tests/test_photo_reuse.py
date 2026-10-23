@@ -1,3 +1,4 @@
+from test_project import accepted_photo_review
 import base64
 import contextlib
 import copy
@@ -83,6 +84,7 @@ class PhotoReuseTests(unittest.TestCase):
             for kind in ('quiz','lesson','word'):
                 paths[kind]=root/(kind+'.jpg');paths[kind].write_bytes(photo())
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
+            stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             provider=stack.enter_context(patch('easybosnian.artwork.provider'))
             review=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))

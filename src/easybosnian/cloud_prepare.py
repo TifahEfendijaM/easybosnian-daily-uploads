@@ -1,5 +1,6 @@
 """Private, serialized ChatGPT preparation; never publishes or generates artwork."""
 import argparse
+import copy
 import json
 import os
 import secrets
@@ -191,20 +192,33 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if plan:date=plan['date']
         chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
         reused=None
-        from .selection import reused_kinds
+        from .selection import reused_kinds, frozen_kinds
         photo_kinds=reused_kinds(chosen) if mode=='daily' else ()
+        fixed_kinds=frozen_kinds(chosen) if mode=='daily' else ()
+        frozen_sources={}
         if photo_kinds:
             from .photo_reuse import prepare_photos
             stage='saved background retrieval'
             reused=prepare_photos(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date,kinds=photo_kinds)
+        if fixed_kinds:
+            from .frozen_cards import prepare_cards
+            stage='saved finished-card retrieval'
+            frozen_sources=prepare_cards(store,chosen['previous'],plan['source_batch_id'],plan['batch_id'],date,
+                                         fixed_kinds,reused['paths'])
         existing=next((x for x in history['days'] if identity(x)==plan['batch_id']),None) if plan else None
         saved_preview=mode=='preview' and existing and existing['content'].get('schema_version')==1
         level=(existing['content'].get('bosnian_level') if saved_preview else
                select_run_level(chosen,difficulty) if mode!='verify' else None)
         if level is not None:chosen['target_cefr']=level
-        write_json(ROOT/'build/preparation-context.json',{'history':history,'selection':chosen,'target_cefr':level,
+        # Exact-cache snapshots are parent-owned provenance, not research/design
+        # recommendations. Keep all published copy/novelty metadata in context.
+        context_history=copy.deepcopy(history);context_selection=copy.deepcopy(chosen)
+        for row in context_history['days']:
+            if isinstance(row.get('content'),dict):row['content'].pop('rendered_sources',None)
+        if context_selection.get('previous'):context_selection['previous'].pop('rendered_sources',None)
+        write_json(ROOT/'build/preparation-context.json',{'history':context_history,'selection':context_selection,'target_cefr':level,
                                                        'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan,
-                                                       'reused_photo_kinds':list(photo_kinds)})
+                                                       'reused_photo_kinds':list(photo_kinds),'frozen_card_kinds':list(fixed_kinds)})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -228,15 +242,29 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 stage='cloud ChatGPT research/review';draft=ROOT/f'build/preparation/{date}.json';draft.unlink(missing_ok=True)
                 # One independent, uniform draw for this research attempt. Do
                 # not redraw after failure; genuinely binary questions use two.
-                chosen['quiz_option_target']=secrets.choice((2,3,4))
+                chosen['quiz_option_target']=(chosen['previous']['private_review'].get('quiz_choice_review',{}).get('target',
+                                              len(chosen['previous']['cards'][0]['options'])) if 'quiz' in fixed_kinds else secrets.choice((2,3,4)))
                 context=read_json(ROOT/'build/preparation-context.json')
-                context['selection']=chosen;write_json(ROOT/'build/preparation-context.json',context)
+                context['selection']['quiz_option_target']=chosen['quiz_option_target'];write_json(ROOT/'build/preparation-context.json',context)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)
                 require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
-                if 'background_source' in package or 'background_sources' in package:
+                if any(key in package for key in ('background_source','background_sources','rendered_sources')):
                     raise ValueError('Photo provenance must be assigned by the trusted wrapper')
+                if fixed_kinds:
+                    previous=chosen['previous']
+                    for index,card in enumerate(previous['cards']):
+                        if card['kind'] in fixed_kinds:
+                            package['cards'][index]=copy.deepcopy(card)
+                            package['words'][index]=copy.deepcopy(previous['words'][index])
+                    if 'quiz' in fixed_kinds:
+                        for key in ('correct_option','correct_text','explanation','answer_aliases','identifying_hints','quiz_choice_review'):
+                            if key in previous['private_review']:package['private_review'][key]=copy.deepcopy(previous['private_review'][key])
+                        if 'quiz_choice_review' not in package['private_review']:
+                            package['private_review']['quiz_choice_review']={'target':chosen['quiz_option_target'],'binary':False,
+                                'reason':'Answer count retained from the explicitly frozen, previously reviewed quiz.'}
+                    package['rendered_sources']=frozen_sources
                 if reused:
                     from .photo_reuse import seal_photos
                     package.update(seal_photos(reused,metadata=True))

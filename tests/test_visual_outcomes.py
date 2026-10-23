@@ -1,3 +1,4 @@
+from test_project import accepted_photo_review
 import copy
 import io
 import json
@@ -77,7 +78,7 @@ class VisualOutcomeTests(unittest.TestCase):
                 proposal['failure_reason']='invalid review JSON'
                 # Even a high-confidence plan cannot come from a failed review.
                 for plan in proposal['cards'].values():plan['confidence']='high'
-            with tempfile.TemporaryDirectory() as tmp,patch('easybosnian.artwork.ROOT',Path(tmp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_history.recent_choices',return_value=([],'available')),patch('easybosnian.visual_placement.review_compositions',return_value=(proposal,status)) as review:
+            with tempfile.TemporaryDirectory() as tmp,patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review),patch('easybosnian.artwork.ROOT',Path(tmp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_history.recent_choices',return_value=([],'available')),patch('easybosnian.visual_placement.review_compositions',return_value=(proposal,status)) as review:
                 artwork(MagicMock(),p,review_images=True)
                 saved=json.loads((Path(tmp)/'build'/p['date']/'image-placement-result.json').read_text())
             review.assert_called_once()

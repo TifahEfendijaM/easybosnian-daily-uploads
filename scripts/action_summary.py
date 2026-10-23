@@ -54,7 +54,7 @@ if placements:
             text+='  '+label+' source: '+outcome['source']+' — '+outcome['reason']+'\n'
         if result.get('rejection'):
             rejection=safe_rejection(result['rejection'])
-            text+='  Layout fallback: '+rejection['reason']+'\n'
+            text+='  Pillow rejection before repair/recovery: '+rejection['reason']+'\n'
             text+='\n<details><summary>'+kind+' — rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(rejection['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
 text+=level_summary
 console_text=text  # Keep reviewed prompts/design detail in the private Summary, not step logs.

@@ -287,3 +287,8 @@ class PublishingTests(unittest.TestCase):
 
 
 if __name__=='__main__': unittest.main()
+
+
+def accepted_photo_review(package,photos):
+    """Neutral image-inspection result for tests focused on later stages."""
+    return {kind:{'status':'accepted','reason':'acceptable','quality':90,'replacement_prompt':None} for kind in photos}

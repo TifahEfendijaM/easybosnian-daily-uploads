@@ -105,6 +105,15 @@ def with_rendering(data,placement):
         if result.get('layout_adjustment') is not None:
             from .visual_adjustment import safe_adjustment
             rendered[LABELS[kind]]['layout_adjustment']=safe_adjustment(result['layout_adjustment'])
+        if result.get('element_recovery') is not None:
+            from .element_recovery import safe_recovery
+            rendered[LABELS[kind]]['element_recovery']=safe_recovery(result['element_recovery'])
+        if result.get('design_attempts'):
+            from .visual_diagnostics import safe_design_attempts
+            rendered[LABELS[kind]]['design_attempts']=safe_design_attempts(result['design_attempts'])
+        if result.get('photo_quality'):
+            from .photo_quality import safe_quality
+            rendered[LABELS[kind]]['photo_quality']=safe_quality(result['photo_quality'])
         if result.get('composition') is not None:
             composition=approved_proposal(result['composition'])
             if composition is None:
@@ -159,8 +168,11 @@ def decision_lines(rendering):
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
             if policy.get('version') in (4,5,6):
-                source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — '}.get(
-                    rendering.get('provenance',{}).get('layout',{}).get('source'),'source not recorded — ')
+                element_sources=rendering.get('element_recovery')
+                example_source=('fallback' if 'example' in element_sources['fallback'] else 'chatgpt') if element_sources else rendering.get('provenance',{}).get('layout',{}).get('source')
+                source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — ',
+                        'reused':'retained saved preset — '}.get(
+                    example_source,'source not recorded — ')
             else:
                 source='fixed crisp-edged preset — ' if policy.get('version')==3 else 'independent random 50/50 draw — '
             lines.append('PRIMJER shade selection: '+source+policy['example_fade']+
@@ -169,6 +181,18 @@ def decision_lines(rendering):
     if composition:
         lines.append('Photo layout: '+('separate '+window['fit']+' photo window' if window else 'full photographic background')+'.')
     category=rendering.get('category_style')
+    if rendering.get('element_recovery'):
+        recovery=rendering['element_recovery']
+        lines.append('Preserved ChatGPT elements: '+', '.join(recovery['preserved'])+'.')
+        lines.append('Fallback elements only: '+', '.join(recovery['fallback'])+'.')
+    if rendering.get('design_attempts'):
+        attempts=rendering['design_attempts']
+        lines.append('Design attempts: '+str(max(a['attempt'] for a in attempts))+'; last proposal '+attempts[-1]['result']+
+                     '; final layout source '+rendering.get('provenance',{}).get('layout',{}).get('source','unknown')+'.')
+    if rendering.get('photo_quality'):
+        quality=rendering['photo_quality']
+        lines.append('Photo inspection: '+quality['status']+'; selected attempt '+str(quality['selected_attempt'])+
+                     ' of '+str(len(quality['attempts']))+'; '+quality['reason']+'.')
     if category:lines.append('Category: '+CATEGORY_CATALOGUE[category])
     tone=rendering.get('heading_tone')
     if tone:lines.append('Title: '+(TITLE_TONE_CATALOGUE if 'heading_backing' in rendering else PHOTO_TONE_CATALOGUE)[tone])
@@ -262,7 +286,7 @@ def render_report(data):
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
-            text+=('**Placement validation before adjustment:** ' if card['rendering'].get('layout_adjustment') else '**Layout fallback:** ')+markdown_text(safe['reason'])+'\n\n'
+            text+=('**Placement validation before adjustment:** ' if card['rendering'].get('layout_adjustment') else '**Pillow rejection before repair/recovery:** ')+markdown_text(safe['reason'])+'\n\n'
             text+='<details><summary>Rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(safe['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
         text+=prompt_block(card['prompt'])
     text+='### Publication results\n\n'
@@ -293,7 +317,7 @@ def render_report(data):
         rejection=card.get('rendering',{}).get('rejection')
         if rejection:
             safe=safe_rejection(rejection)
-            label='Placement validation before adjustment:' if card['rendering'].get('layout_adjustment') else 'Layout fallback:'
+            label='Placement validation before adjustment:' if card['rendering'].get('layout_adjustment') else 'Pillow rejection before repair/recovery:'
             markup+='<p><strong>'+label+'</strong> '+html.escape(safe['reason'])+'</p><details><summary>Rejected approved rendering parameters</summary><pre>'+html.escape(json.dumps(safe['proposal'],ensure_ascii=False,indent=2))+'</pre></details>'
         markup+='<pre style="padding:16px;background:#f1f5f9;white-space:pre-wrap;overflow-wrap:anywhere">'+html.escape(card['prompt'])+'</pre></section>'
     markup+='<h2>Publication results</h2>'

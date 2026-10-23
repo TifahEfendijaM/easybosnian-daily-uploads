@@ -29,7 +29,7 @@ class WorkflowSyntaxTests(unittest.TestCase):
         for i in (1,2,3):
             action=inputs[f'custom_word_{i}_action']
             self.assertTrue(action['description'].startswith('CUSTOM ONLY'))
-            self.assertEqual(action['options'],['keep_today','same_image','chatgpt','entered'])
+            self.assertEqual(action['options'],['keep_today','same_image','same_image&design','chatgpt','entered'])
             self.assertEqual(inputs[f'custom_word_{i}']['type'],'string')
         for value in inputs.values():
             if value['type']=='choice':self.assertIn(value['default'],value['options'])

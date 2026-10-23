@@ -1,6 +1,7 @@
 """Publish reviewed Instagram Stories with separate photo/text treatment B."""
 from .batches import output_key
 import os
+import shutil
 from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageOps
 from .core import ROOT, read_json, require_publishing, write_json
@@ -42,6 +43,17 @@ def story_image(source,destination,palette,background=None,card=None,category_st
         canvas.save(destination,'JPEG',quality=94,subsampling=0,optimize=True)
 
 
+def prepared_story(asset,path,palette,card,renderer):
+    source=asset.get('story_path')
+    if source is not None:
+        from .frozen_cards import checked_jpeg
+        checked_jpeg(source.read_bytes(),(1080,1920))
+        if source.resolve()!=path.resolve():shutil.copyfile(source,path)
+    else:
+        renderer(asset['path'],path,palette,asset.get('background_path'),card,
+                 category_style=asset.get('metrics',{}).get('category_style','rounded'))
+
+
 def verify_story(ig,media_id):
     actual=ig.story_media(media_id)
     if actual.get('id')!=media_id or actual.get('media_type')!='IMAGE' or actual.get('media_product_type')!='STORY':
@@ -68,8 +80,7 @@ def publish_stories(store,package,assets,record=None):
         for card in package['cards']:
             kind=card['kind'];palette=artwork_palette(package,assets,kind);stage='Instagram Stories rendering'
             path=ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
-            story_image(assets[kind]['path'],path,palette,assets[kind].get('background_path'),card,
-                        category_style=assets[kind].get('metrics',{}).get('category_style','rounded'))
+            prepared_story(assets[kind],path,palette,card,story_image)
             body=path.read_bytes();stage='Instagram Stories storage'
             store.put_file(output_key(package),path.name,body);url=store.expose(output_key(package),path.name,body)
             wait_for_image(url,body,fetch=request)

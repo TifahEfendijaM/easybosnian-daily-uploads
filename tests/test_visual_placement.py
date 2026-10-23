@@ -1,3 +1,4 @@
+from test_project import accepted_photo_review
 import contextlib
 import copy
 import io
@@ -289,7 +290,7 @@ class PreparedArtworkTests(unittest.TestCase):
         decisions['cards']['lesson']['blocks'][0]['style']='outlined'
         # Bad word geometry must fall back alone without a model/generation retry.
         decisions['cards']['word']['blocks'][0]['y']=200
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_placement.review_compositions',return_value=(decisions,'reviewed')) as review,patch('easybosnian.artwork.wait_for_image') as visible,patch.dict(os.environ,{'GITHUB_RUN_URL':'https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/123'}):
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review),patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider',return_value=provider),patch('easybosnian.visual_placement.review_compositions',return_value=(decisions,'reviewed')) as review,patch('easybosnian.artwork.wait_for_image') as visible,patch.dict(os.environ,{'GITHUB_RUN_URL':'https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/123'}):
             prepared=artwork(store,package,review_images=True)
             before={kind:item['path'].read_bytes() for kind,item in prepared.items()}
             for candidate in review.call_args.args[1].values():

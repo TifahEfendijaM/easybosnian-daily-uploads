@@ -82,8 +82,10 @@ class FixedFadeTests(unittest.TestCase):
             reviewed,status=review_compositions(package,{k:{'sheet':Path(k+'.jpg')} for k in proposal['cards']})
         child.assert_called_once();self.assertEqual(status,'reviewed')
         self.assertEqual(reviewed['card_failures'],{'word':'review violated the declarative schema'})
-        self.assertEqual(reviewed['cards']['word']['confidence'],'uncertain')
-        self.assertEqual(reviewed['cards']['word']['heading_fade'],'standard')
+        self.assertEqual(reviewed['cards']['word']['confidence'],'high')
+        self.assertEqual(reviewed['card_invalid_elements']['word'],['body','heading'])
+        # These values remain rejected, pending element repair; they are not rendered.
+        self.assertEqual(reviewed['cards']['word']['heading_fade'],'soft')
         self.assertEqual(reviewed['cards']['quiz'],base['cards']['quiz'])
         self.assertEqual(reviewed['palette_decisions']['word']['source'],'chatgpt')
         prompt=child.call_args.args[0]

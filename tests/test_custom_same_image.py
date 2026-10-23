@@ -1,4 +1,5 @@
 """Independent custom photo retention, exact provenance and fresh copy."""
+from test_project import accepted_photo_review
 import base64
 import contextlib
 import copy
@@ -106,6 +107,7 @@ class CustomSameImageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp,contextlib.ExitStack() as stack:
             root=Path(temp);saved=root/'word.jpg';saved.write_bytes(photo())
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
+            stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             provider=MagicMock();provider.generate.return_value=photo()
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             review=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))

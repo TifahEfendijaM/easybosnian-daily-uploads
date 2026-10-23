@@ -8,7 +8,7 @@ from .core import ROOT, read_json, require_publishing, write_json
 from .http import SafeError, request
 from .meta import Facebook
 from .notify import failure
-from .stories import artwork_palette, story_image
+from .stories import artwork_palette, story_image, prepared_story
 from .store import wait_for_image
 
 
@@ -54,8 +54,7 @@ def publish_facebook_stories(store, package, assets, record=None):
         for card in package['cards']:
             kind = card['kind']; palette=artwork_palette(package,assets,kind); stage = 'Facebook Stories rendering'
             path = ROOT/'build'/output_key(package)/f'{kind}-story.jpg'
-            story_image(assets[kind]['path'], path, palette, assets[kind].get('background_path'), card,
-                        category_style=assets[kind].get('metrics',{}).get('category_style','rounded'))
+            prepared_story(assets[kind],path,palette,card,story_image)
             body = path.read_bytes()
             if len(body) > 10_000_000:
                 raise ValueError('Facebook Story exceeds the 10 MB photo limit')

@@ -131,13 +131,14 @@ def applied_adjustment(requested, applied):
     return safe_adjustment({'reason':EXAMPLE_LINE_REASON if wider else ADJUSTMENT_REASON,'moves':moves})
 
 
-def nearest_valid_plan(card, proposal, background):
+def nearest_valid_plan(card, proposal, background, *, locked_roles=(), lock_window=False, reason=None):
     from .hybrid import heading, block_spec, occupied_width, measured_plan, MIN_BLOCK_GAP, block_gap, roles
     original=adjustable_proposal(proposal)
     if original is None or original['confidence']!='high':return None
     try:
         measured_plan(card,original)
-        return None  # Valid intent must never be moved just for aesthetics.
+        if reason not in GEOMETRY_ERRORS:
+            return None  # Valid intent must never be moved just for aesthetics.
     except ValueError as error:
         if str(error) not in GEOMETRY_ERRORS:return None
     if [b['role'] for b in original['blocks']]!=roles(card):return None
@@ -145,7 +146,8 @@ def nearest_valid_plan(card, proposal, background):
     if window:
         low=max(250,math.ceil(header+24));high=min(770,1170-window['height'])
         if low>high:return None
-        window['y']=max(low,min(high,window['y']))
+        if lock_window and not low<=window['y']<=high:return None
+        if not lock_window:window['y']=max(low,min(high,window['y']))
     specs=[]
     try:
         for block in result['blocks']:
@@ -178,6 +180,9 @@ def nearest_valid_plan(card, proposal, background):
                 intervals=[(ylo,min(yhi,math.floor(window['y']-24-spec['height']))),
                            (max(ylo,window['y']+window['height']+24),yhi)]
         intervals=[(math.ceil(a),math.floor(b)) for a,b in intervals if a<=b]
+        if block['role'] in locked_roles:
+            if not (xlo<=block['x']<=xhi and any(a<=block['y']<=b for a,b in intervals)):return None
+            xlo=xhi=block['x'];intervals=[(block['y'],block['y'])]
         if xlo>xhi or not intervals:return None
         visible=occupied_width(spec);ow=min(block['width'],visible) if visible is not None else block['width']
         bounds.append((xlo,xhi,intervals,ow,spec['height']))

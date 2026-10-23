@@ -7,6 +7,7 @@
     "batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},
     "background_source":{"$ref":"#/$defs/photo_source"},
     "background_sources":{"description":"Trusted per-card overrides for retained original photos.","type":"object","additionalProperties":false,"minProperties":1,"properties":{"quiz":{"$ref":"#/$defs/photo_source"},"lesson":{"$ref":"#/$defs/photo_source"},"word":{"$ref":"#/$defs/photo_source"}}},
+    "rendered_sources":{"description":"Trusted expiring finished-card snapshots for exact same_image&design reuse; never model-selected.","type":"object","additionalProperties":false,"minProperties":1,"properties":{"quiz":{"$ref":"#/$defs/rendered_source"},"lesson":{"$ref":"#/$defs/rendered_source"},"word":{"$ref":"#/$defs/rendered_source"}}},
     "bosnian_level":{"enum":["A1","A2","B1","B2","C1","C2"]},
     "project":{"const":"tifahefendijam-easybosnian-daily-uploads-v1"},
     "date":{"type":"string","format":"date"},
@@ -29,6 +30,7 @@
     }}
   },
   "$defs":{
+    "rendered_source":{"type":"object","additionalProperties":false,"required":["cache_id","date","card_sha256","story_sha256","content_sha256","metrics","policy"],"properties":{"cache_id":{"type":"string","pattern":"^b-[a-f0-9]{32}$"},"date":{"type":"string","format":"date"},"card_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"story_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"content_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"metrics":{"type":"object","maxProperties":50},"policy":{"type":"object","maxProperties":6}}},
     "photo_source":{"description":"Trusted wrapper provenance for the exact cached original photographs, not a model design choice.","type":"object","additionalProperties":false,"required":["batch_id","artwork_id"],"properties":{"batch_id":{"type":"string","pattern":"^(b-[a-f0-9]{32}|legacy-[0-9]{4}-[0-9]{2}-[0-9]{2})$"},"artwork_id":{"anyOf":[{"type":"null"},{"type":"string","pattern":"^r-[a-f0-9]{32}$"}]}}},
     "text":{"type":"string","minLength":1,"maxLength":180},
     "keys":{"type":"array","minItems":1,"maxItems":40,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":100}},
