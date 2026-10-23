@@ -328,7 +328,8 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         ImageDraw.Draw(allowed).rectangle((left,top,right-1,bottom-1),fill=255)
         soft_mask=ImageChops.multiply(soft_mask,allowed)
     # Only trusted callers select these presets, never model-supplied fields.
-    # Examples keep the original contrast-driven strengths and feather profile.
+    # Examples retain their contrast-driven strengths; the selected trusted
+    # preset controls whether the lower edge tapers or stays crisp.
     for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
         white=backing==(255,255,255)
         levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
@@ -336,11 +337,20 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         for alpha in levels:
             overlay=Image.new('RGBA',image.size)
             if fade_style=='sharp':
-                # A real straight-edged translucent strip, not a linear or
-                # smooth feather. Padding protects both label and last row.
+                # Blend only the upper edge into the photograph. The lower
+                # boundary stays crisp, with padding beyond the last row.
                 od=ImageDraw.Draw(overlay)
                 band_top=max(round(top),int(text_top)-SHARP_EXAMPLE_TOP_PADDING)
                 band_bottom=min(round(bottom)-1,round(text_bottom+bottom_padding))
+                fade_start=max(round(top),band_top-PHOTO_FADE_FEATHER)
+                if band_top-fade_start<SHARP_EXAMPLE_TOP_PADDING:
+                    # Near a protected boundary, use the available space up to
+                    # the label rather than clipping a solid shade into a seam.
+                    band_top=int(text_top)
+                for y in range(fade_start,band_top):
+                    t=(y-fade_start)/max(1,band_top-fade_start)
+                    opacity=round(alpha*t*t*(3-2*t))
+                    if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
                 od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
             elif fade_style=='soft' and soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
