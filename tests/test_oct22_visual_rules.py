@@ -17,13 +17,13 @@ from test_project import reviewed_fixture
 
 
 class OctoberVisualRulesTests(unittest.TestCase):
-    def test_new_answers_are_opaque_new_bodies_start_at_85_and_prior_random_reports_stay_readable(self):
+    def test_new_panels_are_opaque_and_prior_random_reports_stay_readable(self):
         package=reviewed_fixture();fresh=Draft202012Validator(MODEL_CARD_SCHEMA)
         word=dict(default_plan(package['cards'][2]),palette='gold-cream')
         quiz=dict(default_plan(package['cards'][0]),palette='gold-cream')
         for opacity in (70,84.9,85,87.5,100):
             word['blocks'][0]['panel_opacity']=opacity
-            self.assertEqual(bool(list(fresh.iter_errors(word))),opacity<85)
+            self.assertEqual(bool(list(fresh.iter_errors(word))),opacity!=100)
             self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(word)))
             for block in quiz['blocks']:block['panel_opacity']=opacity
             self.assertEqual(bool(list(fresh.iter_errors(quiz))),opacity!=100)
@@ -68,7 +68,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
                         plan=default_plan(card);plan['heading_tone']='paper_dark'
                         plan['blocks'][0]['y']=body_y
                         plan['blocks'][1].update(y=example_y,photo_tone='paper_dark',fade_style=preset)
-                        plan=apply_policy(plan,panel_opacity=91)
+                        plan=apply_policy(plan,panel_opacity=100)
                         body,example=measured_plan(card,plan)
                         gap=(example['bounds'][1]-body['bounds'][3] if example_y>body_y
                              else body['bounds'][1]-example['bounds'][3])
@@ -80,7 +80,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
                         self.assertGreaterEqual(result['body_contrast'],4.5)
                         self.assertGreater(result['example_shading'],0)
                         self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
-                        self.assertTrue(policy_metadata(plan,panel_opacity=91)['example_fade_applied'])
+                        self.assertTrue(policy_metadata(plan,panel_opacity=100)['example_fade_applied'])
 
     def test_new_theme_checks_all_retained_rows_and_renamed_aliases_but_not_removed_rows(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32

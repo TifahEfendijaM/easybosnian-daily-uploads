@@ -38,7 +38,7 @@ class PanelOpacityTests(unittest.TestCase):
             with self.assertRaises(ValueError):panel_alpha(value)
         for value in (50,70,84.99,85,87.5,100):
             plan=dict(default_plan(card),palette='gold-cream');plan['blocks'][0]['panel_opacity']=value
-            self.assertEqual(bool(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan))),value<85)
+            self.assertEqual(bool(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan))),value!=100)
             self.assertEqual(valid_panel_opacity(value,legacy=False),value>=85)
             self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
         for value in PANEL_OPACITIES:
@@ -124,37 +124,37 @@ class PanelOpacityTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             result,status=review_compositions(package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',result)
-        self.assertIn('uniformly samples ONE explanation panel_opacity from 85 to 100',child.call_args.args[0])
+        self.assertIn('panels are ALWAYS fully opaque: panel_opacity=100 percent',child.call_args.args[0])
         self.assertIn('You do NOT choose the opacity',child.call_args.args[0])
         self.assertIn('assigned_panel_opacity',child.call_args.args[0])
         self.assertNotIn('Prefer the lower suitable opacity',child.call_args.args[0])
-        self.assertIn('Never request another sample',child.call_args.args[0])
+        self.assertIn('Never request transparency',child.call_args.args[0])
         plan=proposal['cards']['word'];plan['blocks'][0]['panel_opacity']=87.5
         rendering={'palette':'gold-cream','design':'hybrid','block_styles':{'body':'rounded','example':'italic_photo_fade'},
                    'answer_badges':{},'composition':plan,'status':'accepted'}
         self.assertIn('Explanation surface opacity: 87.5%.',decision_lines(rendering))
         recent=accepted_choices({'cards':{'word':rendering}})
-        self.assertEqual(recent['word']['panel_opacities'],{'body':87.5})
+        self.assertNotIn('panel_opacities',recent['word'])
         plan['blocks'][0]['panel_opacity']=60
         self.assertIn('Explanation surface opacity: 60%.',decision_lines(rendering))
         self.assertNotIn('panel_opacities',accepted_choices({'cards':{'word':rendering}})['word'])
         plan['blocks'][0]['panel_opacity']='secret model prose'
         self.assertNotIn('panel_opacities',accepted_choices({'cards':{'word':rendering}})['word'])
 
-    def test_fractional_percentage_survives_the_whole_review_render_and_report_path(self):
+    def test_opaque_surfaces_and_colour_choices_survive_review_render_and_report(self):
         harness=provenance_harness.VisualProvenanceTests();harness.setUp()
         proposal=harness.proposal(harness.package)
-        proposal['cards']['word']['blocks'][0]['panel_opacity']=87.5
+        proposal['cards']['word']['blocks'][0]['panel_opacity']=100
         proposal['cards']['word']['heading_tone']='paper_ink'
         proposal['cards']['word']['blocks'][-1]['photo_tone']='paper_ink'
-        placement,metrics=harness.render(harness.package,proposal,panel_opacity=87.5)
+        placement,metrics=harness.render(harness.package,proposal)
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
         from easybosnian.visual_policy import apply_policy
-        self.assertEqual(metrics['word']['composition'],apply_policy(proposal['cards']['word'],panel_opacity=87.5))
+        self.assertEqual(metrics['word']['composition'],apply_policy(proposal['cards']['word'],panel_opacity=100))
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
         self.assertGreaterEqual(metrics['word']['body_contrast'],4.5)
-        self.assertIn('Explanation surface opacity: 87.5%.',decision_lines(word))
+        self.assertIn('Explanation surface opacity: 100%.',decision_lines(word))
         self.assertNotIn('panel_opacities',accepted_choices(placement)['word'])
 
     def test_out_of_range_opacity_cannot_be_repaired_or_invalidate_sibling_layouts(self):

@@ -28,7 +28,7 @@ class VisualProvenanceTests(unittest.TestCase):
                                       category_style='ribbon',palette_exception='no_other_suitable_palette')
                          for c in package['cards']}}
 
-    def render(self,package,proposal,render_override=None,photo=None,panel_opacity=100):
+    def render(self,package,proposal,render_override=None,photo=None):
         stream=io.BytesIO();(photo if photo is not None else Image.new('RGB',(1024,1024),'#728192')).save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue()
         store=MagicMock()
@@ -37,8 +37,8 @@ class VisualProvenanceTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
-            shade_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.choice',return_value='unexpected draw'))
-            opacity_draw=stack.enter_context(patch('easybosnian.visual_policy.secrets.randbelow',return_value=round((panel_opacity-85)*10)))
+            shade_draw=stack.enter_context(patch('secrets.choice',side_effect=AssertionError('no visual draw expected')))
+            opacity_draw=stack.enter_context(patch('secrets.randbelow',side_effect=AssertionError('no opacity draw expected')))
             child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
             if render_override:stack.enter_context(patch('easybosnian.artwork.render_hybrid',side_effect=render_override))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
@@ -47,8 +47,7 @@ class VisualProvenanceTests(unittest.TestCase):
             metrics={kind:asset['metrics'] for kind,asset in assets.items()}
             child.assert_called_once();self.assertEqual(provider.generate.call_count,3)
             shade_draw.assert_not_called()
-            self.assertEqual(opacity_draw.call_count,sum(c['kind']!='quiz' for c in package['cards']))
-            self.assertTrue(all(call.args==(151,) for call in opacity_draw.call_args_list))
+            opacity_draw.assert_not_called()
             self.assertEqual(store.put_file.call_count,3);store.expose.assert_not_called()
         return placement,metrics
 
