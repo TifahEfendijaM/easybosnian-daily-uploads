@@ -107,7 +107,7 @@ class FixedFadeTests(unittest.TestCase):
                      'Choose heading_fade for photographic titles from exactly two approved presets',
                      'standard has smoothly eased edges; defined preserves the earlier',
                      'with EVERY shade treatment and EVERY design',
-                     'Only the approved preset ID and text/fade COLOURS are selectable'):
+                     'Only the approved preset IDs, strength ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)
         self.assertNotIn('Do not select a worse-fitting colour pair simply to avoid shading',prompt)
         self.assertNotIn('Do not remove a gentle title backing solely because an example backing exists',prompt)

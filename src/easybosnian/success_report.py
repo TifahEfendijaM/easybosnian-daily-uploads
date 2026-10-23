@@ -102,6 +102,10 @@ def with_rendering(data,placement):
         if 'heading_backing' in result:
             if result['heading_backing'] not in (None,'#000000','#ffffff'):raise ValueError('Invalid safe title backing metadata')
             rendered[LABELS[kind]]['heading_backing']=result['heading_backing']
+        if 'example_shading' in result:
+            alpha=result['example_shading']
+            if type(alpha) is not int or not 0<=alpha<=240:raise ValueError('Invalid safe example shading metadata')
+            rendered[LABELS[kind]]['example_shading']=alpha
         if result.get('layout_adjustment') is not None:
             from .visual_adjustment import safe_adjustment
             rendered[LABELS[kind]]['layout_adjustment']=safe_adjustment(result['layout_adjustment'])
@@ -224,7 +228,12 @@ def decision_lines(rendering):
                              (preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
                 lines.append(label+' surface opacity: '+description)
                 lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
-            if role=='example':lines.append('PRIMJER fade: '+block.get('fade_style','standard')+'.')
+            if role=='example':
+                lines.append('PRIMJER fade: '+block.get('fade_style','standard')+'.')
+                if style=='italic_photo_fade' and 'shade_strength' in block:
+                    lines.append('PRIMJER shade strength: '+block['shade_strength']+' requested; Pillow increases only if required for contrast.')
+                if 'example_shading' in rendering:
+                    lines.append(f"PRIMJER applied backing opacity: {rendering['example_shading']/255:.0%}.")
             vertical='upper' if block['y']<450 else 'middle' if block['y']<900 else 'lower'
             centre=block['x']+block['width']/2
             horizontal='left' if centre<450 else 'right' if centre>630 else 'centre'

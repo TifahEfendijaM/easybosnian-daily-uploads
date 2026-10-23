@@ -5,7 +5,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, TITLE_SHADE_INTENTS, valid_panel_opacity, PANEL_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES
 
 REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
@@ -77,6 +77,8 @@ def accepted_choices(placement):
                         and example.get('fade_style') in REVIEW_FADE_STYLES
                         and not card.get('render_policy',{}).get('example_fade'))):
                 safe['example_fade']=example['fade_style']
+            if example.get('style')=='italic_photo_fade' and example.get('shade_strength') in EXAMPLE_SHADE_STRENGTHS:
+                safe['example_shade_strength']=example['shade_strength']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
                        and valid_panel_opacity(b.get('panel_opacity'),legacy=False) and b['panel_opacity']==100}

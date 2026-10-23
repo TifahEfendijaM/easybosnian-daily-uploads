@@ -20,7 +20,10 @@ from test_project import reviewed_fixture
 
 NEW_PALETTES=('burgundy-oat','olive-stone','indigo-mist','copper-linen',
     'teal-seaglass','aubergine-apricot','espresso-almond','graphite-chalk',
-    'cobalt-peach','ochre-parchment','pine-rose')
+    'cobalt-peach','ochre-parchment','pine-rose',
+    'royal-blue-sun','emerald-lime','ruby-cream','violet-citrus','ocean-tangerine',
+    'magenta-porcelain','scarlet-vanilla','peacock-coral','sapphire-lime',
+    'grape-lemon','paprika-aqua','ultramarine-orchid')
 
 
 class ExpandedPaletteCatalogueTests(unittest.TestCase):
