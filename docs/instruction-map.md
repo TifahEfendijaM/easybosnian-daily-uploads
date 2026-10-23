@@ -7,7 +7,7 @@ This maintainer map records the instruction-only consolidation from main commit 
 | Requirement group | Current owner | Existing verification |
 |---|---|---|
 | Exact private repository, guarded Git/GitHub, no other chat/session state | AGENTS: Scope | core repository guard; cloud diagnostics tests |
-| Free services, no paid fallback/new infrastructure, original master/logo immutable | AGENTS: Invariants; pipeline-operations: Artwork | project/hosting tests; byte comparison in cleanup audit |
+| Free services, no paid fallback/new infrastructure, original master/logo immutable | AGENTS: Invariants; pipeline-operations: Artwork | project/image_hosting tests; byte comparison in cleanup audit |
 | Stage-specific credentials/tools/write boundaries and structured completion | cloud-agent-task; pipeline-operations: Scheduling | cloud_preparation, codex_diagnostics, photo_quality tests |
 | Exactly three ordered quiz/lesson/word cards, sourced original prose/diacritics, no unchecked flags | preparation-task: Sources | project, lesson_topics, run_difficulty_language tests |
 | Opened Bosnian sources; corroboration limits; claims/meanings/aliases | preparation-task: Sources/Novelty | existing editorial/schema validation plus source review |
@@ -18,8 +18,8 @@ This maintainer map records the instruction-only consolidation from main commit 
 | Weighted frozen CEFR, retained/unknown individual levels, disabled old workflow | difficulty-policy: Frozen level | levels, run_difficulty_language tests |
 | Custom action empty fields/theme changes, structural delegation, spelling-first and slot-only corrections | difficulty-policy: Custom actions | custom_word_fallback, custom_same_image tests |
 | Correction review fields/causes; no history_repeat for new reviews; legacy compatibility | difficulty-policy: Custom actions | custom_word_fallback, levels tests |
-| English beginner body/questions/captions, Bosnian words/options/headings/examples, retained-level caption semantics | difficulty-policy: Field languages | run_difficulty_language, english_captions, run_difficulty_language tests |
-| Quiz variety/relevance/hidden-unknown secrecy, private distractor justification and naming classification | preparation-task: Quiz | project, project, project tests |
+| English beginner body/questions/captions, Bosnian words/options/headings/examples, retained-level caption semantics | difficulty-policy: Field languages | run_difficulty_language and english_captions tests |
+| Quiz variety/relevance/hidden-unknown secrecy, private distractor justification and naming classification | preparation-task: Quiz | project tests plus source-opening review |
 | Uniform 2/3/4 target; genuine binary exception; frozen quiz count; no visual-stage choice changes | preparation-task: Quiz | quiz_choice_count, frozen_cards tests |
 | Lesson topic/comparison flexibility, internal seed versus public heading, meaningful reviewed lesson | preparation-task: Lesson | lesson_topics tests |
 | 460-character exact copy, density thresholds, real feed/Story fit, no truncation | preparation-task: Sources/Fit | project, visual_contract, visual_acceptance tests |
@@ -47,9 +47,9 @@ This maintainer map records the instruction-only consolidation from main commit 
 | Published-only history, partial success and failed-save behavior, latest/none/all_today | pipeline-operations: History | published_history, all_today, multiple_batches tests; Worker suite |
 | Private cache provenance/expiry/byte proofs, eventual consistency exposure and read-only polling | pipeline-operations: Artwork; element-design-recovery | photo_reuse, frozen_cards, image_hosting tests; Worker suite |
 | Independent publishing/account/token checks and credential persistence | pipeline-operations: Scheduling/Publishing | daily/facebook_stories, cloud_preparation tests |
-| Batch-specific cleanup, complete ownership listing/confirmation, unsupported deletion exclusions | pipeline-operations: Cleanup | cleanup_diagnostics, all_today, cleanup_diagnostics tests |
+| Batch-specific cleanup, complete ownership listing/confirmation, unsupported deletion exclusions | pipeline-operations: Cleanup | cleanup_diagnostics and all_today tests |
 | Parent-only exact native poll, omission on limits, status/readback without republish | pipeline-operations: Poll; instagram-polls | instagram_polls tests |
-| Story quota preflight/numeric refusal, counter conflicts, deletion-code distinction | pipeline-operations: Quotas; failures | instagram_quota, deletion tests |
+| Story quota preflight/numeric refusal, counter conflicts, deletion-code distinction | pipeline-operations: Quotas; failures | instagram_quota and cleanup_diagnostics tests |
 | Safe diagnostics/issues; exact-run reports/provenance/prompts; GitHub-only/no missing-start alert | pipeline-operations: Reporting | codex_diagnostics, flux_errors, success_report tests |
 | Reviewed branch/diff/deployment order, no extra live test or replayed historical migrations | AGENTS: Development; pipeline-operations: Rollout | guarded review; migration-and-rollout historical reference |
 
