@@ -29,6 +29,8 @@ TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 1
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
 # title backing already passes contrast. Black backings keep their existing preset.
 TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(2,145,2)) | {156,190,225}))
+# Approved stronger quiz intent starts at this trusted alpha, never a model number.
+QUIZ_TITLE_MIN_SHADE = 90
 TITLE_FADE_POWER = 2.5
 # Fade unnecessary shade away from the measured title span. Keep the full
 # needed strength under its glyphs and the chosen preset's vertical edge type.
@@ -138,7 +140,7 @@ def default_plan(card):
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(40 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none','photo_window':window,'blocks':blocks}
+            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','palette_exception':'none','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
@@ -153,7 +155,7 @@ def editorial_plan(card):
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
     return {'confidence':'high','design':'editorial','category_style':'underlined','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','palette_exception':'none',
+            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','palette_exception':'none',
             'photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
@@ -189,6 +191,8 @@ def measured_plan(card, plan):
         raise ValueError('Paper headings require automatic palette ink')
     if plan['photo_window'] is not None and plan.get('heading_fade')=='defined':
         raise ValueError('Paper headings cannot select a photographic shade')
+    if plan.get('heading_shade','gentle')=='stronger' and (card['kind']!='quiz' or plan['photo_window'] is not None):
+        raise ValueError('Stronger title shading requires a photographic quiz')
     header_end = heading(card)[2]
     measured=[]
     for block in plan['blocks']:
@@ -280,7 +284,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0):
     """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -297,7 +301,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         return min((contrast(colour,candidate.getpixel(p)) for p in points),default=10)
     choices=[(lowest(image,c),c) for c in colours]
     score,colour=max(choices)
-    if score>=threshold:return colour,score,0
+    if score>=threshold and not minimum_shade:return colour,score,0
     if not allow_fade:raise ValueError('Unshaded photo text fails measured contrast')
     # A fixed neutral/palette shade protects only this text region.
     # Never recolour the scene to fit the selected accent.
@@ -328,19 +332,30 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         ImageDraw.Draw(allowed).rectangle((left,top,right-1,bottom-1),fill=255)
         soft_mask=ImageChops.multiply(soft_mask,allowed)
     # Only trusted callers select these presets, never model-supplied fields.
-    # Examples keep the original contrast-driven strengths and feather profile.
+    # Examples retain their contrast-driven strengths; the selected trusted
+    # preset controls whether the lower edge tapers or stays crisp.
     for colour,backing in (backings if backings is not None else ((colours[0],(0,0,0)),(colours[-1],(255,255,255)))):
         white=backing==(255,255,255)
         levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
         current_surround=light_surround_mask if white else surround_mask
         for alpha in levels:
+            if alpha<minimum_shade:continue
             overlay=Image.new('RGBA',image.size)
             if fade_style=='sharp':
-                # A real straight-edged translucent strip, not a linear or
-                # smooth feather. Padding protects both label and last row.
+                # Blend only the upper edge into the photograph. The lower
+                # boundary stays crisp, with padding beyond the last row.
                 od=ImageDraw.Draw(overlay)
                 band_top=max(round(top),int(text_top)-SHARP_EXAMPLE_TOP_PADDING)
                 band_bottom=min(round(bottom)-1,round(text_bottom+bottom_padding))
+                fade_start=max(round(top),band_top-PHOTO_FADE_FEATHER)
+                if band_top-fade_start<SHARP_EXAMPLE_TOP_PADDING:
+                    # Near a protected boundary, use the available space up to
+                    # the label rather than clipping a solid shade into a seam.
+                    band_top=int(text_top)
+                for y in range(fade_start,band_top):
+                    t=(y-fade_start)/max(1,band_top-fade_start)
+                    opacity=round(alpha*t*t*(3-2*t))
+                    if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
                 od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
             elif fade_style=='soft' and soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
@@ -537,7 +552,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
-            light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY)
+            light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
+            minimum_shade=QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else 0)
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
     example_contrast=None;example_shading=0;example_colour=None

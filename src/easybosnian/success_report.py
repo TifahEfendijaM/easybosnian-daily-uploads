@@ -202,6 +202,8 @@ def decision_lines(rendering):
             lines.append('White title edge: fixed defined treatment; very gentle outer shade with measured contrast.')
     if composition:
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
+        if 'heading_shade' in composition:
+            lines.append('Title shade intent: '+composition['heading_shade']+'.')
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
         if (composition.get('palette_exception')=='no_other_suitable_palette'
                 and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):

@@ -1,4 +1,4 @@
-"""Crisp examples, freely chosen title edges and honest archived rendering policies."""
+"""Soft-top/crisp-bottom examples, title choices and honest archived policies."""
 import copy
 import tempfile
 import unittest
@@ -21,26 +21,41 @@ import test_visual_provenance as provenance_harness
 
 
 class SharpExampleWhiteTitleTests(unittest.TestCase):
-    def test_sharp_band_has_exact_straight_edges_and_padding_with_multiple_colour_pairs(self):
+    def test_defined_example_blends_top_only_and_keeps_bottom_padding_for_multiple_colour_pairs(self):
         palette=read_json(ROOT/'data/design-palettes.json')['forest-cream']
         face=serif(34,True);label=font(21,'SemiBold');rows=['Čuvamo svoju riječ.']
         bottom=max(1040+measure(rows,face)[0],1000+measure(['PRIMJER'],label)[0])+EXAMPLE_FADE_PADDING
-        for tone in ('paper_dark','ink_light','paper_ink','ink_paper'):
-            with self.subTest(tone=tone):
+        for tone,limit_top in ((t,y) for t in ('paper_dark','ink_light','paper_ink','ink_paper') for y in (950,995)):
+            with self.subTest(tone=tone,limit_top=limit_top):
                 original=Image.new('RGBA',(1080,1350),'#202020' if tone.startswith('ink') else '#b0b0b0');image=original.copy()
                 colours,backings=photo_colours(palette,tone)
                 colour,score,alpha=protect_text(image,(64,1040),rows,face,colours,4.5,
-                    (20,950,1060,1280),extra=[((64,1000),['PRIMJER'],label)],backings=backings,
+                    (20,limit_top,1060,1280),extra=[((64,1000),['PRIMJER'],label)],backings=backings,
                     fade_style='sharp',bottom_padding=EXAMPLE_FADE_PADDING)
                 self.assertGreaterEqual(score,4.5);self.assertGreater(alpha,0)
-                top=1000-SHARP_EXAMPLE_TOP_PADDING
-                pixel=image.getpixel((1000,top))
-                self.assertNotEqual(pixel,original.getpixel((1000,top)))
-                self.assertEqual(image.getpixel((1000,top-1)),original.getpixel((1000,top-1)))
+                pixel=image.getpixel((1000,1000))
+                base=original.getpixel((1000,1000))
+                # A real gradual upper blend, including when the protected
+                # photo edge leaves less space than the normal upper padding.
+                changes=[max(abs(a-b) for a,b in zip(image.getpixel((1000,y)),base))
+                         for y in (limit_top,(limit_top+1000)//2,1000)]
+                self.assertEqual(changes[0],0)
+                self.assertGreater(changes[1],0);self.assertLess(changes[1],changes[2])
+                self.assertEqual(image.crop((0,0,1080,limit_top)).tobytes(),
+                                 original.crop((0,0,1080,limit_top)).tobytes())
+                if limit_top==950:
+                    self.assertEqual(image.getpixel((1000,1000-SHARP_EXAMPLE_TOP_PADDING)),pixel)
+                # The lower edge remains a distinct, crisp boundary, rather
+                # than turning this into the fully smooth standard preset.
                 self.assertEqual(image.getpixel((1000,bottom)),pixel)
                 self.assertEqual(image.getpixel((1000,bottom+1)),original.getpixel((1000,bottom+1)))
                 self.assertEqual(image.getpixel((10,1040)),original.getpixel((10,1040)))
                 self.assertEqual(image.getpixel((1059,1040)),pixel)
+                smooth=original.copy()
+                protect_text(smooth,(64,1040),rows,face,colours,4.5,
+                    (20,limit_top,1060,1280),extra=[((64,1000),['PRIMJER'],label)],backings=backings,
+                    fade_style='standard',bottom_padding=EXAMPLE_FADE_PADDING)
+                self.assertNotEqual(smooth.getpixel((1000,bottom+1)),original.getpixel((1000,bottom+1)))
 
     def test_selected_example_and_title_presets_survive_for_both_neutral_backings(self):
         cards=reviewed_fixture()['cards']
