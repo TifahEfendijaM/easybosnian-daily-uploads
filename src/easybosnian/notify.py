@@ -17,6 +17,15 @@ NEXT={
 
 
 def next_step(stage,error):
+    from .codex_diagnostics import CodexExecutionError
+    if isinstance(error,CodexExecutionError):
+        if error.reason in ('authentication','refresh_token_reused'):
+            return 'Renew only the dedicated cloud ChatGPT sign-in and save it privately. Do not copy a desktop session. No automatic retry or paid fallback is sent.'
+        if error.reason in ('usage_limit','rate_limit'):
+            return 'Check the signed-in ChatGPT account usage/reset window. A rate-limit response alone does not prove exhausted subscription allowance. No automatic retry or paid fallback is sent.'
+        if error.reason in ('connection','service'):
+            return 'Check OpenAI service availability and the saved safe CLI diagnosis. The run stopped without retrying; deliberately verify the connection before another daily run.'
+        return 'Inspect build/cloud-agent-diagnostics/*-result.json for the safe CLI reason/status. Raw events and credentials remain private; no automatic retry or paid fallback is sent.'
     if getattr(error,'reason',None)=='instagram_deletion_refused':
         return 'Meta refused Instagram deletion with code 9/subcode 2207074. This is distinct from Story publishing-limit code 2207042. The exact deletion restriction/window is unverified; the publishing-quota counter does not establish deletion capacity. Inspect cleanup operation/kind and confirmed removal counts in this run. Retain uncertain IDs; no deletion retry or permission expansion is performed. New publishing remains independent.'
     if getattr(error,'reason',None)=='instagram_publishing_limit':
