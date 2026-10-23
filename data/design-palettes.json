@@ -32,5 +32,7 @@
   "sapphire-lime": {"ink":"#153788","accent":"#c9ed43","panel":"#f2f6ff","scrim":"#081844"},
   "grape-lemon": {"ink":"#50134e","accent":"#ffe05c","panel":"#fff3fc","scrim":"#260724"},
   "paprika-aqua": {"ink":"#842d08","accent":"#83e4d5","panel":"#fff5eb","scrim":"#3f1403"},
-  "ultramarine-orchid": {"ink":"#252295","accent":"#df8cff","panel":"#f6f3ff","scrim":"#100e48"}
+  "ultramarine-orchid": {"ink":"#252295","accent":"#df8cff","panel":"#f6f3ff","scrim":"#100e48"},
+  "cherry-lime": {"ink":"#730d29","accent":"#d9f52c","panel":"#fff6fa","scrim":"#350611"},
+  "petrol-cyan": {"ink":"#083b4c","accent":"#36d9ef","panel":"#f0fdff","scrim":"#031c25"}
 }

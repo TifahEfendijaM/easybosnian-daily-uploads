@@ -21,7 +21,7 @@ import test_visual_provenance as harness_module
 
 SATURATED=('royal-blue-sun','emerald-lime','ruby-cream','violet-citrus','ocean-tangerine',
     'magenta-porcelain','scarlet-vanilla','peacock-coral','sapphire-lime',
-    'grape-lemon','paprika-aqua','ultramarine-orchid')
+    'grape-lemon','paprika-aqua','ultramarine-orchid','cherry-lime','petrol-cyan')
 
 class ExampleStrengthChoicesTests(unittest.TestCase):
     def test_each_strength_has_distinct_pixels_for_both_edges_and_neutral_backings(self):
