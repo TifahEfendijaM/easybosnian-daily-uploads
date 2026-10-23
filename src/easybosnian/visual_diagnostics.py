@@ -2,10 +2,12 @@
 import copy
 import json
 from jsonschema import Draft202012Validator
+from .codex_diagnostics import CodexExecutionError, REASONS as CODEX_REASONS
 
 REVIEW_FAILURES = frozenset(('review timed out', 'ChatGPT execution failed; check sign-in and usage',
     'review returned no result', 'invalid review JSON', 'review violated the declarative schema',
     'review unavailable; exact cause not recorded'))
+REVIEW_FAILURES = REVIEW_FAILURES | frozenset(CODEX_REASONS.values())
 
 PALETTE_REASONS = {
     'chatgpt': frozenset(('ChatGPT selected this approved palette',)),
@@ -57,6 +59,7 @@ def rendering_provenance(card, review_status=None):
 
 
 def review_failure(error):
+    if isinstance(error,CodexExecutionError):return CODEX_REASONS[error.reason]
     if isinstance(error,json.JSONDecodeError):return 'invalid review JSON'
     return {
         'ChatGPT review exceeded its time allowance; inspect the run and reviewed content; no retry was dispatched':'review timed out',

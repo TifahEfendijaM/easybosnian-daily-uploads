@@ -15,6 +15,7 @@ from .validate import validate
 from .selection import selection_context, check_selection, novelty_history, word_levels
 from .levels import select_run_level
 from .batches import identity, plan_batch
+from .codex_diagnostics import CodexExecutionError, execution_diagnostic
 
 
 AGENT_FAILURES = {
@@ -132,7 +133,7 @@ def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only
     output.unlink(missing_ok=True)
     result_schema = ROOT / "build/cloud-agent-result-schema.json"
     write_json(result_schema, result_contract or AGENT_RESULT_SCHEMA)
-    args = ["codex", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
+    args = ["codex", "exec", "--json", "--ignore-user-config", "--ignore-rules", "--ephemeral",
             "--sandbox", "read-only" if read_only else "workspace-write", "--cd", str(ROOT), "--color", "never",
             "-c", 'approval_policy="never"', "-c", 'cli_auth_credentials_store="file"',
             "-c", "sandbox_workspace_write.network_access="+('false' if read_only else 'true'),
@@ -144,26 +145,35 @@ def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only
             raise ValueError('Visual review images must be local generated build files')
         args.extend(['--image', str(picture)])
     args.append('-')
+    diagnostic_path = ROOT / 'build/cloud-agent-diagnostics' / ('visual-result.json' if read_only else 'text-result.json')
+    result = None
+    timed_out = False
     with events.open("w", encoding="utf-8") as private_log:
         events.chmod(0o600)
         try:
             result = subprocess.run(args, input=prompt, text=True, env=child_env, cwd=ROOT,
                                     stdout=private_log, stderr=subprocess.STDOUT, timeout=timeout)
         except subprocess.TimeoutExpired:
+            timed_out = True
             raise ValueError("ChatGPT review exceeded its time allowance; inspect the run and reviewed content; no retry was dispatched") from None
         finally:
-            # Check even after an unsuccessful visual review, before any fallback.
             try:
-                verify_repository(remote=True)
-                changed = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True)
-            except Exception:
-                raise AgentIntegrityError("Could not confirm the repository/file boundary after ChatGPT execution") from None
-            if changed.stdout.strip():
-                raise AgentIntegrityError("Preparation changed tracked project files; refusing to save content")
+                private_log.flush()
+                diagnostic = execution_diagnostic(events, None if result is None else result.returncode, timed_out=timed_out)
+                write_json(diagnostic_path, diagnostic)
+            finally:
+                # Check even if execution or diagnostic recording failed, before any fallback.
+                try:
+                    verify_repository(remote=True)
+                    changed = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True)
+                except Exception:
+                    raise AgentIntegrityError("Could not confirm the repository/file boundary after ChatGPT execution") from None
+                if changed.stdout.strip():
+                    raise AgentIntegrityError("Preparation changed tracked project files; refusing to save content")
     if output.exists():
         output.chmod(0o600)
     if result.returncode:
-        raise ValueError("Cloud ChatGPT execution failed: verify the dedicated sign-in and ChatGPT usage limits; no paid fallback")
+        raise CodexExecutionError(diagnostic)
     if not output.is_file():
         raise ValueError("Cloud ChatGPT ended without its required completion result; no batch was approved")
     return output.read_text(encoding="utf-8").strip()
