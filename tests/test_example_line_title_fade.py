@@ -100,17 +100,16 @@ class ExampleLineTitleFadeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'differs from rendered composition'):
             with_rendering(report_data(h.package,results(),RUN),changed)
 
-    def test_combined_position_repair_and_one_line_expansion_are_both_reported(self):
+    def test_position_repair_preserves_an_already_valid_narrow_example(self):
         h,proposal=self.harness()
         proposal['cards']['word']['blocks'][0]['x']=30
         proposal['cards']['word']['blocks'][-1]['x']=700
         placement,_=h.render(h.package,proposal)
         word=placement['cards']['word'];moves=word['layout_adjustment']['moves']
         self.assertEqual(word['status'],'adjusted')
-        self.assertEqual({m['element'] for m in moves},{'body','example'})
-        example=next(m for m in moves if m['element']=='example')
-        self.assertEqual(example['from'],{'x':700,'y':1050,'width':300})
-        self.assertEqual(example['to'],{'x':457,'y':1050,'width':559})
+        self.assertEqual({m['element'] for m in moves},{'body'})
+        self.assertEqual(word['composition']['blocks'][-1],proposal['cards']['word']['blocks'][-1])
+        example={'element':'example','from':{'x':700,'y':1050,'width':300},'to':{'x':457,'y':1050,'width':559}}
         for bad in (dict(word['layout_adjustment'],reason='untrusted'),
                     {'reason':EXAMPLE_LINE_REASON,'moves':[dict(example,element='body')]}):
             with self.assertRaises(ValueError):safe_adjustment(bad)

@@ -69,7 +69,10 @@ def fit_check(package):
 def prepare(path,selection=None,batch_target='today',run_date=None,plan=None):
     verify_repository(remote=True)
     package=read_json(path)
-    for card in package.get("cards",[]):card.pop("design_template",None)
+    from .selection import frozen_kinds
+    fixed=frozen_kinds(selection) if selection else ()
+    for card in package.get("cards",[]):
+        if card.get('kind') not in fixed:card.pop("design_template",None)
     from .selection import batch_date, check_selection, novelty_history, word_levels
     store=Store();history=store.history()
     if package['date']!=batch_date(history,run_date or today(),batch_target):

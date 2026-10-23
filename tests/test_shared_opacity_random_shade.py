@@ -91,7 +91,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         self.assertEqual(quiz['status'],'accepted')
         self.assertTrue(all(b['panel_opacity']==100 for b in quiz['composition']['blocks']))
         self.assertEqual(lesson['provenance']['layout']['source'],'chatgpt')
-        self.assertEqual(word['provenance']['layout']['source'],'fallback')
+        self.assertEqual(word['provenance']['layout']['source'],'mixed')
         self.assertEqual(word['composition']['blocks'][0]['panel_opacity'],100)
         for result,preset in ((lesson,'sharp'),(word,'standard')):
             self.assertEqual(result['composition']['blocks'][-1]['fade_style'],preset)
@@ -106,7 +106,8 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
             self.assertIn('Panel opacity: fixed at 100%',document)
             self.assertNotIn('uniformly sampled',document)
             self.assertIn('ChatGPT',document)
-            self.assertIn('deterministic fallback preset',document)
+            self.assertIn('Fallback elements only: body',document)
+            self.assertNotIn('deterministic fallback preset',document)
             self.assertIn('sharp applied',document)
         bad=copy.deepcopy(placement);bad['cards']['quiz']['render_policy']['panel_opacity']=70
         with self.assertRaisesRegex(ValueError,'Shared opacity'):

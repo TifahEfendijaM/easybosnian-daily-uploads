@@ -162,7 +162,7 @@ class PanelOpacityTests(unittest.TestCase):
         proposal=harness.proposal(harness.package)
         proposal['cards']['word']['blocks'][0].update(panel_opacity=69.9,x=30)
         placement,metrics=harness.render(harness.package,proposal)
-        self.assertEqual(placement['cards']['word']['provenance']['layout']['source'],'fallback')
+        self.assertEqual(placement['cards']['word']['provenance']['layout']['source'],'mixed')
         self.assertEqual(placement['cards']['word']['provenance']['palette']['source'],'chatgpt')
         self.assertEqual(placement['cards']['word']['review_failure'],'review violated the declarative schema')
         self.assertEqual(metrics['word']['composition']['blocks'][0]['panel_opacity'],100)

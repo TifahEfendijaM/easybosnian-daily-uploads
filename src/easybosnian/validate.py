@@ -61,6 +61,10 @@ def validate(package, history=None, include_today=False, require_website_footer=
         raise ValueError(f'Content schema check failed at {path}; inspect the private draft') from None
     if [c["kind"] for c in package["cards"]] != ["quiz", "lesson", "word"]:
         raise ValueError("Cards must be quiz, lesson, word in that order")
+    if package.get('rendered_sources'):
+        from .frozen_cards import checked_source
+        for card in package['cards']:
+            if card['kind'] in package['rendered_sources']:checked_source(package['rendered_sources'][card['kind']],card)
     if target_cefr is not None and package.get('bosnian_level') != target_cefr:
         raise ValueError('New content must record the shared preparation difficulty')
     if word_level_targets is not None:

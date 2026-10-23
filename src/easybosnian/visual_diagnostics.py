@@ -15,6 +15,7 @@ PALETTE_REASONS = {
         'ChatGPT palette fails text contrast', 'ChatGPT palette fails photographic contrast',
         'Repeated palette lacks required suitability exception',
         'Review unavailable; using preparation palette')),
+    'reused': frozenset(('Exact saved card palette retained by user request',)),
     'unknown': frozenset(('Palette source not recorded in this older run',)),
 }
 PALETTE_RENDER_FAILURES = frozenset((
@@ -72,6 +73,11 @@ def review_failure(error):
 def rendering_outcome(card, review_status=None):
     """Only trusted classifications can reach the summary or recent-design context."""
     status=card.get('status')
+    if status=='reused':return {'source':'reused','reason':'Exact saved card retained by user request; no new visual decision'}
+    if status=='partial':
+        from .element_recovery import safe_recovery
+        detail=safe_recovery(card.get('element_recovery'))
+        return {'source':'mixed','reason':'Pillow preserved valid ChatGPT elements; fallback only for '+', '.join(detail['fallback'])}
     if status=='adjusted':
         from .visual_adjustment import safe_adjustment, EXAMPLE_LINE_REASON
         detail=safe_adjustment(card.get('layout_adjustment'))
@@ -88,7 +94,18 @@ def rendering_outcome(card, review_status=None):
     if review_status=='unavailable':return {'source':'fallback','reason':'review unavailable; exact cause not recorded'}
     return {'source':'unknown','reason':'rendering decision not recorded in this older run'}
 
+
+def choice_record(metrics,status,policy,palette_outcome,review_status=None,**extra):
+    result={'position':metrics['panel_position'],'status':status,
+            **{key:metrics.get(key) for key in ('palette','design','category_style','heading_tone','example_tone',
+               'heading_backing','block_styles','answer_badges','block_typography','composition')},
+            'render_policy':policy,'palette_outcome':palette_outcome,**extra}
+    result['outcome']=rendering_outcome(result,review_status)
+    result['provenance']=rendering_provenance(result,review_status)
+    return result
+
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Repair changed a protected approved element',
     'Actual panel text contrast fails; never publish unreadable copy',
     'Unboxed editorial body cannot set panel opacity',
     'Unboxed editorial body requires automatic palette ink',
@@ -180,4 +197,16 @@ def safe_rejection(value):
     proposal=value['proposal']
     if proposal is not None and approved_proposal(proposal) is None:
         raise ValueError('Unapproved rejected rendering parameters')
+    return copy.deepcopy(value)
+
+
+def safe_design_attempts(value):
+    if not isinstance(value,list) or not 1<=len(value)<=4:raise ValueError('Invalid design attempt diagnostics')
+    for item in value:
+        if (not isinstance(item,dict) or set(item) not in ({'attempt','result'},{'attempt','result','reason'})
+                or type(item['attempt']) is not int or not 1<=item['attempt']<=3
+                or item['result'] not in ('accepted','adjusted','rejected','unavailable')):raise ValueError('Invalid design attempt diagnostics')
+        if 'reason' in item and item['reason'] not in (*TRUSTED_REJECTION_MESSAGES,'Unclassified rendering validation failure',
+                                                      'Repair changed a protected approved element'):
+            raise ValueError('Unapproved design attempt reason')
     return copy.deepcopy(value)

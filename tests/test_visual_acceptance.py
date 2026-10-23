@@ -164,7 +164,9 @@ class PerCardReviewIsolationTests(unittest.TestCase):
             self.assertEqual(placement['cards'][kind]['provenance']['layout']['source'],'chatgpt')
             self.assertEqual(metrics[kind]['composition'],apply_policy(proposal['cards'][kind],panel_opacity=100))
         lesson=placement['cards']['lesson']
-        self.assertEqual(lesson['provenance']['layout'],{'source':'fallback','reason':'review violated the declarative schema'})
+        self.assertEqual(lesson['provenance']['layout']['source'],'mixed')
+        self.assertEqual(lesson['element_recovery']['fallback'],['body'])
+        self.assertEqual(metrics['lesson']['composition']['category_style'],proposal['cards']['lesson']['category_style'])
         self.assertEqual(lesson['provenance']['palette']['source'],'chatgpt')
         self.assertNotIn('untrusted.ttf',str(placement))
 

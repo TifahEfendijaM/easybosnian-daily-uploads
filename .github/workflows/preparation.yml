@@ -23,27 +23,27 @@ on:
         type: string
         default: ''
       custom_word_1_action:
-        description: 'CUSTOM ONLY - Pitanje dana: keep_today = word; same_image = word+photo; chatgpt = new word; entered = typed word'
+        description: 'CUSTOM ONLY - Pitanje dana: keep_today = word; same_image = word+photo; same_image&design = exact card; chatgpt = new word; entered = typed word'
         type: choice
-        options: [keep_today, same_image, chatgpt, entered]
+        options: [keep_today, same_image, 'same_image&design', chatgpt, entered]
         default: keep_today
       custom_word_1:
         description: 'Custom only: Pitanje dana word; fill only when its action is entered'
         type: string
         default: ''
       custom_word_2_action:
-        description: 'CUSTOM ONLY - Znaš li: keep_today = topic; same_image = topic+photo; chatgpt = new topic; entered = typed topic'
+        description: 'CUSTOM ONLY - Znaš li: keep_today = topic; same_image = topic+photo; same_image&design = exact card; chatgpt = new topic; entered = typed topic'
         type: choice
-        options: [keep_today, same_image, chatgpt, entered]
+        options: [keep_today, same_image, 'same_image&design', chatgpt, entered]
         default: keep_today
       custom_word_2:
         description: 'Custom only: Znaš li word, comparison (peći / kuhati), or short topic; fill only when action is entered'
         type: string
         default: ''
       custom_word_3_action:
-        description: 'CUSTOM ONLY - Riječ dana: keep_today = word; same_image = word+photo; chatgpt = new word; entered = typed word'
+        description: 'CUSTOM ONLY - Riječ dana: keep_today = word; same_image = word+photo; same_image&design = exact card; chatgpt = new word; entered = typed word'
         type: choice
-        options: [keep_today, same_image, chatgpt, entered]
+        options: [keep_today, same_image, 'same_image&design', chatgpt, entered]
         default: keep_today
       custom_word_3:
         description: 'Custom only: Riječ dana word; fill only when its action is entered'
@@ -65,7 +65,7 @@ jobs:
   run:
     if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads'
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
       DIFFICULTY: ${{ inputs.difficulty || 'random' }}

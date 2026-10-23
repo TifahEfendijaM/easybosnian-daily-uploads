@@ -1,5 +1,9 @@
 # Trusted visual rendering contract
 
+## Active October 23 recovery policy
+
+Read docs/element-design-recovery.md. It supersedes older single-call/whole-layout-fallback wording: up to three defect-triggered photo candidates and three Pillow-rejected design proposals per card, element-only nearest-safe recovery preserving accepted elements, explicit best-effort photo reporting, and exact custom same_image&design retention. No API-error, authentication, publication, cleanup or dispatch retries are authorized. All other visual choices and safeguards remain intact.
+
 ChatGPT selects approved data after inspecting the generated photographs. Pillow validates and draws the exact source. No visual child ever writes drawing code or changes copy.
 
 ## Allowed data
