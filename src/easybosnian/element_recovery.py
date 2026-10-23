@@ -8,7 +8,7 @@ from .hybrid import default_plan, editorial_plan, roles
 from .visual_adjustment import nearest_valid_plan
 
 GLOBAL_GROUPS={'category':('category_style','category_tone'),
-               'heading':('heading_tone','heading_fade'), 'photo_window':('photo_window',)}
+               'heading':('heading_tone','heading_fade'), 'photo_window':('photo_window',), 'design':('design',)}
 RECOVERY_REASON='Failed elements replaced; other approved elements preserved unchanged'
 
 
@@ -32,7 +32,7 @@ def recoverable_proposal(card, requested):
             or len({b.get('role') for b in blocks if isinstance(b.get('role'),str)})!=len(blocks)
             or any(b.get('role') not in expected for b in blocks)
             or [b['role'] for b in blocks]!=[r for r in expected if r in {b['role'] for b in blocks}]):return False
-    try:baseline=editorial_plan(card) if requested.get('design')=='editorial' else default_plan(card)
+    try:baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     except ValueError:return False
     root=copy.deepcopy(requested);root['blocks']=baseline['blocks']
     for keys in GLOBAL_GROUPS.values():
@@ -80,11 +80,12 @@ def recover_elements(card, requested, background, render, *, required=()):
     blocks={b['role']:b for b in requested['blocks']}
     required=set(required)|{r for r in expected if r not in blocks}
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
-    baseline=editorial_plan(card) if requested['design']=='editorial' else default_plan(card)
+    baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
     for size in range(1,len(groups)):
         for failed in itertools.combinations(groups,size):
             if not required<=set(failed):continue
+            if 'design' in failed and requested.get('design')==baseline['design']:continue
             for faithful in (True,False):
                 candidate=copy.deepcopy(requested)
                 for name in failed:
@@ -93,7 +94,7 @@ def recover_elements(card, requested, background, render, *, required=()):
                 window=candidate.get('photo_window')
                 if list(Draft202012Validator(CARD_SCHEMA['properties']['photo_window']).iter_errors(window)):continue
                 for index,role in enumerate(expected):
-                    if role in failed:candidate['blocks'][index]=replacement(card,requested['blocks'][index],baseline['blocks'][index],window,candidate['design'],background,faithful)
+                    if role in failed:candidate['blocks'][index]=replacement(card,requested['blocks'][index],baseline['blocks'][index],window,candidate.get('design',baseline['design']),background,faithful)
                 if list(Draft202012Validator(CARD_SCHEMA).iter_errors(candidate)):continue
                 locked=tuple(r for r in expected if r not in failed)
                 try:metrics=render(candidate)

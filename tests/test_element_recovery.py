@@ -55,3 +55,14 @@ class ElementRecoveryTests(unittest.TestCase):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card);plan.update(confidence='high',css='private prose')
         self.assertIsNone(recover_elements(card,plan,None,lambda p:self.fail('must not render')))
         with self.assertRaises(ValueError):safe_recovery({'reason':'private prose','preserved':['body'],'fallback':['example']})
+
+    def test_incompatible_overall_family_replaces_only_family_and_keeps_valid_answers(self):
+        card=reviewed_fixture()['cards'][0]
+        plan=dict(default_plan(card),confidence='high',palette='gold-cream',design='editorial')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1024,1024),'#888888').save(photo)
+            metrics,detail=recover_elements(card,plan,photo,lambda p:render_hybrid(card,'gold-cream',photo,root/'card.jpg',p))
+            self.assertEqual(detail['fallback'],['design'])
+            self.assertEqual(metrics['composition']['blocks'],plan['blocks'])
+            self.assertEqual(metrics['composition']['category_style'],plan['category_style'])
+            self.assertEqual(metrics['composition']['design'],'hybrid')

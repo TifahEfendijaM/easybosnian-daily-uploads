@@ -16,7 +16,7 @@ class PaletteValidationError(ValueError):
 
 def unchanged(requested,revised,preserved):
     old={b['role']:b for b in requested['blocks']};new={b['role']:b for b in revised.get('blocks',[])}
-    return (requested.get('design')==revised.get('design') and requested.get('palette')==revised.get('palette')
+    return (requested.get('palette')==revised.get('palette')
             and all((all(requested.get(k)==revised.get(k) for k in GLOBAL_GROUPS[n]) if n in GLOBAL_GROUPS
                      else old.get(n)==new.get(n)) for n in preserved))
 
