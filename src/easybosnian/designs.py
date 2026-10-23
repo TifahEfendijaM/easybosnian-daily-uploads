@@ -28,6 +28,7 @@ TITLE_TONE_CATALOGUE = {
     'paper_accent':'Legacy palette paper-coloured title text; neutral black fade when required.',
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
+TITLE_SHADE_INTENTS = ('gentle', 'stronger')  # stronger is photographic quiz-only
 REVIEW_FADE_STYLES = ('standard', 'defined')  # titles
 REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
 TITLE_FADE_STYLES = (*REVIEW_FADE_STYLES, 'soft')  # soft is archive-only
