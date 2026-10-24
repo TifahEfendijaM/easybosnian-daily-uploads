@@ -1,5 +1,6 @@
 import {privacy} from './privacy.mjs';
 export const REPO='TifahEfendijaM/easybosnian-daily-uploads';
+export const REPOSITORY_ID=1401814933,OWNER_ID=50710040;
 export const PROJECT='tifahefendijam-easybosnian-daily-uploads-v1';
 const DATE=/^\d{4}-\d{2}-\d{2}$/,BATCH=/^(b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2})$/,KINDS=['quiz','lesson','word'],NAME=/^(quiz|lesson|word)-(background|card|story)\.jpg$/;
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -111,7 +112,8 @@ export async function dispatchPreparation(env,mode) {
   console.log(JSON.stringify({event:'preparation_repository_check',mode,http_status:identity.status}));
   if(identity.status!==200) throw dispatchError(`GitHub repository check HTTP ${identity.status}; check token access`,identity.status);
   const repository=await identity.json();
-  if(repository.full_name!==REPO || repository.private!==true || repository.default_branch!=='main') throw dispatchError('Dispatch target must be the exact private repository with default branch main');
+  if(repository.full_name!==REPO || repository.id!==REPOSITORY_ID || repository.owner?.id!==OWNER_ID ||
+     typeof repository.private!=='boolean' || repository.default_branch!=='main') throw dispatchError('Dispatch target must be the exact pinned repository and owner with default branch main');
   let result;
   try {result=await fetch(base+'/actions/workflows/preparation.yml/dispatches',{method:'POST',headers,redirect:'manual',signal:AbortSignal.timeout(15000),body:JSON.stringify({ref:'main',inputs:{mode,...(mode==='daily'?{batch_target:'none'}:{})}})});}
   catch {throw dispatchError('GitHub dispatch network failure; acceptance is uncertain; no automatic retry',null,true);}
@@ -152,6 +154,24 @@ export default {
     }
     if(!env.ADMIN_TOKEN || !await equalToken(req.headers.get('Authorization'),`Bearer ${env.ADMIN_TOKEN}`)) return response({error:'Unauthorized'},401);
     try {
+      const report=path.match(/^\/v1\/run-reports\/([1-9][0-9]{0,19})$/);
+      if(report && req.method==='GET') {
+        const body=await env.IMAGES.get('private-run-report:'+report[1]);
+        return body===null || body===undefined?response({error:'No private run report'},404):
+          new Response(body,{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+      }
+      if(report && req.method==='PUT') {
+        const body=await req.text();
+        if(new TextEncoder().encode(body).byteLength>2_000_000) return response({error:'Run report too large'},413);
+        const p=JSON.parse(body),entries=Object.entries(p.files || {});
+        const name=/^(?:run-summary\.md|failure\.txt|preparation-result\.json|(?:b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})\/(?:[a-z]+(?:-[a-z]+)*-result\.json|result\.json|report-source\.json|success-report\.(?:json|md|html)))$/;
+        if(Object.keys(p).sort().join(',')!=='files,mode,project,run_id' || p.project!==PROJECT ||
+           p.run_id!==report[1] || !['verify','preview','daily'].includes(p.mode) ||
+           !p.files || typeof p.files!=='object' || Array.isArray(p.files) || entries.length>30 ||
+           entries.some(([key,value])=>!name.test(key) || typeof value!=='string')) throw Error('Invalid protected report');
+        await env.IMAGES.put('private-run-report:'+report[1],body,{expirationTtl:14*86400});
+        return response({stored:true});
+      }
       if(path==='/v1/scheduler/verify' && req.method==='POST') {
         try {return response(await dispatchPreparation(env,'verify'));}
         catch(error) {console.error(JSON.stringify({event:'preparation_dispatch_verify_failed',http_status:error.httpStatus??null}));return response({error:'GitHub verify dispatch failed; inspect status logs and access'},502);}

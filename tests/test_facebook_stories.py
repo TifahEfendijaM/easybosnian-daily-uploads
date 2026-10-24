@@ -168,7 +168,7 @@ class FacebookStoryTests(unittest.TestCase):
         with patch.dict(os.environ, env), patch('easybosnian.readiness.verify_repository'), patch('easybosnian.readiness.publishing_enabled', return_value=True), \
              patch('easybosnian.readiness.Store') as store, patch('easybosnian.readiness.Instagram') as instagram, \
              patch('easybosnian.readiness.InstagramFacebook') as poll, \
-             patch('easybosnian.readiness.Facebook') as facebook, patch('easybosnian.readiness.request', return_value={'full_name': REPO, 'private': True}):
+             patch('easybosnian.readiness.Facebook') as facebook, patch('easybosnian.readiness.request', return_value={'full_name':REPO,'id':1401814933,'owner':{'id':50710040},'default_branch':'main','private':False}):
             store.return_value.call.return_value={'project': PROJECT}; store.return_value.history.return_value={'project': PROJECT}
             instagram.return_value.verify_account.return_value={'username': 'easy_bosnian', 'account_type': 'BUSINESS'}
             facebook.return_value.stories.return_value={'data': []}

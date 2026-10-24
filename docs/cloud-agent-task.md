@@ -2,7 +2,7 @@ Prepare actual reviewed EasyBosnian content for {{DATE}}, Europe/Sarajevo, only 
 
 ## Read and scope
 
-Read `AGENTS.md`, `docs/preparation-task.md` and `docs/difficulty-policy.md` in full. These are the current research rules; do not load historical master-prompt instructions or unrelated publishing/visual policies. The trusted wrapper has already verified the exact private repository boundary. Read the COMPLETE `build/preparation-context.json`, including history, previous content, trusted selection, frozen identity/date/level, reused_photo_kinds and frozen_card_kinds.
+Read `AGENTS.md`, `docs/preparation-task.md` and `docs/difficulty-policy.md` in full. These are the current research rules; do not load historical master-prompt instructions or unrelated publishing/visual policies. The trusted wrapper has already verified the exact pinned repository boundary. Read the COMPLETE `build/preparation-context.json`, including history, previous content, trusted selection, frozen identity/date/level, reused_photo_kinds and frozen_card_kinds.
 
 Read `data/content.schema.json`, `data/design-palettes.json`, `src/easybosnian/validate.py` and local selection/fit helpers as needed. Keep only the fallback design_palette in preparation metadata; omit design_template. Final Pillow design IDs and placement are chosen after photos exist, never by this research child.
 

@@ -52,6 +52,7 @@ class FluxErrorTests(unittest.TestCase):
         self.assertIsNone(result.stage);self.assertIsNone(result.provider_code)
         self.assertNotIn('private',str(result))
 
+    @patch.dict(os.environ,{"GITHUB_REPOSITORY_VISIBILITY":"private"})
     def test_artwork_to_failure_issue_keeps_diagnostics_without_generation_retry(self):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
         payload={'stage':'FLUX generation','reason':'ai_call_failed','code':3036,'provider_http_status':429,

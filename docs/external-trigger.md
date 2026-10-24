@@ -8,7 +8,7 @@ On October 3 the 12:30 clock was uploaded at 12:24:49 Sarajevo and registered at
 
 Before contacting GitHub, D1 atomically inserts the date into preparation_dispatches. Duplicate cron deliveries and failed/uncertain/crash-interrupted claims cannot send another scheduled request. This protects only launch delivery, not publication. There is no automatic retry or missing-run alert.
 
-The dedicated Worker-only GITHUB_DISPATCH_TOKEN is a fine-grained PAT restricted to this exact repository, Actions read/write and Metadata read only, expiring 2027-10-03. The Worker checks exact private repository identity and main, then sends:
+The dedicated Worker-only GITHUB_DISPATCH_TOKEN is a fine-grained PAT restricted to this exact repository, Actions read/write and Metadata read only, expiring 2027-10-03. The Worker checks exact repository ID 1401814933, owner ID 50710040 and main (both authorized public and private visibility), then sends:
 
 ```http
 POST https://api.github.com/repos/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/preparation.yml/dispatches

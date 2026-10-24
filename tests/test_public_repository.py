@@ -1,0 +1,127 @@
+"""Public visibility must not disable identity checks or publish private reports."""
+import copy
+import io
+import json
+import os
+import runpy
+import tempfile
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch,MagicMock
+
+import yaml
+from easybosnian.core import (REPO,PROJECT,ROOT,REPOSITORY_ID,OWNER_ID,RepositoryIdentityError,
+                             valid_repository,verify_repository,gh,private_github_outputs)
+from easybosnian.run_reports import collect_report,get_report,save_report,validate_report
+from easybosnian.http import SafeError
+
+
+def repository(private=False):
+    return dict(full_name=REPO,id=REPOSITORY_ID,owner={'id':OWNER_ID},private=private,default_branch='main')
+
+
+class PublicRepositoryTests(unittest.TestCase):
+    def test_original_repository_accepts_both_visibilities_but_never_another_identity(self):
+        for private in (False,True):
+            value=repository(private)
+            with patch('easybosnian.core.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=json.dumps(value))):
+                self.assertEqual(verify_repository(remote=True),value)
+        for changes in ({'id':42},{'id':True},{'owner':{'id':42}},{'full_name':'other/repo'},
+                        {'default_branch':'develop'},{'private':None}):
+            self.assertFalse(valid_repository({**repository(),**changes}))
+        for body in ('invalid','null','[]',json.dumps({'full_name':REPO})):
+            with patch('easybosnian.core.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=body)),self.assertRaises(RepositoryIdentityError):
+                verify_repository(remote=True)
+
+    def test_public_issue_creation_is_blocked_at_the_github_boundary(self):
+        with patch('easybosnian.core.verify_repository',return_value=repository()),patch('easybosnian.core.subprocess.run') as process,self.assertRaises(RepositoryIdentityError):
+            gh('issue','create','--repo',REPO)
+        process.assert_not_called()
+
+    def test_runner_visibility_is_fail_closed(self):
+        for visibility,expected in (('private',True),('public',False),('',False)):
+            with patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':visibility}):
+                self.assertEqual(private_github_outputs(),expected)
+
+    def test_public_failure_keeps_details_local_and_never_opens_issue(self):
+        from easybosnian.notify import failure
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.notify.ROOT',Path(temp)),patch('easybosnian.notify.gh') as github,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public'}):
+            text=failure('2026-10-24','repository verification',ValueError('protected diagnostic'),'nothing published')
+            github.assert_not_called();self.assertNotIn('protected diagnostic',text)
+            self.assertIn('protected diagnostic',(Path(temp)/'build/failure.txt').read_text())
+
+    def test_bootstrap_identity_failure_is_not_mislabeled_as_chatgpt_auth(self):
+        from easybosnian.cloud_prepare import main
+        with patch('sys.argv',['cloud_prepare','bootstrap']),patch('easybosnian.cloud_prepare.bootstrap',side_effect=RepositoryIdentityError('mismatch')),patch('easybosnian.cloud_prepare.failure',return_value='safe') as failure,redirect_stdout(io.StringIO()),self.assertRaisesRegex(RuntimeError,'repository verification'):
+            main()
+        self.assertEqual(failure.call_args.args[1],'repository verification')
+
+    def test_public_summary_suppresses_prompts_but_keeps_protected_copy(self):
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+            previous=Path.cwd()
+            try:
+                os.chdir(temp);Path('build').mkdir();Path('build/failure.txt').write_text('private draft example')
+                output=io.StringIO()
+                with redirect_stdout(output):runpy.run_path(str(ROOT/'scripts/action_summary.py'))
+                self.assertNotIn('private draft example',output.getvalue())
+                self.assertNotIn('private draft example',Path('summary.md').read_text())
+                self.assertIn('private draft example',Path('build/run-summary.md').read_text())
+            finally:os.chdir(previous)
+
+    def test_public_success_report_does_not_append_details(self):
+        from easybosnian.success_report import write_report
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch('easybosnian.success_report.render_report',return_value=('protected copy','protected HTML')),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+            directory=write_report({'batch_id':'b-'+'a'*32})
+            self.assertEqual((directory/'success-report.md').read_text(),'protected copy')
+            self.assertFalse((Path(temp)/'summary.md').exists())
+
+    def test_workflow_requires_owner_dispatch_on_original_main_and_never_uploads_public_artifacts(self):
+        workflow=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
+        job=workflow['jobs']['run'];gate=job['if']
+        for value in ('1401814933','50710040',"'workflow_dispatch'","'refs/heads/main'"):self.assertIn(value,gate)
+        self.assertIn('github.event.repository.visibility',job['env']['GITHUB_REPOSITORY_VISIBILITY'])
+        artifact=next(s for s in job['steps'] if s.get('uses')=='actions/upload-artifact@v4')
+        self.assertIn('github.event.repository.private == true',artifact['if'])
+        archive=next(s for s in job['steps'] if s.get('run')=='python -m easybosnian.run_reports save')
+        self.assertIn('always()',archive['if']);self.assertNotIn('pull_request_target',str(workflow))
+
+
+class ProtectedRunReportTests(unittest.TestCase):
+    def test_report_collects_only_allowed_files_and_not_credential_symlinks(self):
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.run_reports.ROOT',Path(temp)):
+            build=Path(temp)/'build';batch=build/('b-'+'a'*32);batch.mkdir(parents=True)
+            (batch/'image-placement-result.json').write_text('{"cards":{}}')
+            (build/'run-summary.md').write_text('approved report')
+            (build/'reviewed-content.secret').write_text('private answer key')
+            (build/'preparation-context.json').write_text('private context')
+            (batch/'result.json').symlink_to(build/'reviewed-content.secret')
+            value=collect_report('123','daily')
+            self.assertEqual(set(value['files']),{'run-summary.md',batch.name+'/image-placement-result.json'})
+            self.assertNotIn('answer key',str(value))
+            store=MagicMock();store.call.return_value={'stored':True};save_report(store,'123','daily')
+            self.assertEqual(store.call.call_args.args[:2],('PUT','/v1/run-reports/123'))
+            store.call.assert_called_once()
+
+    def test_wrong_identity_traversal_secret_paths_and_oversize_are_rejected(self):
+        base={'project':PROJECT,'run_id':'123','mode':'daily','files':{}}
+        for changes in ({'project':'other'},{'run_id':'124'},{'files':{'../auth.json':'secret'}},
+                        {'files':{'reviewed-content.secret':'secret'}},{'files':{'run-summary.md':'x'*2_000_001}}):
+            with self.subTest(changes=list(changes)),self.assertRaises(ValueError):validate_report({**base,**changes},'123')
+
+    def test_missing_report_is_legacy_but_other_failures_never_retry(self):
+        store=MagicMock();store.call.side_effect=SafeError('missing',http_status=404)
+        self.assertIsNone(get_report(store,'123'));store.call.assert_called_once()
+        store.reset_mock();store.call.side_effect=SafeError('unavailable',http_status=503)
+        with self.assertRaises(SafeError):get_report(store,'123')
+        store.call.assert_called_once()
+
+    def test_recent_design_context_uses_private_metadata_without_artifact_reads(self):
+        from easybosnian.visual_history import recent_choices
+        run={'databaseId':123,'status':'completed','displayTitle':'EasyBosnian (daily)','createdAt':'now'}
+        placement={'cards':{'quiz':{'palette':'cherry-lime','status':'default'}}}
+        report={'files':{'b-'+'a'*32+'/image-placement-result.json':json.dumps(placement)}}
+        with patch.dict(os.environ,{'EASYBOSNIAN_WORKER_URL':'https://example.test','EASYBOSNIAN_ADMIN_TOKEN':'test'}),patch('easybosnian.visual_history.gh',return_value=json.dumps([run])) as github,patch('easybosnian.run_reports.get_report',return_value=report),patch('easybosnian.store.Store'):
+            recent,status=recent_choices()
+        self.assertEqual(status,'available');self.assertEqual(recent[0]['palette_observations'],['cherry-lime']);github.assert_called_once()

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker,{PROJECT,REPO,dailyPreparationDispatch,dispatchPreparation} from './worker.mjs';
+import worker,{PROJECT,REPO,REPOSITORY_ID,OWNER_ID,dailyPreparationDispatch,dispatchPreparation} from './worker.mjs';
 
 function dispatchFixture() {
   const records=new Map(),calls=[];
@@ -19,7 +19,7 @@ function dispatchFixture() {
     // Workers supports manual/follow, and credentials must never follow redirects.
     assert.equal(options.redirect,'manual');
     calls.push({url,options});
-    if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,private:true,default_branch:'main'});
+    if(url==='https://api.github.com/repos/'+REPO) return Response.json({full_name:REPO,id:REPOSITORY_ID,owner:{id:OWNER_ID},private:true,default_branch:'main'});
     assert.equal(url,'https://api.github.com/repos/'+REPO+'/actions/workflows/preparation.yml/dispatches');
     return new Response(null,{status:204});
   };
@@ -81,7 +81,7 @@ test('disabled scheduler and inactive hours never dispatch',async t=>{
   assert.equal(fixture.calls.length,0);assert.equal(fixture.records.size,0);
 });
 
-test('wrong repository, public visibility and missing secret fail before dispatch',async t=>{
+test('wrong repository identity and missing secret fail before dispatch',async t=>{
   const fixture=dispatchFixture();
   const mocked=t.mock.method(globalThis,'fetch',fixture.fetch);
   await assert.rejects(dispatchPreparation({...fixture.env,GITHUB_REPOSITORY:'wrong/repo'},'daily'),/mismatch/);
@@ -89,7 +89,7 @@ test('wrong repository, public visibility and missing secret fail before dispatc
   assert.equal(fixture.calls.length,0);
   mocked.mock.restore();
   t.mock.method(globalThis,'fetch',async()=>Response.json({full_name:REPO,private:false,default_branch:'main'}));
-  await assert.rejects(dispatchPreparation(fixture.env,'daily'),/exact private repository/);
+  await assert.rejects(dispatchPreparation(fixture.env,'daily'),/exact pinned repository/);
 });
 
 test('manual Worker verification uses its stored token but cannot publish or consume a daily claim',async t=>{
@@ -521,4 +521,43 @@ test('pruning legacy source history preserves referenced originals with the orig
   assert.equal(f.history.has(legacy),false);assert.equal(f.kv.get('private-ai:2026-10-03:word'),before);
   const r=await f.send('GET',`/v1/backgrounds/batches/${B}/word`);assert.equal(r.status,200);
   assert.equal((await r.json()).image,'legacy-word');assert.equal(f.generated,0);
+});
+
+
+test('original public repository dispatches but another repository or owner cannot',async t=>{
+  const fixture=dispatchFixture();
+  const good={full_name:REPO,id:REPOSITORY_ID,owner:{id:OWNER_ID},private:false,default_branch:'main'};
+  for(const change of [null,{id:42},{owner:{id:42}},{default_branch:'develop'},{full_name:'other/repo'}]) {
+    let posts=0;
+    const mock=t.mock.method(globalThis,'fetch',async(url,options)=>{
+      if(options?.method==='POST'){posts++;return new Response(null,{status:204});}
+      return Response.json({...good,...change});
+    });
+    if(change) {await assert.rejects(dispatchPreparation(fixture.env,'daily'),/exact pinned/);assert.equal(posts,0);}
+    else {assert.equal((await dispatchPreparation(fixture.env,'daily')).github_status,204);assert.equal(posts,1);}
+    mock.mock.restore();
+  }
+});
+
+test('run reports require admin auth, exact scope and safe file names, and expire privately',async()=>{
+  const values=new Map(),writes=[];
+  const env={PROJECT_ID:PROJECT,ADMIN_TOKEN:'test-admin',IMAGES:{
+    async put(key,value,options){values.set(key,value);writes.push({key,options});},
+    async get(key){return values.get(key)??null;}
+  }};
+  const url='https://example.test/v1/run-reports/123';
+  const manifest={project:PROJECT,run_id:'123',mode:'daily',files:{'run-summary.md':'private report'}};
+  const req=(method,payload=manifest,auth=true)=>new Request(url,{method,headers:auth?{Authorization:'Bearer test-admin'}:{},...(method==='PUT'?{body:JSON.stringify(payload)}:{})});
+  assert.equal((await worker.fetch(req('PUT',manifest,false),env)).status,401);
+  assert.equal((await worker.fetch(req('GET',manifest,false),env)).status,401);
+  assert.equal((await worker.fetch(req('GET'),env)).status,404);
+  for(const change of [{project:'other'},{run_id:'124'},{files:{'../auth.json':'secret'}},{files:{'reviewed-content.secret':'secret'}}])
+    assert.equal((await worker.fetch(req('PUT',{...manifest,...change}),env)).status,409);
+  assert.equal(writes.length,0);
+  assert.equal((await worker.fetch(req('PUT'),env)).status,200);
+  assert.deepEqual(writes,[{key:'private-run-report:123',options:{expirationTtl:14*86400}}]);
+  const result=await worker.fetch(req('GET'),env);assert.equal(result.headers.get('Cache-Control'),'no-store');
+  assert.deepEqual(await result.json(),manifest);
+  assert.equal((await worker.fetch(req('PUT',{...manifest,files:{'run-summary.md':'x'.repeat(2_000_001)}}),env)).status,413);
+  assert.equal(writes.length,1);
 });

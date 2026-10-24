@@ -6,7 +6,7 @@ This maintainer map records the instruction-only consolidation from main commit 
 
 | Requirement group | Current owner | Existing verification |
 |---|---|---|
-| Exact private repository, guarded Git/GitHub, no other chat/session state | AGENTS: Scope | core repository guard; cloud diagnostics tests |
+| Exact pinned repository, guarded Git/GitHub, no other chat/session state | AGENTS: Scope | core repository guard; cloud diagnostics tests |
 | Free services, no paid fallback/new infrastructure, original master/logo immutable | AGENTS: Invariants; pipeline-operations: Artwork | project/image_hosting tests; byte comparison in cleanup audit |
 | Stage-specific credentials/tools/write boundaries and structured completion | cloud-agent-task; pipeline-operations: Scheduling | cloud_preparation, codex_diagnostics, photo_quality tests |
 | Exactly three ordered quiz/lesson/word cards, sourced original prose/diacritics, no unchecked flags | preparation-task: Sources | project, lesson_topics, run_difficulty_language tests |
