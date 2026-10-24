@@ -1,4 +1,4 @@
-"""Private successful-publication reports for GitHub summaries and artifacts."""
+"""Approved successful-publication summaries and protected report copies."""
 import argparse
 import html
 import json
@@ -349,7 +349,7 @@ def write_report(data):
     write_json(directory/'success-report.json',data)
     (directory/'success-report.md').write_text(text,encoding='utf-8')
     (directory/'success-report.html').write_text(markup,encoding='utf-8')
-    if os.getenv('GITHUB_STEP_SUMMARY') and private_github_outputs():
+    if os.getenv('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:summary.write('\n'+text)
     return directory
 

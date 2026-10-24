@@ -1,4 +1,4 @@
-"""Public visibility must not disable identity checks or publish private reports."""
+"""Public summaries are approved; identity, credentials and private files stay guarded."""
 import copy
 import io
 import json
@@ -58,24 +58,42 @@ class PublicRepositoryTests(unittest.TestCase):
             main()
         self.assertEqual(failure.call_args.args[1],'repository verification')
 
-    def test_public_summary_suppresses_prompts_but_keeps_protected_copy(self):
-        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+    def test_public_summary_includes_approved_prompts_without_private_drafts(self):
+        from easybosnian.success_report import content_data
+        from test_project import reviewed_fixture
+        package=reviewed_fixture();run='https://github.com/'+REPO+'/actions/runs/123'
+        source=content_data(package,run)
+        source['private_review']='private answer key'
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_RUN_URL':run,'GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
             previous=Path.cwd()
             try:
-                os.chdir(temp);Path('build').mkdir();Path('build/failure.txt').write_text('private draft example')
+                os.chdir(temp);directory=Path('build')/package['date'];directory.mkdir(parents=True)
+                (directory/'report-source.json').write_text(json.dumps(source))
+                Path('build/failure.txt').write_text('private draft example')
                 output=io.StringIO()
                 with redirect_stdout(output):runpy.run_path(str(ROOT/'scripts/action_summary.py'))
-                self.assertNotIn('private draft example',output.getvalue())
-                self.assertNotIn('private draft example',Path('summary.md').read_text())
-                self.assertIn('private draft example',Path('build/run-summary.md').read_text())
+                summary=Path('summary.md').read_text()
+                for card in package['cards']:self.assertIn(card['background_prompt'],summary)
+                self.assertIn('Visual decisions not available',summary)
+                self.assertIn('A pipeline step failed',summary)
+                for private in ('private draft example','private answer key'):
+                    self.assertNotIn(private,summary);self.assertNotIn(private,output.getvalue())
+                self.assertEqual(summary,Path('build/run-summary.md').read_text())
             finally:os.chdir(previous)
 
-    def test_public_success_report_does_not_append_details(self):
-        from easybosnian.success_report import write_report
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch('easybosnian.success_report.render_report',return_value=('protected copy','protected HTML')),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
-            directory=write_report({'batch_id':'b-'+'a'*32})
-            self.assertEqual((directory/'success-report.md').read_text(),'protected copy')
-            self.assertFalse((Path(temp)/'summary.md').exists())
+    def test_public_success_report_appends_approved_details(self):
+        from easybosnian.success_report import write_report,report_data
+        from test_project import reviewed_fixture
+        from test_success_report import results
+        package=reviewed_fixture();package['private_review']='private answer key'
+        data=report_data(package,results(),'https://github.com/'+REPO+'/actions/runs/123')
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+            directory=write_report(data)
+            summary=(Path(temp)/'summary.md').read_text()
+            self.assertIn((directory/'success-report.md').read_text(),summary)
+            self.assertIn('successful-run report',summary)
+            for card in package['cards']:self.assertIn(card['background_prompt'],summary)
+            self.assertNotIn('private answer key',summary)
 
     def test_workflow_requires_owner_dispatch_on_original_main_and_never_uploads_public_artifacts(self):
         workflow=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
