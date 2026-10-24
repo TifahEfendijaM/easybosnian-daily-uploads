@@ -36,10 +36,10 @@ TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(2,14
 # Approved stronger quiz intent starts at this trusted alpha, never a model number.
 QUIZ_TITLE_MIN_SHADE = 90
 TITLE_FADE_POWER = 2.5
-# Fade unnecessary shade away from the measured title span. Keep the full
-# needed strength under its glyphs and the chosen preset's vertical edge type.
-TITLE_SURROUND_OPACITY = .35
-TITLE_WHITE_SURROUND_OPACITY = .10
+# Title shading spans the entire image at equal opacity on each horizontal row.
+# Keep the faint contrast-driven strength and smooth vertical tapers.
+TITLE_SURROUND_OPACITY = 1
+TITLE_WHITE_SURROUND_OPACITY = 1
 TITLE_SURROUND_FEATHER = 180
 
 

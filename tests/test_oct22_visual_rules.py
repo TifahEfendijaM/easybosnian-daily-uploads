@@ -37,7 +37,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
         quiz=default_plan(package['cards'][0])
         with self.assertRaisesRegex(ValueError,'fully opaque'):apply_policy(quiz,panel_opacity=90)
 
-    def test_white_title_backings_are_lighter_outside_letters_and_black_backings_are_unchanged(self):
+    def test_white_title_fine_strength_steps_preserve_uniform_full_width_for_both_backings(self):
         for preset in ('standard','defined'):
             for white in (False,True):
                 original=Image.new('RGBA',(1080,1350),'#202020' if white else '#b0b0b0')
@@ -53,8 +53,9 @@ class OctoberVisualRulesTests(unittest.TestCase):
                 self.assertGreaterEqual(after[1],3)
                 if white:
                     self.assertLessEqual(after[2],before[2])
-                    self.assertLess(new.getpixel((1070,220))[0],old.getpixel((1070,220))[0])
+                    self.assertLessEqual(new.getpixel((1070,220))[0],old.getpixel((1070,220))[0])
                 else:self.assertEqual(new.tobytes(),old.tobytes())
+                self.assertEqual(len({new.getpixel((x,220)) for x in range(1080)}),1)
 
     def test_examples_keep_large_independent_gaps_above_or_below_with_either_shade(self):
         card=reviewed_fixture()['cards'][2]
