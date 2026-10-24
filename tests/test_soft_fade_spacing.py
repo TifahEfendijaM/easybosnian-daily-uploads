@@ -35,7 +35,7 @@ class SoftFadeSpacingTests(unittest.TestCase):
         self.assertEqual(tuple(sorted(set(TITLE_SHADE_LEVELS))),TITLE_SHADE_LEVELS)
         self.assertTrue(set((90,130,170,210,240)).issubset(TITLE_SHADE_LEVELS))
 
-    def test_both_title_presets_reduce_unnecessary_full_width_opacity_but_keep_glyph_protection(self):
+    def test_both_title_presets_span_full_width_without_weakening_glyph_protection(self):
         face=serif(74);rows=['rep'];source=Image.new('RGBA',(1080,1350),'white')
         for preset in ('standard','defined'):
             with self.subTest(preset=preset):
@@ -49,11 +49,12 @@ class SoftFadeSpacingTests(unittest.TestCase):
                 self.assertEqual(new.getpixel((100,HEADING_TOP+20)),old.getpixel((100,HEADING_TOP+20)))
                 old_opacity=255-old.getpixel((1070,HEADING_TOP+20))[0]
                 new_opacity=255-new.getpixel((1070,HEADING_TOP+20))[0]
-                self.assertAlmostEqual(new_opacity/old_opacity,.35,delta=.02)
+                self.assertEqual(new_opacity,old_opacity)
+                self.assertGreater(new_opacity,0)
                 self.assertEqual(new.crop((0,0,1080,127)).tobytes(),source.crop((0,0,1080,127)).tobytes())
-                # The horizontal transition itself is smooth, not a new box edge.
+                # No horizontal falloff or text-width patch remains.
                 samples=[new.getpixel((x,HEADING_TOP+20))[0] for x in range(1080)]
-                self.assertLessEqual(max(abs(a-b) for a,b in zip(samples,samples[1:])),2)
+                self.assertEqual(len(set(samples)),1)
 
     def test_title_can_use_very_faint_shading_when_it_satisfies_actual_contrast(self):
         image=Image.new('RGBA',(1080,1350),'#979797')
