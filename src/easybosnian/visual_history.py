@@ -1,6 +1,7 @@
-"""Read recent accepted choices from private run artifacts, without visual references."""
+"""Read recent accepted choices from protected reports/legacy artifacts; no visual references."""
 import io
 import json
+import os
 import re
 import zipfile
 
@@ -97,21 +98,33 @@ def recent_choices(limit=5):
             if run['status']!='completed' or run['displayTitle']!='EasyBosnian (daily)':continue
             rid=run['databaseId']
             if type(rid) is not int or rid<=0:continue
-            artifacts=json.loads(gh('api',f'repos/{REPO}/actions/runs/{rid}/artifacts'))['artifacts']
-            selected=next((a for a in artifacts if a['name']==f'easybosnian-daily-{rid}' and not a['expired']),None)
-            if selected is None:continue
-            # Bound both archive size and the one metadata member; never extract files.
-            if selected['size_in_bytes']>20_000_000 or type(selected['id']) is not int or selected['id']<=0:continue
-            body=gh_binary('api',f'repos/{REPO}/actions/artifacts/{selected["id"]}/zip')
-            if len(body)>20_000_000:continue
-            with zipfile.ZipFile(io.BytesIO(body)) as archive:
-                members=[m for m in archive.infolist() if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',m.filename) and m.file_size<=100_000]
-                if len(members)!=1:continue
-                placement=json.loads(archive.read(members[0]));choices=accepted_choices(placement)
-                from .core import ROOT,read_json
-                catalogue=read_json(ROOT/'data/design-palettes.json')
-                observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
-                observations=[v for v in observations if isinstance(v,str) and v in catalogue]
+            placement=None
+            if os.getenv('EASYBOSNIAN_WORKER_URL') and os.getenv('EASYBOSNIAN_ADMIN_TOKEN'):
+                from .run_reports import get_report
+                from .store import Store
+                report=get_report(Store(),rid)
+                if report:
+                    members=[body for name,body in report['files'].items()
+                             if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',name)
+                             and len(body.encode())<=100_000]
+                    if len(members)==1:placement=json.loads(members[0])
+            if placement is None:
+                # Read legacy artifacts only when this run predates private KV reports.
+                artifacts=json.loads(gh('api',f'repos/{REPO}/actions/runs/{rid}/artifacts'))['artifacts']
+                selected=next((a for a in artifacts if a['name']==f'easybosnian-daily-{rid}' and not a['expired']),None)
+                if selected is None:continue
+                if selected['size_in_bytes']>20_000_000 or type(selected['id']) is not int or selected['id']<=0:continue
+                body=gh_binary('api',f'repos/{REPO}/actions/artifacts/{selected["id"]}/zip')
+                if len(body)>20_000_000:continue
+                with zipfile.ZipFile(io.BytesIO(body)) as archive:
+                    members=[m for m in archive.infolist() if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',m.filename) and m.file_size<=100_000]
+                    if len(members)!=1:continue
+                    placement=json.loads(archive.read(members[0]))
+            choices=accepted_choices(placement)
+            from .core import ROOT,read_json
+            catalogue=read_json(ROOT/'data/design-palettes.json')
+            observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
+            observations=[v for v in observations if isinstance(v,str) and v in catalogue]
             if choices or observations:
                 recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations})
             if len(recent)==limit:break

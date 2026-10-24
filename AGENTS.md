@@ -2,7 +2,7 @@
 
 ## Scope and sources of truth
 
-Operate only on private `TifahEfendijaM/easybosnian-daily-uploads` and its existing isolated Cloudflare Worker/D1/KV. Immediately before every Git operation call `easybosnian.core.verify_repository(remote=True)`; use the guarded `gh()` wrapper for GitHub. Never inspect another repository, personal files, another chat's state or a copied desktop session. Use this chat's requirements and preserve `docs/master-prompt.md` and the original transparent `assets/watermark.png` byte-for-byte.
+Operate only on `TifahEfendijaM/easybosnian-daily-uploads` (repository ID 1401814933, owner ID 50710040; public visibility is authorized) and its existing isolated Cloudflare Worker/D1/KV. Immediately before every Git operation call `easybosnian.core.verify_repository(remote=True)`; use the guarded `gh()` wrapper for GitHub. Never inspect another repository, personal files, another chat's state or a copied desktop session. Use this chat's requirements and preserve `docs/master-prompt.md` and the original transparent `assets/watermark.png` byte-for-byte.
 
 The master prompt is an immutable historical specification. The current policies below incorporate later user decisions and supersede its old schedules, pre-image layout/framing, shared final palette, boxed examples, fixed quiz count, queue/reservation and monitoring rules. Do not restore superseded behavior.
 

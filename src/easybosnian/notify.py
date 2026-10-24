@@ -1,8 +1,9 @@
 """Failure artifacts and private GitHub issues; no heartbeat or missing-run monitor."""
-from .core import ROOT, REPO, gh
+from .core import ROOT, REPO, gh, private_github_outputs
 from .http import redact
 
 NEXT={
+    'repository verification':'Verify the exact repository ID, owner, main branch and credential access. Visibility alone is not a ChatGPT authentication failure.',
     'cloud ChatGPT authorization':'Complete a dedicated cloud-only ChatGPT sign-in and replace CODEX_AUTH_JSON privately.',
     'cloud ChatGPT credential persistence':'Check GH_SECRETS_TOKEN expiry and Secrets write access. Keep refreshed credentials private.',
     'cloud ChatGPT workspace verification':'Inspect the structured result and workspace probe, then rerun verify mode.',
@@ -57,6 +58,8 @@ def failure(date,stage,error,publication,run_url=None):
     action=next_step(stage,error)
     text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {action}\n'
     path=ROOT/'build/failure.txt';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8')
+    if not private_github_outputs():
+        return 'Pipeline step failed. Detailed diagnostics were saved locally for protected reporting; no public issue was created.'
     try: gh('issue','create','--repo',REPO,'--title',f'EasyBosnian {date}: {stage} failed','--body-file',str(path))
     except Exception as problem: text+='Failure notification issue could not be created: '+redact(problem)+'\n'
     path.write_text(text,encoding='utf-8');return text

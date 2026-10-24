@@ -4,6 +4,7 @@ from pathlib import Path
 from easybosnian.visual_diagnostics import safe_rejection, rendering_provenance
 from easybosnian.success_report import visual_summary
 from easybosnian.batches import output_key
+from easybosnian.core import private_github_outputs
 
 context_path=Path('build/preparation-result.json')
 level_summary=''
@@ -70,6 +71,11 @@ if sources:
         try:text+=visual_summary(source)
         except (ValueError,KeyError,TypeError):
             text+='\nExact prompt details unavailable: report identity validation failed.\n'
+Path('build').mkdir(exist_ok=True)
+Path('build/run-summary.md').write_text(text,encoding='utf-8')
+if not private_github_outputs():
+    text='Detailed drafts, prompts, designs and diagnostics are excluded from public GitHub output. See the protected run report and step outcomes.\n'
+    console_text=text
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
 print(console_text)

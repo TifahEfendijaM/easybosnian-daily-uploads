@@ -22,7 +22,7 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: node --test cloudflare/worker.test.mjs
       - name: Verify deployed infrastructure and Instagram credentials without publishing
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.repository_id == '1401814933' && github.repository_owner_id == '50710040' && github.ref == 'refs/heads/main'
         env:
           DAILY_POSTING_ENABLED: ${{ vars.DAILY_POSTING_ENABLED }}
           GH_TOKEN: ${{ github.token }}

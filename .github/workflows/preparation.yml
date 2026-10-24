@@ -63,10 +63,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   run:
-    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads'
+    if: github.repository == 'TifahEfendijaM/easybosnian-daily-uploads' && github.repository_id == '1401814933' && github.repository_owner_id == '50710040' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
+      MODE: ${{ inputs.mode }}
+      GITHUB_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
       DIFFICULTY: ${{ inputs.difficulty || 'random' }}
       BATCH_TARGET: ${{ inputs.batch_target || 'latest' }}
@@ -175,8 +177,12 @@ jobs:
         if: success() && inputs.mode == 'daily' && steps.publication.outcome == 'success'
         continue-on-error: true
         run: python -m easybosnian.success_report build
+      - name: Preserve detailed reports privately outside public GitHub
+        if: always() && github.event.repository.private != true
+        continue-on-error: true
+        run: python -m easybosnian.run_reports save
       - name: Preserve cards and safe diagnostics
-        if: always()
+        if: always() && github.event.repository.private == true
         uses: actions/upload-artifact@v4
         with:
           name: easybosnian-${{ inputs.mode }}-${{ github.run_id }}

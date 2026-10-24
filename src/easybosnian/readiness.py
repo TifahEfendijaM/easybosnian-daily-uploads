@@ -2,7 +2,7 @@
 import os
 from datetime import datetime, timezone
 
-from .core import REPO, PROJECT, verify_repository, publishing_enabled
+from .core import REPO, PROJECT, verify_repository, publishing_enabled, valid_repository
 from .http import request
 from .meta import Instagram, Facebook, InstagramDeletion, InstagramFacebook
 from .buffer import Buffer
@@ -60,8 +60,8 @@ def check_infrastructure():
     base="https://api.github.com/repos/"+REPO
     for path in ("/actions/secrets/public-key",):
         identity=request("GET",base,headers=headers)
-        if identity.get("full_name")!=REPO or identity.get("private") is not True:
-            raise ValueError("Renewal credential does not authorize the exact private repository")
+        if not valid_repository(identity):
+            raise ValueError("Renewal credential does not authorize the exact pinned repository")
         request("GET",base+path,headers=headers)
     return {"repository":REPO, "daily_posting_enabled":enabled, "cloudflare":"health and private history verified",
             "instagram":"@"+info["username"]+" professional account verified",

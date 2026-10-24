@@ -76,7 +76,7 @@ class SuccessReportTests(unittest.TestCase):
     def test_action_summary_includes_exact_prompts_after_publication_failure(self):
         package=reviewed_fixture();source=content_data(package,RUN)
         old_cwd=Path.cwd()
-        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_RUN_URL':RUN,'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}),redirect_stdout(io.StringIO()):
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_RUN_URL':RUN,'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md'),'GITHUB_REPOSITORY_VISIBILITY':'private'}),redirect_stdout(io.StringIO()):
             try:
                 os.chdir(temp)
                 directory=Path('build')/package['date'];directory.mkdir(parents=True)
@@ -173,7 +173,7 @@ class SuccessReportTests(unittest.TestCase):
 
     def test_github_summary_has_copyable_prompts_and_no_email_setup_or_send(self):
         data=report_data(reviewed_fixture(),results(),RUN)
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}):
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.success_report.ROOT',Path(temp)),patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md'),'GITHUB_REPOSITORY_VISIBILITY':'private'}):
             write_report(data)
             text=(Path(temp)/'summary.md').read_text()
             self.assertIn('## EasyBosnian — successful-run report',text)

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from .cli import fit_check, prepare
-from .core import PROJECT, REPO, ROOT, gh, read_json, today, verify_repository, write_json, require_publishing
+from .core import PROJECT, REPO, ROOT, gh, read_json, today, verify_repository, write_json, require_publishing, RepositoryIdentityError
 from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
@@ -222,7 +222,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
-                'Connection verification ONLY. The wrapper verified the exact private repository. '
+                'Connection verification ONLY. The wrapper verified the exact pinned repository. '
                 'Read AGENTS.md, docs/cloud-agent-task.md and all build/preparation-context.json. '
                 'Do not follow content preparation instructions, choose words, call provider APIs, '
                 'write history, generate images or publish. Write exactly '
@@ -302,9 +302,11 @@ def main():
     try:
         bootstrap() if action == "bootstrap" else persist()
     except Exception as error:
-        print(failure(today(), "cloud ChatGPT authorization" if action == "bootstrap" else "cloud ChatGPT credential persistence",
+        stage=("repository verification" if isinstance(error,RepositoryIdentityError) else
+               "cloud ChatGPT authorization" if action == "bootstrap" else "cloud ChatGPT credential persistence")
+        print(failure(today(), stage,
                       error, "This credential step publishes nothing; inspect the separate pipeline run", os.getenv("GITHUB_RUN_URL")))
-        raise RuntimeError("Dedicated cloud sign-in failed; inspect the private issue and run") from None
+        raise RuntimeError("Cloud preparation stopped at "+stage+"; inspect the protected run report") from None
 
 
 if __name__ == "__main__":

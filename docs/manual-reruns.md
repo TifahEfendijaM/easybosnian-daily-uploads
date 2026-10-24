@@ -35,7 +35,7 @@ Review the full branch diff and existing card previews, then require Python/Work
 
 # Let another person launch runs
 
-This is a private repository owned by a personal account. In repository **Settings → Collaborators → Add people**, invite the person's exact GitHub username. After accepting, that collaborator has write access and can use the same workflow link and form. Sharing the link alone grants no access. Personal private repositories do not offer an Actions-only collaborator role; collaborator access also permits editing repository code. No social token needs to be shared separately.
+This repository is owned by a personal account; public visibility lets others read code but does not grant workflow-dispatch access. In repository **Settings → Collaborators → Add people**, invite the person's exact GitHub username. After accepting, that collaborator has write access and can use the same workflow link and form. Sharing the link alone grants no access. Personal repositories do not offer an Actions-only collaborator role; collaborator access also permits editing repository code. No social token needs to be shared separately.
 
 Official references: [manual workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow), [inviting collaborators](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository), [personal-repository permission levels](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository).
 
