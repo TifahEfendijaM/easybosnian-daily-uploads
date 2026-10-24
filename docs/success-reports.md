@@ -1,14 +1,14 @@
 # Successful-run reports
 
-Every successful daily publication, including manual reruns, creates a private report visible directly on GitHub. No email setup or sending credential is needed.
+Every successful daily publication, including manual reruns, creates an approved report visible directly in the GitHub run Summary, including when the repository is public. No email setup or sending credential is needed.
 
 ## Where to read it
 
 1. Open [EasyBosnian workflow runs](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/workflows/preparation.yml).
 2. Select the successful daily run. On its **Summary** page, scroll to **EasyBosnian — successful-run report**. The theme, difficulty and palette appear first, then the three exact FLUX prompts in copyable code blocks and confirmed publication links/statuses.
-3. For a saved copy, download the **easybosnian-daily-RUN_ID** artifact at the bottom of the page. Inside its batch-ID folder, open success-report.md, success-report.html or success-report.json. Artifacts last seven days. The Summary remains with the workflow run until that run is deleted under GitHub's retention policy; it does not depend on artifact expiry.
+3. For a saved copy on private-repository runs, download the **easybosnian-daily-RUN_ID** artifact at the bottom of the page. Inside its batch-ID folder, open success-report.md, success-report.html or success-report.json. Artifacts last seven days. The Summary remains with the workflow run until that run is deleted under GitHub's retention policy; it does not depend on artifact expiry.
 
-Repository access is required, including for anyone you share the run link with. Reports never expose credentials, private answer keys, source-review notes or raw model output. No public Worker route or new database table is added.
+Public-repository run summaries are public by request. Downloadable artifacts remain restricted to private-repository runs. On public runs, approved report copies are retained in authenticated Worker storage for 14 days; fetch them locally with `python -m easybosnian.run_reports fetch --run-id ID` using the existing project environment. Reports never expose credentials, private answer keys, source-review notes or raw model output. No public Worker route or new database table is added.
 
 ## Exact-run content and limits
 

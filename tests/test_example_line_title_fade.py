@@ -136,7 +136,7 @@ class ExampleLineTitleFadeTests(unittest.TestCase):
             if kwargs.get('feather')==TITLE_FADE_FEATHER:
                 bounds=ImageChops.difference(image.convert('RGB'),before.convert('RGB')).getbbox()
                 observed.append(bounds)
-                self.assertEqual(image.crop((0,0,1080,127)).tobytes(),before.crop((0,0,1080,127)).tobytes())
+                self.assertEqual(image.crop((0,0,1080,50)).tobytes(),before.crop((0,0,1080,50)).tobytes())
             return result
         with patch('easybosnian.hybrid.protect_text',side_effect=checked):
             result=render_hybrid(self.card,'forest-cream',self.photo,self.root/'title.jpg',plan)
@@ -144,7 +144,7 @@ class ExampleLineTitleFadeTests(unittest.TestCase):
         bottom=heading(self.card)[2]
         self.assertEqual(len(observed),1)
         self.assertGreater(observed[0][3],bottom+32)
-        self.assertLessEqual(observed[0][3],math.ceil(bottom+100))
+        self.assertLessEqual(observed[0][3],math.ceil(bottom+124))
         self.assertGreaterEqual(result['heading_contrast'],3)
         for background,tone in [('#000000','paper_dark'),('#ffffff','ink_light')]:
             Image.new('RGB',(1080,1350),background).save(self.photo)

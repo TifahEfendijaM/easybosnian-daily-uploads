@@ -29,10 +29,10 @@ TITLE_TONE_CATALOGUE = {
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
 TITLE_SHADE_INTENTS = ('gentle', 'stronger')  # stronger is photographic quiz-only
-REVIEW_FADE_STYLES = ('standard', 'defined')  # titles
+REVIEW_FADE_STYLES = ('standard',)  # fresh titles: smooth edges only
 REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
 EXAMPLE_SHADE_STRENGTHS = ('soft', 'medium', 'strong')
-TITLE_FADE_STYLES = (*REVIEW_FADE_STYLES, 'soft')  # soft is archive-only
+TITLE_FADE_STYLES = ('standard', 'defined', 'soft')  # defined/soft are archive-only
 FADE_STYLES = (*TITLE_FADE_STYLES, 'sharp')  # sharp is an approved example-only preset
 FADE_CATALOGUE = {
     'standard': 'Smoothly eased edges within protected bounds; gentler outer title fade.',

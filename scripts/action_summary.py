@@ -17,7 +17,9 @@ if results:
     r=json.loads(results[0].read_text())
     text=f"Batch: {r['batch']}\n\nStatus: **{r['status']}**\n"
     if r.get('permalink'): text+=f"\nPublication: {r['permalink']}\n"
-if Path('build/failure.txt').exists(): text+='\n'+Path('build/failure.txt').read_text()
+if Path('build/failure.txt').exists():
+    text+='\n'+(Path('build/failure.txt').read_text() if private_github_outputs() else
+                 'A pipeline step failed. See the failed step for its safe error/status; raw diagnostics remain protected.\n')
 platforms=list(Path('build').glob('*/platforms-result.json'))
 if platforms:
     all_results=json.loads(platforms[0].read_text())
@@ -58,7 +60,7 @@ if placements:
             text+='  Pillow rejection before repair/recovery: '+rejection['reason']+'\n'
             text+='\n<details><summary>'+kind+' — rejected approved rendering parameters</summary>\n\n```json\n'+json.dumps(rejection['proposal'],ensure_ascii=False,indent=2)+'\n```\n\n</details>\n\n'
 text+=level_summary
-console_text=text  # Keep reviewed prompts/design detail in the private Summary, not step logs.
+console_text=text  # Keep verbose prompts/design descriptions in the Summary, not step logs.
 sources=list(Path('build').glob('*/report-source.json'))
 if sources:
     source=json.loads(sources[0].read_text())
@@ -73,9 +75,6 @@ if sources:
             text+='\nExact prompt details unavailable: report identity validation failed.\n'
 Path('build').mkdir(exist_ok=True)
 Path('build/run-summary.md').write_text(text,encoding='utf-8')
-if not private_github_outputs():
-    text='Detailed drafts, prompts, designs and diagnostics are excluded from public GitHub output. See the protected run report and step outcomes.\n'
-    console_text=text
 if os.getenv('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write(text)
 print(console_text)

@@ -17,7 +17,7 @@ class DefinedShadeTests(unittest.TestCase):
     def test_earlier_linear_shade_is_distinct_and_extends_below_text_without_becoming_smooth(self):
         source=Image.new('RGBA',(1080,1350),'#b0b0b0');face=serif(34,True)
         rows=['Čuvamo svoju riječ.'];bottom=1000+measure(rows,face)[0];images={}
-        for preset in REVIEW_FADE_STYLES:
+        for preset in ('standard','defined'):
             image=source.copy()
             _,score,alpha=protect_text(image,(64,1000),rows,face,['#ffffff'],4.5,
                 (0,970,1080,1286),fade_style=preset,bottom_padding=EXAMPLE_FADE_PADDING)
@@ -38,7 +38,7 @@ class DefinedShadeTests(unittest.TestCase):
     def test_breathing_room_applies_to_every_panel_style_with_either_shade(self):
         card=reviewed_fixture()['cards'][2];card.update(body='Ovo je kratko objašnjenje.',example='Ovo je primjer.')
         for style in set(BODY_STYLES)-{'plain'}:
-            for preset in REVIEW_FADE_STYLES:
+            for preset in ('standard','defined'):
                 with self.subTest(style=style,preset=preset):
                     plan=default_plan(card);plan['heading_fade']=preset
                     plan['blocks'][0].update(style=style,y=700,font_size=32)
@@ -57,7 +57,7 @@ class DefinedShadeTests(unittest.TestCase):
         h=provenance_harness.VisualProvenanceTests();h.setUp()
         proposal=h.proposal(h.package)
         for plan in proposal['cards'].values():
-            if plan['photo_window'] is None:plan['heading_fade']='defined'
+            if plan['photo_window'] is None:plan['heading_fade']='standard'
             for block in plan['blocks']:
                 if block['style']=='italic_photo_fade':block['fade_style']='sharp'
         original=copy.deepcopy(h.package['cards'])
@@ -65,17 +65,17 @@ class DefinedShadeTests(unittest.TestCase):
         word=placement['cards']['word']
         self.assertEqual(word['status'],'accepted')
         self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
-        self.assertEqual(word['composition']['heading_fade'],'defined')
+        self.assertEqual(word['composition']['heading_fade'],'standard')
         self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'sharp')
         self.assertGreaterEqual(metrics['word']['heading_contrast'],3)
         self.assertGreaterEqual(metrics['word']['example_contrast'],4.5)
         self.assertEqual(h.package['cards'],original)
         text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
         for document in (text,markup):
-            self.assertIn('Title fade: defined',document)
+            self.assertIn('Title fade: standard',document)
             self.assertIn('PRIMJER fade: sharp',document)
         recent=accepted_choices(placement)['word']
-        self.assertEqual(recent['heading_fade'],'defined')
+        self.assertEqual(recent['heading_fade'],'standard')
         self.assertEqual(recent['example_fade'],'sharp')  # Accepted reviewer choice, not a wrapper override.
 
     def test_inactive_and_unsupported_presets_are_rejected_without_adding_shading(self):

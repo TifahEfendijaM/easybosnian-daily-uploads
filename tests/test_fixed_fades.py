@@ -35,11 +35,11 @@ class FixedFadeTests(unittest.TestCase):
             plan=copy.deepcopy(base['cards']['word']);plan['heading_tone']=tone
             self.assertFalse(list(model.iter_errors(plan)),tone)
         self.assertFalse(list(model.iter_errors(base['cards']['word'])))
-        for preset in ('standard','defined'):
+        for preset in ('standard',):
             plan=copy.deepcopy(base['cards']['word'])
             plan['heading_fade']=preset;plan['blocks'][-1]['fade_style']='standard'
             self.assertFalse(list(model.iter_errors(plan)))
-        for scope,key,value in [('card','heading_fade','soft'),('example','fade_style','soft'),('example','fade_style','defined')]:
+        for scope,key,value in [('card','heading_fade','soft'),('card','heading_fade','defined'),('example','fade_style','soft'),('example','fade_style','defined')]:
             plan=copy.deepcopy(base['cards']['word'])
             target=plan if scope=='card' else next(b for b in plan['blocks'] if b['role']=='example')
             target[key]=value
@@ -104,8 +104,8 @@ class FixedFadeTests(unittest.TestCase):
                      'Pillow lightens the surrounding photograph',
                      'Pillow alone controls strength',
                      'This title preference does not change PRIMJER treatment',
-                     'Choose heading_fade for photographic titles from exactly two approved presets',
-                     'standard has smoothly eased edges; defined preserves the earlier',
+                     'For every fresh TITLE use heading_fade=standard with smoothly eased borders',
+                     'Sharp/crisp/defined title edges are NOT available',
                      'with EVERY shade treatment and EVERY design',
                      'Only the approved preset IDs, strength ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)

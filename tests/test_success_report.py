@@ -76,7 +76,7 @@ class SuccessReportTests(unittest.TestCase):
     def test_action_summary_includes_exact_prompts_after_publication_failure(self):
         package=reviewed_fixture();source=content_data(package,RUN)
         old_cwd=Path.cwd()
-        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_RUN_URL':RUN,'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md'),'GITHUB_REPOSITORY_VISIBILITY':'private'}),redirect_stdout(io.StringIO()):
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_RUN_URL':RUN,'GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md'),'GITHUB_REPOSITORY_VISIBILITY':'public'}),redirect_stdout(io.StringIO()):
             try:
                 os.chdir(temp)
                 directory=Path('build')/package['date'];directory.mkdir(parents=True)

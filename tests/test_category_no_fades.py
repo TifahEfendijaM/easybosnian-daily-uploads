@@ -43,29 +43,31 @@ class CategoryNoFadeTests(unittest.TestCase):
             self.assertEqual(result['shading'],0)
             self.assertEqual(image.getpixel((900,100)),(128,128,128,255))
 
-    def test_title_and_example_fades_never_modify_the_category_strip(self):
+    def test_title_fade_can_reach_category_but_category_is_composited_on_top(self):
         card=reviewed_fixture()['cards'][2]
+        palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);photo=root/'photo.jpg'
-            Image.new('RGB',(1080,1350),'#b0b0b0').save(photo)
-            protected=(0,0,1080,CATEGORY_TOP+CATEGORY_HEIGHT+1)
-            calls=[]
-            def checked(image,*args,**kwargs):
-                before=image.crop(protected).tobytes()
-                result=protect_text(image,*args,**kwargs)
-                self.assertEqual(image.crop(protected).tobytes(),before)
-                calls.append(kwargs.get('allow_fade',True))
+            root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#b0b0b0').save(photo)
+            order=[]
+            def shaded(image,*args,**kwargs):
+                if kwargs.get('allow_fade',True):order.append('shade')
+                return protect_text(image,*args,**kwargs)
+            def layered(image,*args,**kwargs):
+                result=category_label(image,*args,**kwargs)
+                order.append('category')
+                if args[2]!='underlined':
+                    from PIL import ImageColor
+                    self.assertEqual(image.getpixel((80,95))[:3],ImageColor.getrgb(palette['panel']))
                 return result
             for style in CATEGORY_STYLES:
-                plan=dict(default_plan(card),confidence='high',palette='gold-cream',
-                          category_style=style,heading_tone='paper_dark')
-                plan['blocks'][-1]['photo_tone']='paper_dark'
-                with patch('easybosnian.hybrid.protect_text',side_effect=checked):
+                order.clear()
+                plan=dict(default_plan(card),confidence='high',category_style=style,
+                          category_tone='ink_paper',heading_tone='paper_dark')
+                with patch('easybosnian.hybrid.protect_text',side_effect=shaded),patch('easybosnian.hybrid.category_label',side_effect=layered):
                     result=render_hybrid(card,'gold-cream',photo,root/f'{style}.jpg',plan)
                 self.assertGreater(result['heading_shading'],0)
-                self.assertEqual(result['composition'],plan)
                 self.assertGreaterEqual(result['category_contrast'],4.5)
-            self.assertTrue(any(calls))
+                self.assertEqual(order[-1],'category')
 
     def test_unreadable_model_category_uses_reported_layout_fallback_and_preserves_palette(self):
         harness=provenance_harness.VisualProvenanceTests();harness.setUp()
@@ -88,6 +90,6 @@ class CategoryNoFadeTests(unittest.TestCase):
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',review)
         child.assert_called_once()
         prompt=child.call_args.args[0]
-        for text in ('Category labels NEVER have a fade','applies to underlined categories',
-                     'title fade cannot extend into the category','bounded approved category chip'):
+        for text in ('Category labels NEVER add their own fade','applies to underlined categories',
+                     'TITLE fade may extend behind the category area','bounded approved category chip'):
             self.assertIn(text,prompt)

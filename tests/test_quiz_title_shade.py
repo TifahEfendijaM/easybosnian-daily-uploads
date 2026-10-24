@@ -60,7 +60,7 @@ class QuizTitleShadeTests(unittest.TestCase):
                     self.assertEqual(strong['composition'],before);self.assertEqual(plan,before)
                     with Image.open(root/'gentle.jpg') as a,Image.open(root/'stronger.jpg') as b:
                         self.assertNotEqual(a.crop((0,145,1080,310)).tobytes(),b.crop((0,145,1080,310)).tobytes())
-                        self.assertEqual(a.crop((0,0,1080,120)).tobytes(),b.crop((0,0,1080,120)).tobytes())
+                        self.assertEqual(a.crop((96,80,240,112)).tobytes(),b.crop((96,80,240,112)).tobytes())
         self.assertEqual(quiz,source)
 
     def test_legacy_missing_intent_remains_gentle_and_stronger_escalates_for_contrast(self):
