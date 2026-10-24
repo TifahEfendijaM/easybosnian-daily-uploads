@@ -105,7 +105,7 @@ class FixedFadeTests(unittest.TestCase):
                      'Pillow alone controls strength',
                      'This title preference does not change PRIMJER treatment',
                      'For every fresh TITLE use heading_fade=standard with smoothly eased borders',
-                     'standard has smoothly eased edges; defined preserves the earlier',
+                     'Sharp/crisp/defined title edges are NOT available',
                      'with EVERY shade treatment and EVERY design',
                      'Only the approved preset IDs, strength ID and text/fade COLOURS are selectable'):
             self.assertIn(text,prompt)

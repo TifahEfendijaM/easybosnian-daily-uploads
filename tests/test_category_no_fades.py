@@ -50,7 +50,8 @@ class CategoryNoFadeTests(unittest.TestCase):
             root=Path(tmp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#b0b0b0').save(photo)
             order=[]
             def shaded(image,*args,**kwargs):
-                order.append('shade');return protect_text(image,*args,**kwargs)
+                if kwargs.get('allow_fade',True):order.append('shade')
+                return protect_text(image,*args,**kwargs)
             def layered(image,*args,**kwargs):
                 result=category_label(image,*args,**kwargs)
                 order.append('category')
