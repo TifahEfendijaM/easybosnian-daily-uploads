@@ -95,15 +95,16 @@ class CurrentVisualEligibilityTests(unittest.TestCase):
         self.assertEqual(panel_theme(card),'unknown')
         self.assertEqual(panel_theme({'palette':{},'composition':{}}),'unknown')
 
-    def test_title_upper_shoulder_extends_smoothly_without_category_or_lower_changes(self):
-        from PIL import ImageChops
-        from easybosnian.hybrid import protect_text,serif,TITLE_FADE_TOP_PADDING
-        source=Image.new('RGBA',(1080,1350),'#aaaaaa');old=source.copy();new=source.copy()
-        args=((64,174),['Čuvamo svoju riječ.'],serif(44),['#ffffff'],4.5,(0,127,1080,1350))
-        kwargs={'fade_style':'standard','feather':100,'feather_power':2.5,'minimum_shade':90}
-        a=protect_text(old,*args,**kwargs)
-        b=protect_text(new,*args,top_padding=TITLE_FADE_TOP_PADDING,**kwargs)
-        self.assertEqual(a,b)
-        self.assertEqual(new.crop((0,0,1080,128)).tobytes(),source.crop((0,0,1080,128)).tobytes())
-        self.assertIsNotNone(ImageChops.difference(old.convert('RGB'),new.convert('RGB')).crop((0,128,1080,174)).getbbox())
-        self.assertEqual(new.crop((0,174,1080,1350)).tobytes(),old.crop((0,174,1080,1350)).tobytes())
+    def test_title_has_equal_smooth_upper_lower_extent_and_category_can_overlay(self):
+        from easybosnian.hybrid import protect_text,serif,TITLE_FADE_PADDING,TITLE_FADE_FEATHER
+        from easybosnian.render import measure
+        source=Image.new('RGBA',(1080,1350),'#aaaaaa');image=source.copy()
+        face=serif(44);rows=['Čuvamo svoju riječ.'];top=174;bottom=top+measure(rows,face)[0]
+        protect_text(image,(64,top),rows,face,['#ffffff'],4.5,(0,0,1080,1350),
+                     fade_style='standard',feather=TITLE_FADE_FEATHER,feather_power=2.5,
+                     top_padding=TITLE_FADE_PADDING,bottom_padding=TITLE_FADE_PADDING,minimum_shade=90)
+        for offset in (0,12,24,40,70,100,123,124):
+            self.assertEqual(image.getpixel((540,top-offset)),image.getpixel((540,bottom+offset)))
+        self.assertNotEqual(image.getpixel((540,100)),source.getpixel((540,100)))
+        self.assertEqual(image.getpixel((540,top-124)),source.getpixel((540,top-124)))
+        self.assertEqual(image.getpixel((540,bottom+124)),source.getpixel((540,bottom+124)))

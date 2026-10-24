@@ -27,7 +27,7 @@ EXAMPLE_SHADE_MINIMUMS = {'soft':64, 'medium':128, 'strong':192}
 EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
-TITLE_FADE_TOP_PADDING = 16  # Extend the upper title shoulder; category strip stays protected.
+TITLE_FADE_PADDING = 24  # Equal upper/lower shoulders; category elements draw above the title fade.
 # Start with faint title backings; stronger candidates require measured need.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
@@ -565,12 +565,12 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
         colours,backings=title_colours(palette,heading_tone)
-        # Photographic title shading starts below the entire category strip;
-        # even its feather must never appear behind a category chip or underline.
+        # Equal upper/lower fades may reach the category area. Category
+        # elements are drawn after all photographic shades, always on top.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
-            (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
+            (0,0,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
-            top_padding=TITLE_FADE_TOP_PADDING,
+            top_padding=TITLE_FADE_PADDING,bottom_padding=TITLE_FADE_PADDING,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
