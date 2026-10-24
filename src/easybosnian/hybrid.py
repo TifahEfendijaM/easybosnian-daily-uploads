@@ -27,6 +27,7 @@ EXAMPLE_SHADE_MINIMUMS = {'soft':64, 'medium':128, 'strong':192}
 EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
+TITLE_FADE_TOP_PADDING = 16  # Extend the upper title shoulder; category strip stays protected.
 # Start with faint title backings; stronger candidates require measured need.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
@@ -182,6 +183,19 @@ def block_gap(first, second):
     return EXAMPLE_BLOCK_GAP if 'example' in (first, second) else MIN_BLOCK_GAP
 
 
+def validate_current_design(card, plan):
+    """Fresh feed eligibility; legacy renderer remains available for archives.
+
+    Enforced for initial proposals, repairs and every local recovery candidate.
+    Explicitly retained finished JPEGs are not redesigned by this policy.
+    """
+    if plan.get('design')!='hybrid' or (plan.get('photo_window') is not None
+            and (card['kind']!='quiz' or card.get('quiz_format')!='visual_identification')):
+        raise ValueError('Separate photo layouts are reserved for picture-identification quizzes')
+    if plan.get('heading_fade','standard')!='standard':
+        raise ValueError('Fresh title shades require smooth edges')
+
+
 def measured_plan(card, plan):
     """Reject off-canvas, overlapping, unreadable, or mismatched proposals."""
     from .visual_placement import CARD_SCHEMA
@@ -289,7 +303,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0):
     """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -377,10 +391,11 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                         continue
                     # Taper to zero INSIDE protected bounds rather than clipping
                     # a still-opaque gradient into a visible horizontal seam.
-                    start=max(top,text_top-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
+                    core_start=max(top,text_top-top_padding)
+                    start=max(top,core_start-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
                     core_end=min(text_bottom+bottom_padding,max(text_bottom,end-16))
                     if y<=start or y>=end:t=0
-                    elif y<text_top:t=(y-start)/max(1,text_top-start)
+                    elif y<core_start:t=(y-start)/max(1,core_start-start)
                     elif y>core_end:t=(end-y)/max(1,end-core_end)
                     else:t=1
                     t=max(0,min(1,t));opacity=round(alpha*(t*t*(3-2*t))**feather_power)
@@ -555,6 +570,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
             (0,CATEGORY_TOP+CATEGORY_HEIGHT+1,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
+            top_padding=TITLE_FADE_TOP_PADDING,
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,

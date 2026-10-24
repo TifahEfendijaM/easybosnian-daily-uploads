@@ -1,7 +1,7 @@
 """Trusted per-image controls, applied before all normal Pillow safeguards."""
 import copy
 
-from .designs import PANEL_STYLES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, valid_panel_opacity
+from .designs import PANEL_STYLES, REVIEW_EXAMPLE_FADE_STYLES, valid_panel_opacity
 
 
 def panel_opacities(cards):
@@ -48,7 +48,7 @@ def safe_policy(value, plan):
     fields={'panel_opacity','panel_opacity_applied','example_fade','example_fade_applied'}
     if (not isinstance(value,dict) or set(value) not in (fields,fields|{'version'})
             or ('version' in value and (type(value['version']) is not int or value['version'] not in (2,3,4,5,6)))
-            or value['example_fade'] not in ((None,*REVIEW_EXAMPLE_FADE_STYLES) if value.get('version') in (4,5,6) else (None,'sharp') if value.get('version')==3 else (None,*REVIEW_FADE_STYLES))
+            or value['example_fade'] not in ((None,*REVIEW_EXAMPLE_FADE_STYLES) if value.get('version') in (4,5,6) else (None,'sharp') if value.get('version')==3 else (None,'standard','defined'))
             or type(value['example_fade_applied']) is not bool
             or type(value['panel_opacity_applied']) is not bool):
         raise ValueError('Invalid safe rendering policy metadata')

@@ -1,6 +1,6 @@
 """In-run design repair; successful elements remain exact, never a publish retry."""
 import copy
-from .hybrid import default_plan, roles
+from .hybrid import default_plan, roles, validate_current_design
 from .element_recovery import GLOBAL_GROUPS, recover_elements, recoverable_proposal
 from .visual_adjustment import nearest_valid_plan, applied_adjustment, single_line_example_plan
 from .visual_diagnostics import rejection_diagnostic, PALETTE_RENDER_FAILURES
@@ -29,6 +29,10 @@ def render_design(card,plan,background,draw,*,model_accepted,repair=None,attempt
     repairs are forbidden from changing those elements or the approved palette.
     """
     if type(attempt_limit) is not int or not 1<=attempt_limit<=ATTEMPT_LIMIT:raise ValueError('Invalid design attempt limit')
+    legacy_draw=draw
+    def draw(candidate):
+        validate_current_design(card,candidate)
+        return legacy_draw(candidate)
     current=copy.deepcopy(plan);rejection=None;attempts=[];recovery=None;protected=set();repair_violation=None
     def render(candidate):
         wide=single_line_example_plan(card,candidate,background) if model_accepted and 'example' not in protected else None

@@ -160,6 +160,8 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Quiz retains its clear photographic design',
     'Requested leading collides with measured glyphs',
     'Separate photograph must remain free of explanation panels',
+    'Separate photo layouts are reserved for picture-identification quizzes',
+    'Fresh title shades require smooth edges',
     'Unknown approved palette',
     'Unshaded photo text fails measured contrast',
     'Unsupported answer badge',

@@ -6,7 +6,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES, PANEL_TONES, panel_colours
 
 REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
@@ -38,6 +38,28 @@ def palette_policies(window,batch=()):
     return {palette:palette_policy(window,batch,palette) for palette in read_json(ROOT/'data/design-palettes.json')}
 
 
+def panel_theme(card):
+    """Known opaque panel treatment, independently of a palette's label/name."""
+    from .core import ROOT,read_json
+    from .render import luminance
+    palettes=read_json(ROOT/'data/design-palettes.json')
+    if not isinstance(card,dict) or not isinstance(card.get('palette'),str):return 'unknown'
+    palette=palettes.get(card['palette'])
+    composition=card.get('composition',{})
+    if not palette or not isinstance(composition,dict):return 'unknown'
+    blocks=composition.get('blocks',[])
+    if not isinstance(blocks,list):return 'unknown'
+    panels=[b for b in blocks if isinstance(b,dict) and isinstance(b.get('style'),str) and b['style'] in PANEL_STYLES]
+    if not panels:return 'unknown'
+    values=set()
+    for block in panels:
+        if block.get('panel_tone','auto') not in PANEL_TONES or block.get('panel_opacity')!=100:
+            return 'unknown'  # Missing/translucent historical surfaces are not guessed.
+        text,surface=panel_colours(palette,block.get('panel_tone','auto'),dark=block['style']=='overlay_dark')
+        values.add('dark' if luminance(surface)<luminance(text) else 'light')
+    return next(iter(values)) if len(values)==1 else 'mixed'
+
+
 def accepted_choices(placement):
     from .core import ROOT, read_json
     palettes=read_json(ROOT/'data/design-palettes.json')
@@ -53,6 +75,7 @@ def accepted_choices(placement):
                        style not in (EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES)
                        for role,style in styles.items())):continue
         safe={field:card[field] for field in ('design','block_styles')}
+        safe['panel_theme']=panel_theme(card)
         # A preserved ChatGPT layout may now use a fallback palette. Do not
         # attribute that colour choice to the model in its recent-design context.
         if card.get('palette_outcome',{}).get('source')=='chatgpt':safe['palette']=card['palette']
@@ -126,7 +149,8 @@ def recent_choices(limit=5):
             observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
             observations=[v for v in observations if isinstance(v,str) and v in catalogue]
             if choices or observations:
-                recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations})
+                recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations,
+                               'panel_theme_observations':[panel_theme(placement.get('cards',{}).get(k,{})) for k in ('quiz','lesson','word')]})
             if len(recent)==limit:break
         return recent,'available'
     except Exception:
