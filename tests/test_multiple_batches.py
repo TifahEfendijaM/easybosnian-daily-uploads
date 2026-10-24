@@ -93,7 +93,8 @@ class MultipleBatchesTests(unittest.TestCase):
             with self.subTest(choice=choice),tempfile.TemporaryDirectory() as temp,ExitStack() as stack:
                 root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
                 def agent(prompt):
-                    self.assertEqual(prompt,'Prepare 2026-10-04')
+                    self.assertEqual(prompt.split('\n\nTrusted local context index:',1)[0],'Prepare 2026-10-04')
+                    self.assertIn('max_output_tokens=10000',prompt)
                     context=read_json(root/'build/preparation-context.json')
                     self.assertEqual(context['selection']['previous'],history['days'][0]['content'])
                     package=copy.deepcopy(history['days'][0]['content']);package.update(date='2026-10-04',batch_id=context['batch']['batch_id'])

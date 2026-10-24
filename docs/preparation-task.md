@@ -4,7 +4,7 @@ This is the content policy for the research child, invoked through `cloud-agent-
 
 ## 1. Trusted input and selection
 
-Read the complete private history and selection in `build/preparation-context.json`, including the selected previous row. Set `package.batch_id=context['batch']['batch_id']` and `package.date=context['batch']['date']`. Review timestamps reflect the actual review now, even when replacing an older content date. Metadata-only `legacy_word_history` imports count for novelty; their dates/themes may be estimated/inferred. Never invent their missing text/sources/reviews or use them as renderable packages.
+Read the complete private history research view and selection through the bounded page reader in `cloud-agent-task.md`, including every retained/imported row and the complete selected previous package. The original `build/preparation-context.json` remains authoritative for local validation and optional full-detail reads. Set `package.batch_id=context['batch']['batch_id']` and `package.date=context['batch']['date']`. Review timestamps reflect the actual review now, even when replacing an older content date. Metadata-only `legacy_word_history` imports count for novelty; their dates/themes may be estimated/inferred. Never invent their missing text/sources/reviews or use them as renderable packages.
 
 | content_selection | Preserve | Research afresh |
 |---|---|---|

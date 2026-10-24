@@ -40,7 +40,8 @@ class BatchTargetTests(unittest.TestCase):
             with self.subTest(choice=choice),tempfile.TemporaryDirectory() as temp,ExitStack() as stack:
                 root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
                 def agent(prompt):
-                    self.assertEqual(prompt,'Prepare 2026-10-03')
+                    self.assertEqual(prompt.split('\n\nTrusted local context index:',1)[0],'Prepare 2026-10-03')
+                    self.assertIn('max_output_tokens=10000',prompt)
                     package=copy.deepcopy(self.old)
                     package['caption']+=' Novi poziv.\n👉easybosnian.com'
                     for card in package['cards']:
@@ -68,7 +69,8 @@ class BatchTargetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp,ExitStack() as stack:
             root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
             def agent(prompt):
-                self.assertEqual(prompt,'Prepare 2026-10-04')
+                self.assertEqual(prompt.split('\n\nTrusted local context index:',1)[0],'Prepare 2026-10-04')
+                self.assertIn('max_output_tokens=10000',prompt)
                 package=copy.deepcopy(self.old);package['date']='2026-10-04'
                 write_json(root/'build/preparation/2026-10-04.json',package)
                 return '{"status":"ready","reason":"none"}'
