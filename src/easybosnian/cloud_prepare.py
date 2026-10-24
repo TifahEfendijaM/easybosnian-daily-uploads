@@ -15,6 +15,7 @@ from .store import Store
 from .validate import validate
 from .selection import selection_context, check_selection, novelty_history, word_levels
 from .levels import select_run_level
+from .research_context import reading_instructions
 from .batches import identity, plan_batch
 from .codex_diagnostics import CodexExecutionError, execution_diagnostic
 
@@ -223,12 +224,12 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
                 'Connection verification ONLY. The wrapper verified the exact pinned repository. '
-                'Read AGENTS.md, docs/cloud-agent-task.md and all build/preparation-context.json. '
+                'Read AGENTS.md and docs/cloud-agent-task.md, then every bounded review-context page. '
                 'Do not follow content preparation instructions, choose words, call provider APIs, '
                 'write history, generate images or publish. Write exactly '
                 '{"status":"ready","reason":"none"} to build/cloud-file-probe.json. '
                 'Return that object only after the file exists. Do not inspect credentials or files '
-                'outside this checkout.',timeout=180))
+                'outside this checkout.'+reading_instructions(read_json(ROOT/'build/preparation-context.json')),timeout=180))
             if not probe.is_file() or read_json(probe)!={'status':'ready','reason':'none'}:
                 raise ValueError('ChatGPT did not write its required workspace probe')
             result={'date':date,'status':'cloud connection verified','private_history_read':True,
@@ -246,7 +247,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                                               len(chosen['previous']['cards'][0]['options'])) if 'quiz' in fixed_kinds else secrets.choice((2,3,4)))
                 context=read_json(ROOT/'build/preparation-context.json')
                 context['selection']['quiz_option_target']=chosen['quiz_option_target'];write_json(ROOT/'build/preparation-context.json',context)
-                prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)
+                prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)+reading_instructions(context)
                 require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)

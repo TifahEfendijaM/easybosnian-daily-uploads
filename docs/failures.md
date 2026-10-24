@@ -94,3 +94,9 @@ removal counts in artifacts and Summary; all_today totals include confirmed work
 before a failure. No extra API call, deletion retry, catch-up, token switch or
 publication is added. The same manual run also had a TikTok API-volume rejection,
 confirmed in Buffer's error view (advises waiting 24 hours). No retry was clicked.
+
+## October 24 research history access
+
+Runs [40108277658](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/40108277658) and [40108307889](https://github.com/TifahEfendijaM/easybosnian-daily-uploads/actions/runs/40108307889) returned the structured research reason history_access before image generation or publication. They did not report a CLI authentication/usage failure. Their raw tool traces were not retained, so a truncated bulk read is plausible rather than a proven historical cause; the later retained history contained 33 batches and roughly 462 KB of pretty-printed JSON.
+
+Research now receives an explicit page count and local bounded-reader command. Each page contains at most 8,000 UTF-8 bytes without splitting Unicode characters. The exact teaching/semantic research view preserves every retained/imported row, theme/word metadata, card copy/scenes, captions and semantic quiz fields; selected previous content remains complete. Only historical citations, audit checklists/notes and cache references are omitted from this view. The complete original JSON and unabridged pages remain available, and original full-history validation is unchanged. Read every review page before semantic novelty decisions; parsing the file or passing deterministic validation alone is not semantic inspection. No history deletion, model/service retry, additional publication or credential change is introduced.
