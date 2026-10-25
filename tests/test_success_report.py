@@ -147,6 +147,14 @@ class SuccessReportTests(unittest.TestCase):
             main();store.assert_not_called()
             self.assertIn(source['cards'][0]['prompt'],(directory/'success-report.md').read_text())
 
+    def test_public_report_build_error_is_visible_with_credentials_redacted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with patch('sys.argv',['report','build']),patch('easybosnian.cli.prepared_batch',side_effect=ValueError('Prepared report identity mismatch; credential-value')),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','TEST_API_KEY':'credential-value','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}),redirect_stdout(io.StringIO()),self.assertRaises(SystemExit):main()
+            text=(Path(temp)/'summary.md').read_text()
+            self.assertIn('Prepared report identity mismatch',text)
+            self.assertNotIn('credential-value',text)
+            self.assertNotIn('inspect protected',text)
+
     def test_reports_include_exact_prompts_design_and_links_but_no_answer_key_or_review(self):
         package=reviewed_fixture();data=report_data(package,results(),RUN)
         text,markup=render_report(data)

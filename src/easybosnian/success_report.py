@@ -12,7 +12,9 @@ from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, TITLE_TONE_CATALOGUE, panel_alpha, PANEL_STYLES,
                       PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
-from .core import PROJECT, REPO, ROOT, read_json, write_json, private_github_outputs
+from .core import PROJECT, REPO, ROOT, read_json, write_json
+
+from .http import redact
 
 LABELS={'quiz':'Pitanje dana','lesson':'Znaš li?','word':'Riječ dana'}
 PLATFORMS={'instagram':'Instagram','facebook':'Facebook','tiktok':'TikTok','instagram_stories':'Instagram Stories','facebook_stories':'Facebook Stories'}
@@ -367,7 +369,7 @@ def main():
         write_report(data)
         print('Successful-publication report added to the run Summary and prepared for backup')
     except Exception as error:
-        status=str(error) if isinstance(error,ValueError) and private_github_outputs() else 'Report step failed; inspect protected report/access'
+        status=redact(error) if isinstance(error,ValueError) else 'Report step failed ('+type(error).__name__+'); inspect this run’s failed report step'
         # Never print private result data or free-form model output.
         if os.getenv('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:summary.write('\nSuccess report preparation not confirmed. '+status+'\n')
