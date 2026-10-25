@@ -149,6 +149,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Paper headings require automatic palette ink',
     'Paper headings cannot select a photographic shade',
     'Stronger title shading requires a photographic quiz',
+    'Decorative non-quiz title shading requires distant PRIMJER on a full photograph',
     'Only photographic faded examples can select a shade preset',
     'Only photographic faded examples can select shade strength',
     'Paper styles require the editorial design',

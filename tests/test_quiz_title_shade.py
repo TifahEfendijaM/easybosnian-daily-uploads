@@ -36,7 +36,7 @@ class QuizTitleShadeTests(unittest.TestCase):
         prompt=child.call_args.args[0]
         for text in ('Choose heading_shade=gentle or stronger for EACH photographic quiz',
                      'even if the bare text already passes contrast','Neither choice is mandatory',
-                     'Lesson/word and paper/treatment-B headings MUST use heading_shade=gentle'):
+                     'Paper/treatment-B headings MUST use heading_shade=gentle'):
             self.assertIn(text,prompt)
         child.assert_called_once()
 
