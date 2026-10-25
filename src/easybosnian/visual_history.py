@@ -6,7 +6,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES, PANEL_TONES, panel_colours
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, QUIZ_TITLE_SHADE_INTENTS, NONQUIZ_TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES, PANEL_TONES, panel_colours
 
 REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
@@ -89,7 +89,7 @@ def accepted_choices(placement):
                      (card.get('heading_backing')=='#ffffff' or card.get('heading_tone') in ('ink_light','ink_paper','ink_accent','accent_light')))
         if isinstance(composition,dict) and composition.get('heading_fade') in REVIEW_FADE_STYLES and not fixed_white:
             safe['heading_fade']=composition['heading_fade']
-        if isinstance(composition,dict) and composition.get('heading_shade') in TITLE_SHADE_INTENTS:
+        if isinstance(composition,dict) and composition.get('heading_shade') in (QUIZ_TITLE_SHADE_INTENTS if kind=='quiz' else NONQUIZ_TITLE_SHADE_INTENTS):
             safe['heading_shade']=composition['heading_shade']
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):

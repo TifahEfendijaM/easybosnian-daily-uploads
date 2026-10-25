@@ -60,6 +60,13 @@ def heading(card):
     return face, rows, HEADING_TOP + measure(rows, face)[0]
 
 
+def title_example_proximity(blocks, header_end):
+    """Use the existing title-boundary-to-example-start distance unchanged."""
+    example=next((b for b in blocks if b.get('role')=='example'),None)
+    if example is None:return 'absent'
+    return 'near' if example['y']-header_end<TITLE_EXAMPLE_NEAR_GAP else 'far'
+
+
 def roles(card):
     return ([o['label'] for o in card['options']] if card['kind']=='quiz' else
             ['body'] + (['example'] if card.get('example') else []))
@@ -247,6 +254,10 @@ def measured_plan(card, plan):
     if plan.get('heading_shade','gentle')=='stronger' and (card['kind']!='quiz' or plan['photo_window'] is not None):
         raise ValueError('Stronger title shading requires a photographic quiz')
     header_end = heading(card)[2]
+    if plan.get('heading_shade')=='emphasis' and (
+            card['kind'] not in ('lesson','word') or plan['photo_window'] is not None
+            or title_example_proximity(plan['blocks'],header_end)!='far'):
+        raise ValueError('Decorative non-quiz title shading requires distant PRIMJER on a full photograph')
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -614,9 +625,11 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
         colours,backings=title_colours(palette,heading_tone)
-        near_example=any(b['role']=='example' and b['y']-header_end<TITLE_EXAMPLE_NEAR_GAP for b in blocks)
+        near_example=title_example_proximity(blocks,header_end)=='near'
         title_cap=(255 if card['kind']=='quiz' else
                    NEAR_EXAMPLE_TITLE_MAX_SHADE if near_example else NONQUIZ_TITLE_MAX_SHADE)
+        minimum_shade=(QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else
+                       TITLE_SHADE_LEVELS[0] if plan.get('heading_shade')=='emphasis' else 0)
         # Equal upper/lower fades may reach the category area. Category
         # elements are drawn after all photographic shades, always on top.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
@@ -626,7 +639,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
-            minimum_shade=QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else 0,
+            minimum_shade=minimum_shade,
             maximum_shade=title_cap)
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'

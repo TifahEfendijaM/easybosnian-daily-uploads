@@ -23,19 +23,21 @@ REVIEW_PHOTO_TONES = PHOTO_TONES
 # Titles retain approved text colours, with neutral backing colours only.
 REVIEW_TITLE_TONES = ('auto','paper_dark','ink_light','paper_ink','ink_paper','accent_dark','accent_light')
 TITLE_TONE_CATALOGUE = {
-    'auto':'White or black title text; matching neutral black or white fade only when required.',
-    'paper_dark':'White title text; neutral black fade when required.',
-    'ink_light':'Black title text; neutral white fade when required.',
-    'paper_ink':'Palette paper-coloured title text; neutral black fade when required.',
-    'ink_paper':'Palette ink-coloured title text; neutral white fade when required.',
-    'accent_dark':'Palette accent-coloured title text; neutral black fade when required.',
-    'accent_light':'Palette accent-coloured title text; neutral white fade when required.',
-    'accent_ink':'Legacy palette accent-coloured title text; neutral black fade when required.',
-    'ink_accent':'Legacy palette ink-coloured title text; neutral white fade when required.',
-    'paper_accent':'Legacy palette paper-coloured title text; neutral black fade when required.',
+    'auto':'White or black title text; matching neutral black or white fade under the approved title intent.',
+    'paper_dark':'White title text; neutral black fade when used.',
+    'ink_light':'Black title text; neutral white fade when used.',
+    'paper_ink':'Palette paper-coloured title text; neutral black fade when used.',
+    'ink_paper':'Palette ink-coloured title text; neutral white fade when used.',
+    'accent_dark':'Palette accent-coloured title text; neutral black fade when used.',
+    'accent_light':'Palette accent-coloured title text; neutral white fade when used.',
+    'accent_ink':'Legacy palette accent-coloured title text; neutral black fade when used.',
+    'ink_accent':'Legacy palette ink-coloured title text; neutral white fade when used.',
+    'paper_accent':'Legacy palette paper-coloured title text; neutral black fade when used.',
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
-TITLE_SHADE_INTENTS = ('gentle', 'stronger')  # stronger is photographic quiz-only
+QUIZ_TITLE_SHADE_INTENTS = ('gentle', 'stronger')
+NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis')
+TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis')
 REVIEW_FADE_STYLES = ('standard',)  # fresh titles: smooth edges only
 REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
 EXAMPLE_SHADE_STRENGTHS = ('soft', 'medium', 'strong')
