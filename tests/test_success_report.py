@@ -83,9 +83,13 @@ class SuccessReportTests(unittest.TestCase):
                 (directory/'report-source.json').write_text(json.dumps(source))
                 (directory/'image-placement-result.json').write_text(json.dumps(self.rendering(package)))
                 (directory/'platforms-result.json').write_text(json.dumps({'batch':package['date'],'batch_id':package['date'],'platforms':{'facebook':{'status':'failed','error':'safe provider failure'}}}))
+                Path('build/failure.txt').write_text('Failed stage: Instagram Stories publishing\nError: provider code 9; provider subcode 2207042\nPublication: confirmed feed; incomplete Stories\nNext step: inspect quota\n')
                 runpy.run_path(str(ROOT/'scripts/action_summary.py'))
                 text=(Path(temp)/'summary.md').read_text()
                 self.assertIn('safe provider failure',text);self.assertIn('Applied design',text)
+                self.assertIn('Failed stage: Instagram Stories publishing',text)
+                self.assertIn('provider subcode 2207042',text)
+                self.assertIn('Publication: confirmed feed; incomplete Stories',text)
                 for card in package['cards']:self.assertIn(card['background_prompt'],text)
             finally:os.chdir(old_cwd)
 
@@ -142,6 +146,14 @@ class SuccessReportTests(unittest.TestCase):
             write_json(directory/'report-source.json',source);write_json(directory/'platforms-result.json',outcome)
             main();store.assert_not_called()
             self.assertIn(source['cards'][0]['prompt'],(directory/'success-report.md').read_text())
+
+    def test_public_report_build_error_is_visible_with_credentials_redacted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with patch('sys.argv',['report','build']),patch('easybosnian.cli.prepared_batch',side_effect=ValueError('Prepared report identity mismatch; credential-value')),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','TEST_API_KEY':'credential-value','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md')}),redirect_stdout(io.StringIO()),self.assertRaises(SystemExit):main()
+            text=(Path(temp)/'summary.md').read_text()
+            self.assertIn('Prepared report identity mismatch',text)
+            self.assertNotIn('credential-value',text)
+            self.assertNotIn('inspect protected',text)
 
     def test_reports_include_exact_prompts_design_and_links_but_no_answer_key_or_review(self):
         package=reviewed_fixture();data=report_data(package,results(),RUN)

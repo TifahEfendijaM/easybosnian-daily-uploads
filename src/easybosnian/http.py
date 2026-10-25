@@ -31,6 +31,9 @@ FLUX_REASONS={
     'cache_read_failed':'private background cache read failed',
     'ai_binding_missing':'Cloudflare Workers AI binding is missing',
     'ai_call_failed':'Cloudflare Workers AI inference failed',
+    'ai_content_rejected':'Cloudflare content-safety check rejected the request (NSFW)',
+    'ai_free_allocation_exhausted':'Cloudflare reports the daily free allocation is exhausted',
+    'ai_capacity_exceeded':'Cloudflare reports temporary inference capacity exhaustion',
     'ai_response_invalid':'Cloudflare Workers AI returned an invalid response',
     'ai_image_missing':'Cloudflare Workers AI returned no image',
     'cache_write_failed':'private background cache write failed',
@@ -84,12 +87,13 @@ def provider_codes(payload):
     return f"provider code {number('code')}; provider subcode {number('error_subcode')}"
 
 
-def redact(message):
+def redact(message, *, limit=900):
     message = str(message)
     for name, value in os.environ.items():
         if value and any(k in name for k in ("TOKEN", "SECRET", "PASSWORD", "API_KEY")):
             message = message.replace(value, "[REDACTED]")
-    return re.sub(r"(?i)(access_token|client_secret|authorization)[=:\s]+[^\s&,]+", r"\1=[REDACTED]", message)[:900]
+    message = re.sub(r"(?i)(access_token|client_secret|authorization)[=:\s]+[^\s&,]+", r"\1=[REDACTED]", message)
+    return message if limit is None else message[:limit]
 
 
 def request(method, url, data=None, headers=None, form=None, raw=False, timeout=90):

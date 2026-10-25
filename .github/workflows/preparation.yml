@@ -172,12 +172,12 @@ jobs:
       - name: Write safe results
         if: always()
         run: python scripts/action_summary.py
-      - name: Prepare private successful-publication report
+      - name: Prepare successful-publication report
         id: report
         if: success() && inputs.mode == 'daily' && steps.publication.outcome == 'success'
         continue-on-error: true
         run: python -m easybosnian.success_report build
-      - name: Preserve detailed reports privately outside public GitHub
+      - name: Back up report metadata privately
         if: always() && github.event.repository.private != true
         continue-on-error: true
         run: python -m easybosnian.run_reports save

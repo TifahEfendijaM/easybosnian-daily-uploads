@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from easybosnian.artwork import artwork
 from easybosnian.http import SafeError, request, safe_response_error
 from easybosnian.notify import failure, next_step
-from easybosnian.providers import CloudflareFlux
+from easybosnian.providers import CloudflareFlux, flux_diagnostic_reason
 from test_project import reviewed_fixture
 
 
@@ -108,3 +108,55 @@ class PrivateFluxDiagnosticTests(unittest.TestCase):
             self.assertEqual(calls[1].args[1],f'/v1/generation-errors/batches/{batch}/{run}/quiz')
             path=Path(temp)/'build'/batch/'quiz-provider-error.secret'
             self.assertEqual(path.read_bytes(),b'private upstream diagnostic');self.assertEqual(path.stat().st_mode & 0o777,0o600)
+
+
+class PublicFluxExplanationTests(unittest.TestCase):
+    def test_saved_provider_envelopes_add_fixed_explanations_without_retry_or_raw_prose(self):
+        cases=[(8007,400,'Prompt contains NSFW content.','ai_content_rejected','content-safety'),
+               (4006,429,'You have used up your daily free allocation of 10,000 neurons.','ai_free_allocation_exhausted','free allocation'),
+               (4006,429,'Service temporarily at capacity.','ai_capacity_exceeded','temporary inference capacity')]
+        batch='b-'+'a'*32;run='r-'+'b'*32
+        for code,status,description,reason,expected in cases:
+            with self.subTest(code=code,description=description),tempfile.TemporaryDirectory() as temp:
+                error=SafeError(f'HTTP 409; provider code {code}; provider HTTP {status}; inference failed',
+                                'FLUX generation',409,reason='ai_call_failed',provider_code=code,
+                                provider_http_status=status,diagnostic_saved=True)
+                body=json.dumps({'internalCode':code,'httpCode':status,'description':description,
+                                 'message':'PRIVATE_PROVIDER_BODY','requestId':'PRIVATE_REQUEST_ID',
+                                 'prompt':'PRIVATE_QUIZ_REVIEW'}).encode()
+                with patch('easybosnian.providers.ROOT',Path(temp)),patch('easybosnian.providers.Store') as factory,patch('easybosnian.notify.ROOT',Path(temp)),patch('easybosnian.notify.gh') as github,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public'}):
+                    factory.return_value.call.side_effect=[error,body]
+                    with self.assertRaises(SafeError) as caught:
+                        CloudflareFlux().generate('approved public scene','2026-10-25','quiz',batch,reviewed_content={},artwork_id=run)
+                    result=caught.exception
+                    self.assertEqual((result.provider_code,result.provider_http_status,result.reason),(code,status,reason))
+                    report=failure('2026-10-25','FLUX generation',result,'nothing published')
+                    self.assertIn(expected,report)
+                    self.assertIn(f'provider code {code}; provider HTTP {status}',report)
+                    for private in ('PRIVATE_PROVIDER_BODY','PRIVATE_REQUEST_ID','PRIVATE_QUIZ_REVIEW'):
+                        self.assertNotIn(private,report)
+                    self.assertEqual([c.args[0] for c in factory.return_value.call.call_args_list],['POST','GET'])
+                    github.assert_not_called()
+                    path=Path(temp)/'build'/batch/'quiz-provider-error.secret'
+                    self.assertEqual(path.read_bytes(),body);self.assertEqual(path.stat().st_mode & 0o777,0o600)
+
+    def test_unknown_mismatched_and_nonerror_fields_never_supply_an_explanation(self):
+        error=SafeError('fixed',provider_code=4006,provider_http_status=429)
+        values=[b'invalid',b'null',json.dumps({'internalCode':8007,'httpCode':400,'description':'NSFW'}).encode(),
+                json.dumps({'internalCode':4006,'httpCode':400,'description':'NSFW'}).encode(),
+                json.dumps({'internalCode':4006,'httpCode':429,'description':'Unknown upstream failure','prompt':'used up daily free allocation of neurons'}).encode(),
+                json.dumps({'internalCode':4006,'httpCode':429,'description':{'message':'used up free allocation of neurons'}}).encode()]
+        for value in values:
+            with self.subTest(value=value):self.assertIsNone(flux_diagnostic_reason(value,error))
+
+    def test_artwork_wrapper_preserves_provider_explanation_for_public_failure_reporting(self):
+        package=reviewed_fixture();package['batch_id']='b-'+'a'*32
+        error=SafeError('HTTP 409; provider code 8007; provider HTTP 400; content-safety rejection',
+                        'FLUX generation',409,reason='ai_content_rejected',provider_code=8007,provider_http_status=400)
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider') as provider:
+            provider.return_value.generate.side_effect=error
+            with self.assertRaises(SafeError) as caught:artwork(MagicMock(),package,review_images=True)
+            self.assertEqual(caught.exception.reason,'ai_content_rejected')
+            self.assertIn('content-safety',str(caught.exception))
+            self.assertIn('NSFW/content-safety',next_step('FLUX generation',caught.exception))
+            provider.return_value.generate.assert_called_once()

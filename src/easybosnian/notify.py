@@ -1,4 +1,4 @@
-"""Failure artifacts and private GitHub issues; no heartbeat or missing-run monitor."""
+"""Public redacted failure reports; private-only issues, no heartbeat or retries."""
 from .core import ROOT, REPO, gh, private_github_outputs
 from .http import redact
 
@@ -35,9 +35,11 @@ def next_step(stage,error):
         return 'Check the exact Easy Bosnian Page authorization, pages_show_list/pages_read_engagement/pages_manage_posts and current can_post capability. Renew the separate FACEBOOK_PAGE_TOKEN without removing existing Instagram permissions. No publishing retry is sent.'
     if stage=='FLUX generation':
         code=getattr(error,'provider_code',None)
-        if code==3036:
+        if getattr(error,'reason',None)=='ai_content_rejected':
+            return 'Cloudflare rejected this request under its NSFW/content-safety check. Review the saved FLUX prompt and intended scene before a deliberate new run; no automatic retry or paid fallback is sent.'
+        if code==3036 or getattr(error,'reason',None)=='ai_free_allocation_exhausted':
             return 'Cloudflare reports the daily free allocation is exhausted. It resets at 00:00 UTC; reduce preview usage. No paid fallback or automatic retry is sent.'
-        if code==3040:
+        if code==3040 or getattr(error,'reason',None)=='ai_capacity_exceeded':
             return 'Cloudflare reports temporary inference capacity exhaustion. Check Workers AI service status before deliberately starting another run; no automatic retry is sent.'
         if code in (3007,3008) or getattr(error,'provider_http_status',None)==408:
             return 'Cloudflare inference timed out or was aborted. Check Workers AI service status and inspect saved artwork before deliberately starting another run; no automatic retry is sent.'
@@ -56,10 +58,11 @@ def next_step(stage,error):
 
 def failure(date,stage,error,publication,run_url=None):
     action=next_step(stage,error)
-    text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {action}\n'
+    text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error,limit=None)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {action}\n'
+    text=redact(text,limit=None)
     path=ROOT/'build/failure.txt';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8')
     if not private_github_outputs():
-        return 'Pipeline step failed. Detailed diagnostics were saved locally for protected reporting; no public issue was created.'
+        return text
     try: gh('issue','create','--repo',REPO,'--title',f'EasyBosnian {date}: {stage} failed','--body-file',str(path))
     except Exception as problem: text+='Failure notification issue could not be created: '+redact(problem)+'\n'
     path.write_text(text,encoding='utf-8');return text

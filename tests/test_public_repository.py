@@ -45,12 +45,15 @@ class PublicRepositoryTests(unittest.TestCase):
             with patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':visibility}):
                 self.assertEqual(private_github_outputs(),expected)
 
-    def test_public_failure_keeps_details_local_and_never_opens_issue(self):
+    def test_public_failure_is_visible_redacted_and_never_opens_an_issue(self):
         from easybosnian.notify import failure
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.notify.ROOT',Path(temp)),patch('easybosnian.notify.gh') as github,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public'}):
-            text=failure('2026-10-24','repository verification',ValueError('protected diagnostic'),'nothing published')
-            github.assert_not_called();self.assertNotIn('protected diagnostic',text)
-            self.assertIn('protected diagnostic',(Path(temp)/'build/failure.txt').read_text())
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.notify.ROOT',Path(temp)),patch('easybosnian.notify.gh') as github,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','TEST_API_KEY':'credential-value'}):
+            text=failure('2026-10-24','repository verification',ValueError('Actual fixed diagnostic; credential-value '+('safe '*300)+'END_OF_ERROR'),'nothing published')
+            github.assert_not_called();self.assertIn('Actual fixed diagnostic',text)
+            self.assertIn('Failed stage: repository verification',text)
+            self.assertIn('END_OF_ERROR',text)
+            self.assertNotIn('credential-value',text)
+            self.assertEqual(text,(Path(temp)/'build/failure.txt').read_text())
 
     def test_bootstrap_identity_failure_is_not_mislabeled_as_chatgpt_auth(self):
         from easybosnian.cloud_prepare import main
@@ -69,16 +72,35 @@ class PublicRepositoryTests(unittest.TestCase):
             try:
                 os.chdir(temp);directory=Path('build')/package['date'];directory.mkdir(parents=True)
                 (directory/'report-source.json').write_text(json.dumps(source))
-                Path('build/failure.txt').write_text('private draft example')
+                Path('build/failure.txt').write_text('Failed stage: FLUX generation\nError: provider code 8007; content-safety rejection\nPublication: nothing published\nNext step: inspect the prompt\n')
+                Path('build/reviewed-content.secret').write_text('private draft example')
                 output=io.StringIO()
                 with redirect_stdout(output):runpy.run_path(str(ROOT/'scripts/action_summary.py'))
                 summary=Path('summary.md').read_text()
                 for card in package['cards']:self.assertIn(card['background_prompt'],summary)
                 self.assertIn('Visual decisions not available',summary)
-                self.assertIn('A pipeline step failed',summary)
+                self.assertIn('### Failure details',summary)
+                self.assertIn('provider code 8007; content-safety rejection',summary)
+                self.assertIn('Publication: nothing published',summary)
                 for private in ('private draft example','private answer key'):
                     self.assertNotIn(private,summary);self.assertNotIn(private,output.getvalue())
                 self.assertEqual(summary,Path('build/run-summary.md').read_text())
+            finally:os.chdir(previous)
+
+    def test_public_failure_summary_preserves_the_entire_report_and_redacts_credentials(self):
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY_VISIBILITY':'public','GITHUB_STEP_SUMMARY':str(Path(temp)/'summary.md'),'TEST_API_KEY':'credential-value'}):
+            previous=Path.cwd()
+            try:
+                os.chdir(temp);Path('build').mkdir()
+                Path('build/failure.txt').write_text('Failed stage: cloud ChatGPT research/review\nError: '+('safe detail '*150)+'credential-value\nPublication: nothing published\nNext step: END_OF_COMPLETE_REPORT\n')
+                output=io.StringIO()
+                with redirect_stdout(output):runpy.run_path(str(ROOT/'scripts/action_summary.py'))
+                summary=Path('summary.md').read_text()
+                self.assertIn('END_OF_COMPLETE_REPORT',summary)
+                self.assertIn('Failed stage: cloud ChatGPT research/review',summary)
+                self.assertGreater(len(summary),1500)
+                self.assertIn('[REDACTED]',summary)
+                self.assertNotIn('credential-value',summary);self.assertNotIn('credential-value',output.getvalue())
             finally:os.chdir(previous)
 
     def test_public_success_report_appends_approved_details(self):
