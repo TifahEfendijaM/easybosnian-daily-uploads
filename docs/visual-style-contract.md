@@ -39,14 +39,15 @@ Fit profiles include exact text/width/font/leading, complete height, line count,
 | ID | Material treatment | Validity |
 |---|---|---|
 | rounded | paper panel, moderate round corners, inset accent rule | hybrid body/answer |
+| rounded_plain | clean rounded panel, 36px corners, no decorative stripe/border/rule | hybrid body/answer |
 | outlined | square paper, accent outline/inset rule | hybrid body/answer |
 | plain | unboxed paper copy, no panel/rule | editorial body only |
-| overlay_dark | ink panel, paper text | hybrid body/answer |
-| overlay_light | square paper, accent underline | hybrid body/answer |
+| overlay_dark | Plain panel: undecorated square surface; light/dark tone chosen independently | hybrid body/answer |
+| overlay_light | earlier inset-underline panel; exact legacy drawing retained | archive only |
 | side_rule | square paper, full-height left accent bar | hybrid body/answer |
 | bottom_sheet | wide sheet, rounded top/square bottom, accent handle | hybrid body/answer; y≥700, width≥660 |
 | split_panel | square paper, wide accent rail/separate text column | hybrid body/answer |
-| minimal_rule | square paper, bottom accent rule | hybrid body/answer |
+| minimal_rule | Underline panel: square surface, one full-width bottom accent rule | hybrid body/answer |
 | double_frame | accent outer frame, fine inset ink frame | hybrid body/answer |
 | notebook_margin | accent margin, ruled edge ticks outside glyphs/badge | hybrid body/answer |
 | top_ribbon | accent top ribbon, fine inset bottom rule | hybrid body/answer |
@@ -54,6 +55,8 @@ Fit profiles include exact text/width/font/leading, complete height, line count,
 | soft_corner | round top-left/top-right/bottom-right, square lower-left | hybrid body/answer |
 | pill | capsule with fully rounded ends | answers only, at most two measured lines |
 | folded_corner | clipped/folded top-right slip | answers only |
+
+Fresh body and answer catalogues consolidate overlay_light/minimal_rule into minimal_rule (Underline panel). Retired overlay_light stays readable/renderable unchanged for saved plans and exact same_image&design retention; initial proposals, repairs and local recovery must not reintroduce it. A stale proposal may replace only that block with minimal_rule while preserving its compatible colour/geometry/typography. Clean rounded panel (rounded_plain) adds a fully rounded surface without an accent stripe or decorative rule. Plain panel is the displayed name of the existing overlay_dark ID; its renderer and automatic default remain compatible, and its name never requires a dark surface. All six category designs remain unchanged.
 
 Every ID has materially distinct Pillow drawing behavior. Hybrid body/answers MUST be bounded panels, never unboxed text over photos/fades. Former caption is invalid. PRIMJER never uses this catalogue. Answer panel style and badge shape are independent; any answer treatment may combine with circle/rounded_square/square/triangle. Coordinated choices are often appealing; coherent mixtures remain allowed. Never signal the correct answer through design.
 

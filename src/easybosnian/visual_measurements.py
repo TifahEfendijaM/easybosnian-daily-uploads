@@ -3,7 +3,7 @@ import copy
 import json
 from functools import lru_cache
 
-from .designs import BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES, FONT_RANGES, role_type
+from .designs import REVIEW_BODY_STYLES, REVIEW_ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES, FONT_RANGES, role_type
 from .hybrid import block_spec
 from .render import density
 
@@ -26,13 +26,14 @@ def block_measurements(card, role):
 def _measurements(source, role):
     # Process-local exact-copy cache only; no private output or history writes.
     card=json.loads(source)
-    styles = EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES
+    styles = EXAMPLE_STYLES if role=='example' else REVIEW_BODY_STYLES if role=='body' else REVIEW_ANSWER_STYLES
     low,high = FONT_RANGES[role_type(role)]
     sizes = sorted({*range(low,high+1,4),high,min(density(card)[0],high)})
     profiles={};by_style={}
     for style in styles:
         # Shared measurement only: all style IDs still draw distinct pixels.
-        family=('rounded' if style in PANEL_STYLES and style not in ('split_panel','pill','folded_corner')
+        family=('rounded_plain' if style=='rounded_plain' and role=='body' else
+                'rounded' if style in PANEL_STYLES and style not in ('split_panel','pill','folded_corner')
                 else 'italic_photo' if style=='italic_photo_fade' else style)
         if family not in profiles:
             rows=[]

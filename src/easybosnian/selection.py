@@ -12,10 +12,10 @@ WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnia
 
 
 def quiz_format_target(selection):
-    """One 25/75 draw per fresh quiz; an explicitly frozen quiz never redraws."""
+    """One 40/60 draw per fresh quiz; an explicitly frozen quiz never redraws."""
     if 'quiz' in frozen_kinds(selection):
         return selection['previous']['cards'][0].get('quiz_format','other')
-    return 'visual_identification' if randbelow(4)==0 else 'other'
+    return 'visual_identification' if randbelow(5)<2 else 'other'
 
 
 def batch_date(history, run_date, target='latest'):

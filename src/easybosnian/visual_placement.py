@@ -8,6 +8,7 @@ from PIL import Image, ImageOps
 
 from .core import ROOT, read_json
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
+                     REVIEW_BODY_STYLES, REVIEW_ANSWER_STYLES, style_label,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
                      PANEL_TONES, FADE_STYLES, TITLE_FADE_STYLES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, FADE_CATALOGUE,
@@ -67,6 +68,10 @@ CARD_SCHEMA = {
 # and balanced wrapping. Local renderer callers may still omit both defaults.
 def model_fields(properties, removed=()):
     fields={k:v for k,v in properties.items() if k not in removed}
+    if 'style' in fields and 'role' in fields:
+        role=fields['role']['enum'][0]
+        if role in ('body','A'):
+            fields['style']={'enum':list(REVIEW_BODY_STYLES if role=='body' else REVIEW_ANSWER_STYLES)}
     if 'heading_tone' in fields:fields['heading_tone']={'enum':list(REVIEW_TITLE_TONES)}
     if 'photo_tone' in fields:fields['photo_tone']={'enum':list(REVIEW_PHOTO_TONES)}
     if 'heading_fade' in fields:fields['heading_fade']={'enum':list(REVIEW_FADE_STYLES)}
@@ -150,6 +155,9 @@ Compare several upper/middle/lower, left/right or split text placements around i
 Hybrid body/answers MUST use approved bounded panels, never unboxed copy over photos/fades. Plain body and italic_footer are archive-only feed treatments; fresh body/answers use bounded panels. Bottom_sheet requires width>=660 and y>=700. Answer-only pill permits max2 measured lines; folded_corner is a top-right folded slip. Soft_corner has three rounded corners and square lower-left. All other compatible catalogue treatments remain available.
 Treat explanation and photographic PRIMJER as INDEPENDENT elements. Assess the whole photo: an upper body may pair with an example far below near the logo-safe edge; a lower body may pair with an example far above. There is NO maximum gap and no requirement for adjacency; hundreds of pixels can improve balance. Do not automatically attach it just below or just above the explanation. WHEN THE EXPLANATION SITS HIGH NEAR THE TITLE, STRONGLY PREFER placing PRIMJER in the LOWER photo area, nearer the logo-safe boundary, with a substantial open gap instead of clustering all text at the top. First compare safe lower placements; choose a close-under-body position only when lower alternatives would obscure an important subject/action, cannot remain harmonious/readable with any suitable approved text/backing/strength combination, or cannot fit safely. After choosing the lower position, select its text/backing colours, standard/sharp edges and soft/medium/strong shade strength against that actual part of the photograph; do not inherit the top area's pairing or make the shade strong merely because it is low. When the body sits lower, an example far above remains equally available. Close grouping remains valid when appropriate, subject to this strong lower-placement preference for an upper body. Preserve source blocks array role order, but choose y independently; editorial/footer order remains fixed.
 
+# Fresh panel catalogue
+For fresh body/answer blocks, the single underline design is minimal_rule (Underline panel); earlier overlay_light in history is archive-only, not a fresh option. rounded_plain is Clean rounded panel, with no accent stripe or rule. overlay_dark is displayed as Plain panel: an undecorated square shape, not an instruction to choose dark colours. Select its approved light/dark panel_tone independently, like other shapes. Category styles are unchanged.
+
 # Quiz panels and alignment
 Each answer independently chooses x/y/width, approved panel style, typography and marker_style=circle,rounded_square,square,triangle. Place A then B then C then D by y then x. Staggered left/right or different vertical regions are available; stacking is valid when suited, never a mechanical default. Coordinated panels/badges often look appealing; coherent mixtures are allowed. Do not signal the correct answer through design. Never add/remove/rewrite options.
 Intentional shared rows use exactly equal y and coordinated font_size/line_spacing, avoiding tiny accidental offsets. Pillow aligns equal-font/equal-line-count heights/baselines using a common measured font cell despite accents/descenders; unequal line counts can need different heights. A two-by-two grid requires FOUR existing choices with A/B and C/D rows and matching columns. With three, choose an intentional arrangement such as centred C below A/B, not an accidental incomplete grid. Visual-identification quizzes protect the complete photo with question above and ALL answers below. For THIS separate-photo template only, keep all answers properly grouped under the photo with consistent width, font_size and line_spacing. Different arrangements remain available: one row, a vertical list, a complete four-option grid, or two above a centred third (and other coherent row groupings). Shared rows have equal y and even horizontal gaps; rows share one centre line and equal measured vertical gaps. Centre a lone option beneath the preceding row as a complete panel, not at an arbitrary offset. Choose compact balanced spacing rather than scattered badges, excessive empty gaps or accidental misalignment. Panel styles, approved colours and badge shapes remain selectable. Full-background quizzes retain their independent/staggered placement freedom.
@@ -174,7 +182,7 @@ photo_window=null is the full hybrid feed crop and is REQUIRED for lesson/word a
 Use high confidence only for a considered readable composition. Pillow independently validates schema, glyph/contrast, geometry, coverage and collisions. Valid elements stay exact; only failed elements may be adjusted/recovered and reported. If repair feedback is supplied, preserve every locked accepted element exactly and correct ONLY failed elements, without source-copy changes. This feedback allows at most three proposals per card; API/service errors receive no retry.
  Design catalogue:
 """
-        +json.dumps({k:v for k,v in STYLE_CATALOGUE.items() if k not in ('editorial','plain','italic_footer')})+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
+        +json.dumps({k:style_label(k)+': '+v for k,v in STYLE_CATALOGUE.items() if k not in ('editorial','plain','italic_footer','overlay_light')})+' Category catalogue: '+json.dumps(CATEGORY_CATALOGUE)
         +' Fade catalogue: '+json.dumps({k:v for k,v in FADE_CATALOGUE.items() if k in (*REVIEW_FADE_STYLES,*REVIEW_EXAMPLE_FADE_STYLES)})
         +' Title-colour catalogue: '+json.dumps({k:TITLE_TONE_CATALOGUE[k] for k in REVIEW_TITLE_TONES})
         +' PRIMJER photo-colour catalogue: '+json.dumps({k:PHOTO_TONE_CATALOGUE[k] for k in REVIEW_PHOTO_TONES})+' Palette repetition policy for EVERY palette: '

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, TITLE_TONE_CATALOGUE, panel_alpha, PANEL_STYLES,
+                      STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, TITLE_TONE_CATALOGUE, panel_alpha, PANEL_STYLES, style_label,
                       PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
 from .core import PROJECT, REPO, ROOT, read_json, write_json
@@ -219,7 +219,7 @@ def decision_lines(rendering):
             lines.append('Repeated-palette exception: ChatGPT declared no other approved palette suitable.')
     for role,style in rendering['block_styles'].items():
         label='PRIMJER' if role=='example' else 'Explanation' if role=='body' else 'Answer '+role
-        lines.append(label+': '+STYLE_CATALOGUE[style])
+        lines.append(label+': '+style_label(style)+'. '+STYLE_CATALOGUE[style])
         if role in rendering['answer_badges']:
             lines.append(label+' badge: '+rendering['answer_badges'][role].replace('_',' ')+'.')
         if role=='example' and rendering.get('example_tone'):

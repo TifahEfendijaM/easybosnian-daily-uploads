@@ -4,12 +4,12 @@ from easybosnian.selection import quiz_format_target,check_selection
 from test_project import reviewed_fixture
 
 class QuizFormatProbabilityTests(unittest.TestCase):
- def test_exact_one_of_four_outcomes_is_picture_identification(self):
+ def test_exact_two_of_five_outcomes_are_picture_identification(self):
   values=[]
-  for ticket in range(4):
+  for ticket in range(5):
    with patch('easybosnian.selection.randbelow',return_value=ticket) as random:
-    values.append(quiz_format_target({'choice':'new'}));random.assert_called_once_with(4)
-  self.assertEqual(values,['visual_identification','other','other','other'])
+    values.append(quiz_format_target({'choice':'new'}));random.assert_called_once_with(5)
+  self.assertEqual(values,['visual_identification','visual_identification','other','other','other'])
  def test_frozen_quiz_never_draws_and_keeps_existing_format(self):
   for fmt in ('visual_identification','other'):
    p=reviewed_fixture();p['cards'][0]['quiz_format']=fmt

@@ -83,7 +83,8 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
         face=font(size,'Regular')
         text=card['body'] if role=='body' else next(o['text'] for o in card['options'] if o['label']==role)
         inset=(0 if style=='plain' else
-               (106 if style=='split_panel' else padding+24 if role=='body' else 94))
+               (106 if style=='split_panel' else padding if role=='body' and style=='rounded_plain'
+                else padding+24 if role=='body' else 94))
         text_width=width-inset-(0 if style=='plain' else padding)
         extra=0 if style=='plain' else 2*padding
     rows=wrap(text,face,text_width,wrapping)
@@ -197,6 +198,8 @@ def validate_current_design(card, plan):
         raise ValueError('Separate photo layouts are reserved for picture-identification quizzes')
     if plan.get('heading_fade','standard')!='standard':
         raise ValueError('Fresh title shades require smooth edges')
+    if any(b.get('style')=='overlay_light' for b in plan.get('blocks',())):
+        raise ValueError('Fresh underline panels use minimal_rule; overlay_light is archive-only')
     if card.get('quiz_format')=='visual_identification':
         validate_visual_answers(card,plan['blocks'])
 
@@ -496,8 +499,9 @@ def draw_panel(image, block, palette):
     surface=Image.new('RGBA',image.size)
     paint=ImageDraw.Draw(surface)
     fill=(*tuple(int(surface_colour[i:i+2],16) for i in (1,3,5)),alpha)
-    if style in ('rounded','pill'):
-        paint.rounded_rectangle((x,y,right,bottom),radius=24 if style=='rounded' else block['height']/2,fill=fill)
+    if style in ('rounded','rounded_plain','pill'):
+        radius={'rounded':24,'rounded_plain':36}.get(style,block['height']/2)
+        paint.rounded_rectangle((x,y,right,bottom),radius=radius,fill=fill)
     elif style=='bottom_sheet':
         paint.rounded_rectangle((x,y,right,bottom),radius=54,fill=fill)
         paint.rectangle((x,y+54,right,bottom),fill=fill)
