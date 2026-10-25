@@ -36,8 +36,8 @@ TITLE_TONE_CATALOGUE = {
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
 QUIZ_TITLE_SHADE_INTENTS = ('gentle', 'stronger')
-NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis')
-TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis')
+NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis', 'emphasis_medium', 'emphasis_strong')
+TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis', 'emphasis_medium', 'emphasis_strong')
 REVIEW_FADE_STYLES = ('standard',)  # fresh titles: smooth edges only
 REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
 EXAMPLE_SHADE_STRENGTHS = ('soft', 'medium', 'strong')
