@@ -148,7 +148,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics['body_contrast'],4.5)
                 self.assertEqual(metrics['block_styles']['body'],style)
                 outputs[style]=(root/'card.jpg').read_bytes()
-            self.assertEqual(len(set(outputs.values())),14)
+            self.assertEqual(len(set(outputs.values())),len(BODY_STYLES))
             for style in EXAMPLE_STYLES:
                 plan=editorial_plan(card) if style=='italic_footer' else default_plan(card)
                 plan['blocks'][-1]['style']=style
@@ -183,7 +183,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
                 self.assertTrue(all(b==bounds[0] for b in bounds))
                 self.assertEqual(len(set(pixels)),4)
                 variants[style]=pixels[0]
-            self.assertEqual(len(set(variants.values())),15)
+            self.assertEqual(len(set(variants.values())),len(PANEL_STYLES))
         self.assertEqual(quiz,before)
 
     def test_shared_answer_row_aligns_panel_heights_badges_and_glyph_baselines(self):
@@ -284,7 +284,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         package=reviewed_fixture();expected=render_input(package)
         for card in package['cards']:card['design_template']='framed'
         self.assertEqual(render_input(package),expected)
-        self.assertEqual(expected['rendering_version'],41)
+        self.assertEqual(expected['rendering_version'],42)
 
     def test_unshaded_italic_rejects_mixed_photo_but_fixed_fade_can_pass(self):
         from PIL import ImageDraw

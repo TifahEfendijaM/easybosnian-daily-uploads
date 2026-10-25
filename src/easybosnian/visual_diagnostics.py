@@ -162,6 +162,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Separate photograph must remain free of explanation panels',
     'Separate photo layouts are reserved for picture-identification quizzes',
     'Fresh title shades require smooth edges',
+    'Fresh underline panels use minimal_rule; overlay_light is archive-only',
     'Non-quiz title cannot remain readable within its shade limit',
     'Visual quiz answers require consistent widths and typography',
     'Visual quiz answers require aligned groups and consistent spacing',

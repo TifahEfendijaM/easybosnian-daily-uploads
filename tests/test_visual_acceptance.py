@@ -100,12 +100,12 @@ class GlyphAcceptanceTests(unittest.TestCase):
 
 class ReviewerFitDataTests(unittest.TestCase):
     def test_body_fit_profiles_share_measurements_without_removing_real_styles(self):
-        from easybosnian.designs import BODY_STYLES,PANEL_STYLES
+        from easybosnian.designs import REVIEW_BODY_STYLES,PANEL_STYLES
         card=reviewed_fixture()['cards'][2]
         data=block_measurements(card,'body')
-        self.assertEqual(set(data['measurements_by_style']),set(BODY_STYLES))
-        self.assertEqual(set(data['fit_profiles']),{'rounded','split_panel','plain'})
-        for style in set(BODY_STYLES)-{'split_panel','plain'}:
+        self.assertEqual(set(data['measurements_by_style']),set(REVIEW_BODY_STYLES))
+        self.assertEqual(set(data['fit_profiles']),{'rounded','rounded_plain','split_panel'})
+        for style in set(REVIEW_BODY_STYLES)-{'split_panel','plain','rounded_plain'}:
             self.assertEqual(data['measurements_by_style'][style]['measurement_family'],'rounded')
         # Body and answer insets differ; each role still has its own exact
         # profiles. No drawing renderer or allowed geometry is aliased.
@@ -120,12 +120,12 @@ class ReviewerFitDataTests(unittest.TestCase):
                     self.assertEqual((len(spec['rows']),spec['height']),(lines,height))
 
     def test_every_profile_is_an_exact_renderer_measurement_and_catalogue_is_complete(self):
-        from easybosnian.designs import BODY_STYLES,ANSWER_STYLES,EXAMPLE_STYLES
+        from easybosnian.designs import REVIEW_BODY_STYLES,REVIEW_ANSWER_STYLES,EXAMPLE_STYLES
         package=reviewed_fixture()
         for card in package['cards']:
             for role in roles(card):
                 data=block_measurements(card,role)
-                expected=EXAMPLE_STYLES if role=='example' else BODY_STYLES if role=='body' else ANSWER_STYLES
+                expected=EXAMPLE_STYLES if role=='example' else REVIEW_BODY_STYLES if role=='body' else REVIEW_ANSWER_STYLES
                 self.assertEqual(set(data['measurements_by_style']),set(expected))
                 for style,reference in data['measurements_by_style'].items():
                     for row in data['fit_profiles'][reference['measurement_family']]:
