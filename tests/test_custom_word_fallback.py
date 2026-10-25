@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.cli import fit_check
-from easybosnian.core import PROJECT, write_json
+from easybosnian.core import PROJECT, write_json, read_json
 from easybosnian.selection import check_selection, novelty_history, selection_context, word_levels
 from easybosnian.validate import validate,caption_language
 from test_project import reviewed_fixture
@@ -155,6 +155,7 @@ class CustomWordFallbackTests(unittest.TestCase):
                     package['cards'][2]['body']='The money a seller returns when you paid more than the price.'
                     package['private_review']['quiz_choice_review']={'target':3,'binary':False,
                         'reason':'This is a non-binary multiple-choice question with three distinct options.'}
+                    package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                     write_json(root/'build/preparation/2026-10-02.json',package)
                     return '{"status":"ready","reason":"none"}'
                 with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.secrets.choice',return_value=3),patch('easybosnian.cloud_prepare.today',return_value='2026-10-02'),patch('easybosnian.cloud_prepare.select_run_level',return_value='A2'),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent) as child,patch('easybosnian.cloud_prepare.prepare') as save:

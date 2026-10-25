@@ -13,7 +13,7 @@ from .notify import failure
 from .readiness import check_infrastructure
 from .store import Store
 from .validate import validate
-from .selection import selection_context, check_selection, novelty_history, word_levels
+from .selection import selection_context, check_selection, novelty_history, word_levels, quiz_format_target
 from .levels import select_run_level
 from .research_context import reading_instructions
 from .batches import identity, plan_batch
@@ -246,7 +246,9 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 chosen['quiz_option_target']=(chosen['previous']['private_review'].get('quiz_choice_review',{}).get('target',
                                               len(chosen['previous']['cards'][0]['options'])) if 'quiz' in fixed_kinds else secrets.choice((2,3,4)))
                 context=read_json(ROOT/'build/preparation-context.json')
-                context['selection']['quiz_option_target']=chosen['quiz_option_target'];write_json(ROOT/'build/preparation-context.json',context)
+                chosen['quiz_format_target']=quiz_format_target(chosen)
+                for key in ('quiz_option_target','quiz_format_target'):context['selection'][key]=chosen[key]
+                write_json(ROOT/'build/preparation-context.json',context)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)+reading_instructions(context)
                 require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')

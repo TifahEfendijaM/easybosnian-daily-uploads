@@ -26,7 +26,7 @@ def revised_prompt(value):
 
 
 def safe_quality(value):
-    if (not isinstance(value,dict) or set(value)!={'status','selected_attempt','reason','attempts'}
+    if (not isinstance(value,dict) or set(value)-{'generation_attempts'}!={'status','selected_attempt','reason','attempts'}
             or value['status'] not in ('accepted','best_effort','retained_pinned')
             or type(value['selected_attempt']) is not int or not 1<=value['selected_attempt']<=3
             or value['reason'] not in REASONS or not isinstance(value['attempts'],list)
@@ -36,6 +36,12 @@ def safe_quality(value):
                 or item['status'] not in ('accepted','regenerate') or item['reason'] not in REASONS
                 or type(item['quality']) is not int or not 0<=item['quality']<=100):raise ValueError('Invalid photo quality attempt')
     if value['selected_attempt']>len(value['attempts']):raise ValueError('Invalid selected photo attempt')
+    if 'generation_attempts' in value:
+        events=value['generation_attempts']
+        if (not isinstance(events,list) or not 1<=len(events)<=3
+                or any(event not in ('generated','content_rejected') for event in events)
+                or events.count('generated')!=len(value['attempts'])):
+            raise ValueError('Invalid photo generation diagnostics')
     return copy.deepcopy(value)
 
 
@@ -107,7 +113,7 @@ def quality_gate(package,photos,generate,*,pinned=(),attempt_limit=ATTEMPT_LIMIT
             if kind in pinned or attempt==attempt_limit:continue
             card['background_prompt']=choice['replacement_prompt'] or card['background_prompt']
             # Fresh cache namespace is supplied by the caller for every new photo.
-            generate(card,path)
+            if generate(card,path) is False:continue  # Shared inference budget exhausted; retain best actual photo.
             next_pending[kind]=path
         pending=next_pending
         if not pending:break

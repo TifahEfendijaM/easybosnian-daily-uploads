@@ -199,6 +199,9 @@ def decision_lines(rendering):
         quality=rendering['photo_quality']
         lines.append('Photo inspection: '+quality['status']+'; selected attempt '+str(quality['selected_attempt'])+
                      ' of '+str(len(quality['attempts']))+'; '+quality['reason']+'.')
+        if quality.get('generation_attempts'):
+            events=quality['generation_attempts']
+            lines.append('FLUX generation attempts: '+str(len(events))+'; confirmed content-safety refusals: '+str(events.count('content_rejected'))+'.')
     if category:lines.append('Category: '+CATEGORY_CATALOGUE[category])
     tone=rendering.get('heading_tone')
     if tone:lines.append('Title: '+(TITLE_TONE_CATALOGUE if 'heading_backing' in rendering else PHOTO_TONE_CATALOGUE)[tone])

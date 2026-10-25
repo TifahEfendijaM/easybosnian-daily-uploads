@@ -66,7 +66,7 @@ def replacement(card,old,base,window,design,background,faithful):
     return block
 
 
-def recover_elements(card, requested, background, render, *, required=()):
+def recover_elements(card, requested, background, render, *, required=(), reason=None):
     """Search smallest subsets; full glyph/pixel validation remains mandatory.
 
     Every untouched block/group is exact. Failed blocks first retain their safe
@@ -82,6 +82,8 @@ def recover_elements(card, requested, background, render, *, required=()):
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Non-quiz title cannot remain readable within its shade limit':
+        groups=['heading',*(g for g in groups if g!='heading')]
     for size in range(1,len(groups)):
         for failed in itertools.combinations(groups,size):
             if not required<=set(failed):continue
@@ -99,11 +101,31 @@ def recover_elements(card, requested, background, render, *, required=()):
                 locked=tuple(r for r in expected if r not in failed)
                 try:metrics=render(candidate)
                 except ValueError as error:
-                    adjusted=nearest_valid_plan(card,candidate,background,locked_roles=locked,
-                                               lock_window='photo_window' not in failed,reason=str(error))
-                    if adjusted is None:continue
-                    try:metrics=render(adjusted[0])
-                    except ValueError:continue
+                    if (str(error)=='Non-quiz title cannot remain readable within its shade limit'
+                            and 'example' in failed):
+                        from .hybrid import heading, TITLE_EXAMPLE_NEAR_GAP, block_spec
+                        example=next(b for b in candidate['blocks'] if b['role']=='example')
+                        low=math.ceil(heading(card)[2]+TITLE_EXAMPLE_NEAR_GAP)
+                        height=block_spec(card,'example',example['width'],example['style'],example['font_size'],
+                            example['line_spacing'],example.get('max_lines'),example.get('wrapping','balanced'))['height']
+                        # Only the failing example moves; full render checks every
+                        # candidate against retained siblings, contrast and logo.
+                        repaired=None
+                        for y in range(low,math.floor(1170-height)+1,8):
+                            shifted=copy.deepcopy(candidate)
+                            next(b for b in shifted['blocks'] if b['role']=='example')['y']=y
+                            try:repaired=render(shifted)
+                            except ValueError:continue
+                            break
+                        if repaired is not None:
+                            metrics=repaired
+                        else:continue
+                    else:
+                        adjusted=nearest_valid_plan(card,candidate,background,locked_roles=locked,
+                                                   lock_window='photo_window' not in failed,reason=str(error))
+                        if adjusted is None:continue
+                        try:metrics=render(adjusted[0])
+                        except ValueError:continue
                 applied=metrics['composition']
                 if any(applied['blocks'][i]!=requested['blocks'][i] for i,r in enumerate(expected) if r not in failed):continue
                 if any(any(applied.get(k)!=requested.get(k) for k in keys)

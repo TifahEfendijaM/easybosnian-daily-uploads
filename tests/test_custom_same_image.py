@@ -136,6 +136,7 @@ class CustomSameImageTests(unittest.TestCase):
                     self.assertEqual(context['reused_photo_kinds'],['word'])
                     self.assertEqual(context['selection']['quiz_option_target'],3)
                     package=self.candidate();package['date']=context['batch_date'];package['batch_id']=context['batch']['batch_id']
+                    package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                     write_json(root/f'build/preparation/{package["date"]}.json',package)
                     return '{"status":"ready","reason":"none"}'
                 for module in ('cloud_prepare','photo_reuse','cli'):

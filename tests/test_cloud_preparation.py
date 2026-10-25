@@ -117,7 +117,9 @@ class CloudPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
             def agent(*args):
-                order.append('research');write_json(root/f'build/preparation/{date}.json',{'date':date,'cards':[{'kind':x} for x in ('quiz','lesson','word')]})
+                order.append('research');package={'date':date,'cards':[{'kind':x} for x in ('quiz','lesson','word')]}
+                package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
+                write_json(root/f'build/preparation/{date}.json',package)
                 return '{"status":"ready","reason":"none"}'
             with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate',side_effect=lambda *a,**k:order.append('validate')),patch('easybosnian.cloud_prepare.fit_check',side_effect=lambda *a:order.append('fit')),patch('easybosnian.cloud_prepare.prepare',side_effect=lambda *a,**k:order.append('save')):
                 store.return_value.history.return_value={'project':PROJECT,'days':[{'date':date,'content':{'old':'content'}}]}
@@ -143,7 +145,7 @@ class CloudPreparationTests(unittest.TestCase):
                     for c in package['cards']:c['background_prompt']+=' Fresh natural light.'
                     package['bosnian_level']='B2'
                     for word in package['words']:word['bosnian_level']='A2'
-                    package['caption']+=' Danas.';package['cards'][0]['quiz_format']='other'
+                    package['caption']+=' Danas.';package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                     for c in package['cards']:c['question' if c['kind']=='quiz' else 'body']+=' Danas.'
                     write_json(root/f'build/preparation/{date}.json',package)
                     return '{"status":"ready","reason":"none"}'

@@ -17,13 +17,14 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':40, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':41, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
 def artwork(store, package, expose=False, review_images=False, require_prepared=False, reused_backgrounds=None, frozen_cards=None, design_attempt_limit=3):
     date=package['date']; output=ROOT/'build'/output_key(package); output.mkdir(parents=True,exist_ok=True)
     assets={}; stage='FLUX generation'
+    generation_counts={};generation_diagnostics={}
     frozen_cards=frozen_cards or {}
     if frozen_cards and (not review_images or not set(frozen_cards)<=set(('quiz','lesson','word'))):
         raise ValueError('Exact card reuse requires private reviewed artwork preparation')
@@ -70,6 +71,23 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 else:package.pop('background_sources',None)
         def photo_bytes(card):
             if reused_backgrounds is not None and card['kind'] in reused_backgrounds:return reused_backgrounds[card['kind']].read_bytes()
+            if review_images:
+                from .photo_generation import generate_photo, rewrite_rejected_scene
+                def send():
+                    nonlocal stage
+                    stage='FLUX generation'
+                    current_id=artwork_id if generation_counts[card['kind']]==1 else 'r-'+uuid.uuid4().hex
+                    if current_id!=artwork_id:
+                        package.setdefault('background_sources',{})[card['kind']]={
+                            'batch_id':package.get('batch_id') or 'legacy-'+date,
+                            'artwork_id':current_id if package.get('batch_id') else None}
+                    return provider().generate(card['background_prompt'],date,card['kind'],**({'batch_id':package['batch_id'],
+                        'reviewed_content':package,'artwork_id':current_id} if package.get('batch_id') else {}))
+                def rewrite_scene(card):
+                    nonlocal stage
+                    stage='photo scene revision'
+                    return rewrite_rejected_scene(card)
+                return generate_photo(card,send,generation_counts,generation_diagnostics,rewrite=rewrite_scene)
             return provider().generate(card['background_prompt'],date,card['kind'],**({'batch_id':package['batch_id'],'reviewed_content':package,'artwork_id':artwork_id} if package.get('batch_id') else {}))
         if review_images:
             from .visual_placement import composition_sheet, review_compositions
@@ -79,21 +97,30 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 stage='FLUX generation'
                 Image.open(io.BytesIO(photo_bytes(card))).convert('RGB').save(background,'JPEG',quality=95)
             # Inspect unstyled actual photographs before any overlay is composed.
-            from .photo_quality import quality_gate
+            from .photo_quality import quality_gate, inspect_photos
             photo_paths={c['kind']:output/f"{c['kind']}-background.jpg" for c in package['cards'] if c['kind'] not in frozen_cards}
             sources={k:[package.get('background_sources',{}).get(k,package.get('background_source'))] for k in photo_paths}
             def regenerate(card,path):
                 nonlocal stage
-                stage='FLUX generation';new_id='r-'+uuid.uuid4().hex
-                source={'batch_id':package.get('batch_id') or 'legacy-'+date,'artwork_id':new_id if package.get('batch_id') else None}
-                package.setdefault('background_sources',{})[card['kind']]=source
-                raw=provider().generate(card['background_prompt'],date,card['kind'],**({'batch_id':package['batch_id'],
-                    'reviewed_content':package,'artwork_id':new_id} if package.get('batch_id') else {}))
+                from .photo_generation import LIMIT
+                if generation_counts.get(card['kind'],0)>=LIMIT:return False
+                stage='FLUX generation'
+                try:raw=photo_bytes(card)
+                except SafeError as error:
+                    if (error.stage=='FLUX generation' and error.reason=='ai_content_rejected'
+                            and generation_counts.get(card['kind'],0)>=LIMIT):return False
+                    raise
                 Image.open(io.BytesIO(raw)).convert('RGB').save(path,'JPEG',quality=95)
+                source=package.get('background_sources',{}).get(card['kind'],package.get('background_source'))
                 sources[card['kind']].append(source)
             stage='photo quality inspection'
-            quality=quality_gate(package,photo_paths,regenerate,pinned=tuple(reused_backgrounds or ())) if photo_paths else {}
+            def inspect(package,photos):
+                nonlocal stage
+                stage='photo quality inspection'
+                return inspect_photos(package,photos)
+            quality=quality_gate(package,photo_paths,regenerate,pinned=tuple(reused_backgrounds or ()),inspect=inspect) if photo_paths else {}
             for kind,verdict in quality.items():
+                if kind in generation_diagnostics:verdict['generation_attempts']=generation_diagnostics[kind]
                 source=sources[kind][verdict['selected_attempt']-1]
                 if source is not None:
                     if source!=package.get('background_source'):package.setdefault('background_sources',{})[kind]=source

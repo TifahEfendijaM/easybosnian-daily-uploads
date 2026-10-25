@@ -41,7 +41,7 @@ class NeutralTitlesPaletteVarietyTests(unittest.TestCase):
         palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);photo=root/'photo.jpg';output=root/'card.jpg'
-            Image.new('RGB',(1080,1350),'white').save(photo)
+            Image.new('RGB',(1080,1350),'#cccccc').save(photo)
             result=render_hybrid(card,'gold-cream',photo,output,plan)
             self.assertEqual(result['heading_backing'],'#000000')
             self.assertEqual(result['heading_colour'],palette['accent'])

@@ -99,7 +99,7 @@ class TitlePaletteLimitsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg'
             Image.new('RGB',(1080,1350),'#ffffff').save(photo)
-            for tone,expected_alpha in [('paper_dark',114),('paper_ink',114),('accent_dark',144)]:
+            for tone,expected_alpha in [('paper_dark',114),('paper_ink',114)]:
                 plan=dict(default_plan(card),confidence='high',heading_tone=tone)
                 plan['blocks'][-1]['photo_tone']='paper_dark'
                 result=render_hybrid(card,'gold-cream',photo,root/(tone+'.jpg'),plan)
@@ -111,6 +111,10 @@ class TitlePaletteLimitsTests(unittest.TestCase):
                 self.assertEqual(result['example_shading'],170)
                 self.assertGreaterEqual(result['example_contrast'],4.5)
                 self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
+            plan=dict(default_plan(card),confidence='high',heading_tone='accent_dark')
+            with self.assertRaisesRegex(ValueError,'shade limit'):
+                render_hybrid(card,'gold-cream',photo,root/'over-cap.jpg',plan)
+            self.assertEqual(card,source)
 
 
 if __name__=='__main__':unittest.main()
