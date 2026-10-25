@@ -28,9 +28,10 @@ EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
 TITLE_FADE_PADDING = 24  # Equal upper/lower shoulders; category elements draw above the title fade.
-# Start with faint title backings; stronger candidates require measured need.
+# Contrast-only titles start faint; approved black emphasis may request more.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
 NONQUIZ_TITLE_MAX_SHADE = 126  # Recorded Hoćemo li unutra? reference, 25 October.
+TITLE_EMPHASIS_MINIMUMS = {'emphasis':12, 'emphasis_medium':66, 'emphasis_strong':126}
 NEAR_EXAMPLE_TITLE_MAX_SHADE = 78
 TITLE_EXAMPLE_NEAR_GAP = 100
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
@@ -254,10 +255,13 @@ def measured_plan(card, plan):
     if plan.get('heading_shade','gentle')=='stronger' and (card['kind']!='quiz' or plan['photo_window'] is not None):
         raise ValueError('Stronger title shading requires a photographic quiz')
     header_end = heading(card)[2]
-    if plan.get('heading_shade')=='emphasis' and (
+    if plan.get('heading_shade') in TITLE_EMPHASIS_MINIMUMS and (
             card['kind'] not in ('lesson','word') or plan['photo_window'] is not None
             or title_example_proximity(plan['blocks'],header_end)!='far'):
         raise ValueError('Decorative non-quiz title shading requires distant PRIMJER on a full photograph')
+    if plan.get('heading_shade') in ('emphasis_medium','emphasis_strong') and plan.get('heading_tone','auto') not in (
+            'paper_dark','paper_ink','accent_dark','accent_ink','paper_accent'):
+        raise ValueError('Increased decorative title strength requires an explicit black backing')
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -629,7 +633,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         title_cap=(255 if card['kind']=='quiz' else
                    NEAR_EXAMPLE_TITLE_MAX_SHADE if near_example else NONQUIZ_TITLE_MAX_SHADE)
         minimum_shade=(QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else
-                       TITLE_SHADE_LEVELS[0] if plan.get('heading_shade')=='emphasis' else 0)
+                       TITLE_EMPHASIS_MINIMUMS.get(plan.get('heading_shade'),0))
         # Equal upper/lower fades may reach the category area. Category
         # elements are drawn after all photographic shades, always on top.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,

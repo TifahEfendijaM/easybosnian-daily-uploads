@@ -68,7 +68,7 @@ class DistantTitleEmphasisTests(unittest.TestCase):
  def test_quiz_schema_and_stronger_intent_stay_separate_and_paper_or_absent_example_cannot_emphasise(self):
   fields=RESULT_SCHEMA['properties']['cards']['properties']
   self.assertEqual(fields['quiz']['properties']['heading_shade']['enum'],['gentle','stronger'])
-  for kind in ('lesson','word'):self.assertEqual(fields[kind]['properties']['heading_shade']['enum'],['gentle','emphasis'])
+  for kind in ('lesson','word'):self.assertEqual(fields[kind]['properties']['heading_shade']['enum'],['gentle','emphasis','emphasis_medium','emphasis_strong'])
   card,plan=self.card_plan();card.pop('example');plan=default_plan(card);plan['heading_shade']='emphasis'
   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
   card,plan=self.card_plan();plan=editorial_plan(card);plan['heading_shade']='emphasis'
@@ -98,3 +98,75 @@ class DistantTitleEmphasisTests(unittest.TestCase):
   prompt=model.call_args.args[0]
   for text in ('less than 100px is nearby','100px or more is farther away','heading_shade=gentle or emphasis','even if the bare title is already readable','Nearby titles require heading_shade=gentle','Regardless of distance','reducing or removing the TITLE shade','PRIORITISE the PRIMJER backing','STRONGLY PREFER BLACK backing with LIGHT'):
    self.assertIn(text,prompt)
+  for text in ('For BLACK backing only','emphasis_medium','emphasis_strong','not only for readability',
+               'White backing keeps the existing gentle/emphasis behaviour',
+               'do not reduce or remove it merely because both shades are present'):
+   self.assertIn(text,prompt)
+ def test_black_strength_choice_survives_even_when_bare_title_already_passes(self):
+  for kind in ('word','lesson'):
+   for tone in ('paper_dark','paper_ink','accent_dark'):
+    card,base=self.card_plan(kind);base['heading_tone']=tone;source=copy.deepcopy(card)
+    with tempfile.TemporaryDirectory() as tmp:
+     root=Path(tmp);photo=root/'photo.png';Image.new('RGB',(1080,1350),'#202020').save(photo)
+     plain=render_hybrid(card,'gold-cream',photo,root/'gentle.jpg',base)
+     self.assertEqual(plain['heading_shading'],0)
+     for intent,alpha in (('emphasis',12),('emphasis_medium',66),('emphasis_strong',126)):
+      plan=dict(base,heading_shade=intent);before=copy.deepcopy(plan)
+      result=render_hybrid(card,'gold-cream',photo,root/f'{intent}.jpg',plan)
+      self.assertEqual(result['heading_shading'],alpha);self.assertEqual(result['heading_backing'],'#000000')
+      self.assertGreaterEqual(result['heading_contrast'],3);self.assertEqual(result['composition'],before)
+      self.assertEqual(result['example_shading'],plain['example_shading']);self.assertEqual(card,source)
+      with Image.open(root/'gentle.jpg') as a,Image.open(root/f'{intent}.jpg') as b:
+       self.assertEqual(a.crop((0,700,1080,1350)).tobytes(),b.crop((0,700,1080,1350)).tobytes())
+ def test_increased_strength_requires_black_and_never_silently_darkens_white_or_auto(self):
+  card,plan=self.card_plan()
+  for intent in ('emphasis_medium','emphasis_strong'):
+   for tone in ('auto','ink_light','ink_paper','accent_light','ink_accent'):
+    plan.update(heading_shade=intent,heading_tone=tone)
+    with self.assertRaisesRegex(ValueError,'explicit black backing'):measured_plan(card,plan)
+ def test_increased_black_strength_keeps_existing_near_boundary_and_quiz_paper_restrictions(self):
+  for intent in ('emphasis_medium','emphasis_strong'):
+   card,plan=self.card_plan(intent=intent);boundary=heading(card)[2]
+   plan['blocks'][1]['y']=round(boundary+99)
+   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
+   plan['blocks'][1]['y']=round(boundary+100);measured_plan(card,plan)
+   card.pop('example');plan=default_plan(card);plan['heading_shade']=intent
+   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
+   card,plan=self.card_plan();plan=editorial_plan(card);plan['heading_shade']=intent
+   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
+   card=reviewed_fixture()['cards'][0];plan=default_plan(card);plan['heading_shade']=intent
+   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
+ def test_medium_black_can_escalate_for_contrast_but_stays_inside_existing_cap(self):
+  card,plan=self.card_plan(intent='emphasis_medium')
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);photo=root/'photo.png';Image.new('RGB',(1080,1350),'white').save(photo)
+   result=render_hybrid(card,'gold-cream',photo,root/'card.jpg',plan)
+  self.assertGreater(result['heading_shading'],66)
+  self.assertLessEqual(result['heading_shading'],126);self.assertGreaterEqual(result['heading_contrast'],3)
+ def test_white_increased_strength_recovers_only_the_heading_with_safe_reason(self):
+  card,plan=self.card_plan(intent='emphasis_medium');plan['heading_tone']='ink_light';before=copy.deepcopy(plan)
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);photo=root/'photo.png';Image.new('RGB',(1080,1350),'#eeeeee').save(photo)
+   m,detail=render_design(card,plan,photo,lambda p:render_hybrid(card,'gold-cream',photo,root/'card.jpg',p),model_accepted=True,attempt_limit=1)
+  self.assertEqual(m['composition']['blocks'],before['blocks']);self.assertEqual(detail['status'],'partial')
+  self.assertEqual(detail['element_recovery']['fallback'],['heading'])
+  self.assertEqual(detail['rejection']['reason'],'Increased decorative title strength requires an explicit black backing')
+ def test_new_strength_choices_are_strictly_typed_reported_and_retained_for_nonquiz_history(self):
+  package=reviewed_fixture();proposal={'cards':{c['kind']:dict(default_plan(c),palette='gold-cream') for c in package['cards']}}
+  fields=RESULT_SCHEMA['properties']['cards']['properties']
+  self.assertEqual(fields['quiz']['properties']['heading_shade']['enum'],['gentle','stronger'])
+  for intent in ('emphasis_medium','emphasis_strong'):
+   proposal['cards']['word']['heading_shade']=intent
+   self.assertFalse(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
+   card,plan=self.card_plan(intent=intent)
+   with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp);photo=root/'photo.png';Image.new('RGB',(1080,1350),'#202020').save(photo)
+    m=render_hybrid(card,'gold-cream',photo,root/'card.jpg',plan)
+   self.assertEqual(accepted_choices({'cards':{'word':dict(m,status='accepted')}})['word']['heading_shade'],intent)
+   self.assertIn('Title shade intent: '+intent+'.',decision_lines(m))
+   proposal['cards']['quiz']['heading_shade']=intent
+   self.assertTrue(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
+   proposal['cards']['quiz']['heading_shade']='gentle'
+  for invalid in (100,0.3,{'opacity':66},'emphasis_unlimited'):
+   proposal['cards']['word']['heading_shade']=invalid
+   self.assertTrue(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
