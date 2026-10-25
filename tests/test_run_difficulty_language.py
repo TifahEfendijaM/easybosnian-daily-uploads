@@ -100,6 +100,7 @@ class RunDifficultyLanguageTests(unittest.TestCase):
                 ctx=read_json(root/'build/preparation-context.json');self.assertEqual(ctx['target_cefr'],'A2')
                 self.assertEqual(ctx['selection']['target_cefr'],'A2')
                 p=fresh();p.update(date=ctx['batch_date'],batch_id=ctx['batch']['batch_id'])
+                p['cards'][0]['quiz_format']=ctx['selection']['quiz_format_target']
                 write_json(root/f'build/preparation/{p["date"]}.json',p)
                 return '{"status":"ready","reason":"none"}'
             for name in ('cloud_prepare','cli'):stack.enter_context(patch('easybosnian.'+name+'.ROOT',root))

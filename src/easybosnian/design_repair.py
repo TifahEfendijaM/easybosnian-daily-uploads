@@ -55,7 +55,7 @@ def render_design(card,plan,background,draw,*,model_accepted,repair=None,attempt
             rejection=rejection_diagnostic(error,current)
             attempts.append({'attempt':attempt,'result':'rejected','reason':rejection['reason']})
         repair_violation=None
-        recovered=recover_elements(card,current,background,draw,required=invalid_elements)
+        recovered=recover_elements(card,current,background,draw,required=invalid_elements,reason=rejection['reason'])
         if recovered:recovery=recovered
         if recovery:
             _,detail=recovery

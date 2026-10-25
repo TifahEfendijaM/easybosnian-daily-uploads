@@ -1,5 +1,6 @@
 """Selection-aware novelty: manual/retained terms may repeat; model choices must be new."""
 import copy
+from secrets import randbelow
 from datetime import date as calendar_date
 from .validate import instructional, normalise
 from .batches import identity, latest_record
@@ -8,6 +9,13 @@ CHOICES = ('new', 'same_theme', 'same_words', 'same_images', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered', 'same_image', 'same_image&design')
 PHOTO_ACTIONS = ('same_image','same_image&design')
 WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
+
+
+def quiz_format_target(selection):
+    """One 25/75 draw per fresh quiz; an explicitly frozen quiz never redraws."""
+    if 'quiz' in frozen_kinds(selection):
+        return selection['previous']['cards'][0].get('quiz_format','other')
+    return 'visual_identification' if randbelow(4)==0 else 'other'
 
 
 def batch_date(history, run_date, target='latest'):
@@ -84,6 +92,12 @@ def frozen_kinds(selection):
 
 
 def check_selection(package, selection):
+    target=selection.get('quiz_format_target')
+    if target is not None:
+        if target not in ('visual_identification','other'):
+            raise ValueError('Invalid trusted quiz format target')
+        if package['cards'][0].get('quiz_format','other')!=target:
+            raise ValueError('Quiz format differs from the trusted random target')
     choice = selection['choice']; previous = selection['previous']
     if choice != 'custom' and package.get('private_review',{}).get('word_replacements'):
         raise ValueError('Word replacement reviews apply only to custom selections')

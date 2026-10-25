@@ -86,6 +86,7 @@ class AllTodayTests(unittest.TestCase):
                     for card in p['cards']:
                         card['background_prompt']+=' Fresh natural light.'
                         card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
+                    p['cards'][0]['quiz_format']=context['selection']['quiz_format_target']
                     write_json(root/'build/preparation/2026-10-04.json',p)
                     return '{"status":"ready","reason":"none"}'
                 stack.enter_context(patch('easybosnian.cloud_prepare.ROOT',root))

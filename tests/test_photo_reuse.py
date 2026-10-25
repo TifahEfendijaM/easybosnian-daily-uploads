@@ -104,7 +104,9 @@ class PhotoReuseTests(unittest.TestCase):
             def agent(prompt,**kwargs):
                 self.assertEqual(len(kwargs['images']),3)
                 self.assertTrue(all(Path(p).read_bytes()==photo() for p in kwargs['images']))
-                write_json(root/f'build/preparation/{self.old["date"]}.json',fresh(self.old))
+                package=fresh(self.old)
+                package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
+                write_json(root/f'build/preparation/{self.old["date"]}.json',package)
                 return '{"status":"ready","reason":"none"}'
             for module in ('cloud_prepare','photo_reuse','cli'):
                 stack.enter_context(patch('easybosnian.'+module+'.ROOT',root))

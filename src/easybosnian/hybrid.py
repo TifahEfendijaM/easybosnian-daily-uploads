@@ -30,6 +30,9 @@ TITLE_FADE_FEATHER = 100
 TITLE_FADE_PADDING = 24  # Equal upper/lower shoulders; category elements draw above the title fade.
 # Start with faint title backings; stronger candidates require measured need.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
+NONQUIZ_TITLE_MAX_SHADE = 126  # Recorded Hoćemo li unutra? reference, 25 October.
+NEAR_EXAMPLE_TITLE_MAX_SHADE = 78
+TITLE_EXAMPLE_NEAR_GAP = 100
 # Finer steps avoid unnecessarily whitening a photograph when a weaker white
 # title backing already passes contrast. Black backings keep their existing preset.
 TITLE_WHITE_SHADE_LEVELS = tuple(sorted(set(TITLE_SHADE_LEVELS) | set(range(2,145,2)) | {156,190,225}))
@@ -194,6 +197,36 @@ def validate_current_design(card, plan):
         raise ValueError('Separate photo layouts are reserved for picture-identification quizzes')
     if plan.get('heading_fade','standard')!='standard':
         raise ValueError('Fresh title shades require smooth edges')
+    if card.get('quiz_format')=='visual_identification':
+        validate_visual_answers(card,plan['blocks'])
+
+
+def validate_visual_answers(card, blocks):
+    """Aligned answer groups for separate photos; multiple arrangements remain.
+
+    Rows may have different counts (including two above a centred third), but
+    share one centre line, consistent cells/type and equal clear row gaps.
+    """
+    if not blocks:return
+    first=blocks[0]
+    if any(any(b.get(k)!=first.get(k) for k in ('width','font_size','line_spacing')) for b in blocks):
+        raise ValueError('Visual quiz answers require consistent widths and typography')
+    rows={}
+    for block in blocks:
+        height=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
+                          block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))['height']
+        rows.setdefault(block['y'],[]).append({**block,'bottom':block['y']+height})
+    groups=list(rows.values());centres=[]
+    for group in groups:
+        xs=[b['x'] for b in group]
+        gaps=[b-a-first['width'] for a,b in zip(xs,xs[1:])]
+        if gaps and max(gaps)-min(gaps)>1:
+            raise ValueError('Visual quiz answers require aligned groups and consistent spacing')
+        centres.append((xs[0]+xs[-1]+first['width'])/2)
+    gaps=[b[0]['y']-max(a['bottom'] for a in group)
+          for group,b in zip(groups,groups[1:])]
+    if max(centres)-min(centres)>1 or (gaps and max(gaps)-min(gaps)>1):
+        raise ValueError('Visual quiz answers require aligned groups and consistent spacing')
 
 
 def measured_plan(card, plan):
@@ -303,7 +336,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0, maximum_shade=255):
     """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -358,7 +391,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
         current_surround=light_surround_mask if white else surround_mask
         for alpha in levels:
-            if alpha<minimum_shade:continue
+            if alpha<minimum_shade or alpha>maximum_shade:continue
             overlay=Image.new('RGBA',image.size)
             if fade_style=='sharp':
                 # Blend only the upper edge into the photograph. The lower
@@ -407,7 +440,9 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
             if score>=threshold:
                 if best is None or alpha<best[0]:best=(alpha,candidate,colour,score)
                 break
-    if best is None:raise ValueError('Actual photographic text contrast fails; never publish unreadable copy')
+    if best is None:
+        if maximum_shade<255:raise ValueError('Non-quiz title cannot remain readable within its shade limit')
+        raise ValueError('Actual photographic text contrast fails; never publish unreadable copy')
     alpha,candidate,colour,score=best;image.paste(candidate)
     return colour,score,alpha
 
@@ -505,7 +540,8 @@ def draw_panel(image, block, palette):
                 draw.line((corner_x+32*direction_x,corner_y,corner_x,corner_y,
                            corner_x,corner_y+24*direction_y),fill=accent,width=3)
     elif style=='soft_corner':
-        draw.line((x+18,y+padding,x+18,bottom-padding),fill=accent,width=4)
+        rule_x=x+18+(block.get('content_offset',0) if role!='body' else 0)
+        draw.line((rule_x,y+padding,rule_x,bottom-padding),fill=accent,width=4)
     elif style=='folded_corner':
         draw.line((x+3,y+3,right-26,y+3,right-3,y+26),fill=accent,width=3)
         draw.polygon(((right-24,y),(right-24,y+24),(right,y+24)),fill=accent)
@@ -514,9 +550,10 @@ def draw_panel(image, block, palette):
     if role!='body':
         marker_style=block.get('marker_style','circle')
         if marker_style not in MARKER_STYLES:raise ValueError('Unsupported answer badge')
-        marker=(x+15 if style=='split_panel' else x+20,
+        marker_x=x+(15 if style=='split_panel' else 20)+block.get('content_offset',0)
+        marker=(marker_x,
                 y+(block['height']-52)/2,
-                x+67 if style=='split_panel' else x+72,
+                marker_x+52,
                 y+(block['height']+52)/2)
         badge_fill=paper if style in ('overlay_dark','split_panel') else accent
         if block.get('panel_tone','auto')!='auto' and badge_fill==surface_colour:badge_fill=paper
@@ -560,11 +597,22 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     else:
         image=ImageOps.fit(photo,(WIDTH,HEIGHT),method=Image.Resampling.LANCZOS).convert('RGBA')
     title_face,title_rows,header_end=heading(card)
+    if window and card.get('quiz_format')=='visual_identification':
+        for block in blocks:
+            if block['role'] in ('body','example') or block['style']=='split_panel':continue
+            # Centre the visible badge+text group, not merely an invisible wide
+            # panel. A paper-coloured panel can blend into the page completely.
+            text_right=block['text_inset']+max(block['face'].getlength(row) for row in block['rows'])
+            marker_left=14 if block.get('marker_style')=='triangle' else 20
+            block['content_offset']=(block['width']-(text_right-marker_left))/2-marker_left
     heading_tone=plan.get('heading_tone','auto')
     heading_backing=None
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
     else:
         colours,backings=title_colours(palette,heading_tone)
+        near_example=any(b['role']=='example' and b['y']-header_end<TITLE_EXAMPLE_NEAR_GAP for b in blocks)
+        title_cap=(255 if card['kind']=='quiz' else
+                   NEAR_EXAMPLE_TITLE_MAX_SHADE if near_example else NONQUIZ_TITLE_MAX_SHADE)
         # Equal upper/lower fades may reach the category area. Category
         # elements are drawn after all photographic shades, always on top.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
@@ -574,7 +622,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
-            minimum_shade=QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else 0)
+            minimum_shade=QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else 0,
+            maximum_shade=title_cap)
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
     example_contrast=None;example_shading=0;example_colour=None
@@ -634,7 +683,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             draw=ImageDraw.Draw(image)
             text_y=(y+padding if role=='body' else
                     y+(block['height']-block['text_cell_height'])/2+block['text_cell_offset'])
-            text_x=x+block['text_inset']
+            text_x=x+block['text_inset']+block.get('content_offset',0)
             # Actual composited glyph contrast, without repairing opacity or fades.
             try:
                 _,score,_=protect_text(image,(text_x,text_y),rows,face,[colour],4.5,

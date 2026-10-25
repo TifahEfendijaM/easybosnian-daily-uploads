@@ -153,10 +153,12 @@ class PublicFluxExplanationTests(unittest.TestCase):
         package=reviewed_fixture();package['batch_id']='b-'+'a'*32
         error=SafeError('HTTP 409; provider code 8007; provider HTTP 400; content-safety rejection',
                         'FLUX generation',409,reason='ai_content_rejected',provider_code=8007,provider_http_status=400)
-        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider') as provider:
+        replacement='Photorealistic photograph of a wooden table in a sunlit room. Natural textures and true-to-life colours. No text, no lettering, no logos.'
+        with tempfile.TemporaryDirectory() as temp,patch('easybosnian.artwork.ROOT',Path(temp)),patch('easybosnian.artwork.provider') as provider,patch('easybosnian.photo_generation.rewrite_rejected_scene',side_effect=[replacement,replacement.replace('wooden table','wooden desk')]) as rewrite:
             provider.return_value.generate.side_effect=error
             with self.assertRaises(SafeError) as caught:artwork(MagicMock(),package,review_images=True)
             self.assertEqual(caught.exception.reason,'ai_content_rejected')
             self.assertIn('content-safety',str(caught.exception))
             self.assertIn('NSFW/content-safety',next_step('FLUX generation',caught.exception))
-            provider.return_value.generate.assert_called_once()
+            self.assertEqual(provider.return_value.generate.call_count,3)
+            self.assertEqual(rewrite.call_count,2)

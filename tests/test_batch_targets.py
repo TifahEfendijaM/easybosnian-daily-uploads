@@ -47,6 +47,7 @@ class BatchTargetTests(unittest.TestCase):
                     for card in package['cards']:
                         card['background_prompt']+=' Fresh natural light.'
                         card['question' if card['kind']=='quiz' else 'body']+=' Danas.'
+                    package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                     write_json(root/'build/preparation/2026-10-03.json',package)
                     return '{"status":"ready","reason":"none"}'
                 for name,value in [('ROOT',root),('today','2026-10-04'),('select_run_level','A2')]:
@@ -72,6 +73,7 @@ class BatchTargetTests(unittest.TestCase):
                 self.assertEqual(prompt.split('\n\nTrusted local context index:',1)[0],'Prepare 2026-10-04')
                 self.assertIn('max_output_tokens=10000',prompt)
                 package=copy.deepcopy(self.old);package['date']='2026-10-04'
+                package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                 write_json(root/'build/preparation/2026-10-04.json',package)
                 return '{"status":"ready","reason":"none"}'
             stack.enter_context(patch('easybosnian.cloud_prepare.ROOT',root))

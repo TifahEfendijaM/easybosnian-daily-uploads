@@ -130,6 +130,7 @@ class CustomHistoryReuseTests(unittest.TestCase):
                     package['cards'][2]['body']='The money a seller returns when you paid more than the price.'
                     package['private_review']['quiz_choice_review']={'target':3,'binary':False,
                         'reason':'This is a non-binary multiple-choice question with three distinct options.'}
+                    package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
                     write_json(root/f"build/preparation/{package['date']}.json", package)
                     return '{"status":"ready","reason":"none"}'
                 with patch('easybosnian.cloud_prepare.ROOT', root), patch('easybosnian.cloud_prepare.secrets.choice',return_value=3), patch('easybosnian.cloud_prepare.today', return_value='2026-10-04'), patch('easybosnian.cloud_prepare.select_run_level', return_value='A2'), patch('easybosnian.levels.load_level', return_value='A2'), patch('easybosnian.cloud_prepare.failure'), patch('easybosnian.cloud_prepare.require_publishing'), patch('easybosnian.cloud_prepare.check_infrastructure'), patch('easybosnian.cloud_prepare.Store') as store, patch('easybosnian.cli.Store', store), patch('easybosnian.cli.verify_repository'), patch('easybosnian.cloud_prepare.run_codex', side_effect=agent) as child, patch('easybosnian.cloud_prepare.prepare', wraps=prepare) as save:
