@@ -1,10 +1,36 @@
 import base64
+import json
 import os
+import re
 from abc import ABC, abstractmethod
 
 from .store import Store
 from .core import ROOT
-from .http import SafeError
+from .http import SafeError, FLUX_REASONS
+
+
+def flux_diagnostic_reason(body, error):
+    """Classify only matching provider error envelopes; never export their prose."""
+    try:
+        value=json.loads(body)
+    except (ValueError,TypeError,UnicodeError):
+        return None
+    if (not isinstance(value,dict) or type(value.get('internalCode')) is not int
+            or type(value.get('httpCode')) is not int
+            or value['internalCode']!=error.provider_code or value['httpCode']!=error.provider_http_status):
+        return None
+    detail=value.get('description') or value.get('message')
+    if not isinstance(detail,str):return None
+    detail=detail.lower()
+    if value['httpCode']==400 and re.search(r'\bnsfw\b',detail):
+        return 'ai_content_rejected'
+    if value['httpCode']==429:
+        if (('free allocation' in detail or 'daily allocation' in detail) and 'neuron' in detail
+                and ('used up' in detail or 'exhaust' in detail)):
+            return 'ai_free_allocation_exhausted'
+        if any(phrase in detail for phrase in ('temporarily at capacity','capacity temporarily exceeded','out of capacity')):
+            return 'ai_capacity_exceeded'
+    return None
 
 
 class BackgroundProvider(ABC):
@@ -36,6 +62,10 @@ class CloudflareFlux(BackgroundProvider):
                     path.parent.mkdir(parents=True,exist_ok=True)
                     fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600);os.fchmod(fd,0o600)
                     with os.fdopen(fd,'wb') as diagnostic:diagnostic.write(body)
+                    reason=flux_diagnostic_reason(body,error)
+                    if reason:
+                        error.reason=reason
+                        error.args=(str(error)+'; '+FLUX_REASONS[reason],)
                 except Exception:
                     print('::warning::Private provider diagnostic could not be captured; no inference retry')
             raise

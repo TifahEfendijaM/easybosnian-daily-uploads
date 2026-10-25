@@ -66,7 +66,7 @@ def main():
         if args.action=='save':
             if private_github_outputs():return
             save_report(store,rid,os.environ['MODE'])
-            message='Detailed run report stored in authenticated private KV for 14 days; no public artifact or issue was created.'
+            message='Report metadata backed up privately for 14 days. The public run Summary contains the report and redacted failure details.'
             if os.getenv('GITHUB_STEP_SUMMARY'):
                 with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as f:f.write('\n'+message+'\n')
         else:

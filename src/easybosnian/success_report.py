@@ -365,7 +365,7 @@ def main():
         placement=ROOT/'build'/batch_id/'image-placement-result.json'
         if placement.is_file():data=with_rendering(data,read_json(placement))
         write_report(data)
-        print('Successful-publication report prepared for protected storage')
+        print('Successful-publication report added to the run Summary and prepared for backup')
     except Exception as error:
         status=str(error) if isinstance(error,ValueError) and private_github_outputs() else 'Report step failed; inspect protected report/access'
         # Never print private result data or free-form model output.

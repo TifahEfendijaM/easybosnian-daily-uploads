@@ -83,9 +83,13 @@ class SuccessReportTests(unittest.TestCase):
                 (directory/'report-source.json').write_text(json.dumps(source))
                 (directory/'image-placement-result.json').write_text(json.dumps(self.rendering(package)))
                 (directory/'platforms-result.json').write_text(json.dumps({'batch':package['date'],'batch_id':package['date'],'platforms':{'facebook':{'status':'failed','error':'safe provider failure'}}}))
+                Path('build/failure.txt').write_text('Failed stage: Instagram Stories publishing\nError: provider code 9; provider subcode 2207042\nPublication: confirmed feed; incomplete Stories\nNext step: inspect quota\n')
                 runpy.run_path(str(ROOT/'scripts/action_summary.py'))
                 text=(Path(temp)/'summary.md').read_text()
                 self.assertIn('safe provider failure',text);self.assertIn('Applied design',text)
+                self.assertIn('Failed stage: Instagram Stories publishing',text)
+                self.assertIn('provider subcode 2207042',text)
+                self.assertIn('Publication: confirmed feed; incomplete Stories',text)
                 for card in package['cards']:self.assertIn(card['background_prompt'],text)
             finally:os.chdir(old_cwd)
 
