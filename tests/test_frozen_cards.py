@@ -136,6 +136,7 @@ class FrozenCardTests(unittest.TestCase):
                     draft=fresh(old);draft.pop('rendered_sources',None)
                     draft['date']=context['batch_date'];draft['batch_id']=context['batch']['batch_id']
                     if kind=='quiz':draft['private_review']['correct_option']='D'  # Parent restores the pinned key.
+                    else:draft['cards'][0]['quiz_format']=context['selection']['quiz_format_target']
                     for c in draft['cards']:
                         if c['kind']!=kind:c['background_prompt']=c['background_prompt'].replace('No text, no lettering, no logos.','Bright natural light. No text, no lettering, no logos.')
                     write_json(root/f'build/preparation/{draft["date"]}.json',draft)
