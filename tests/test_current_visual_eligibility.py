@@ -41,7 +41,7 @@ class CurrentVisualEligibilityTests(unittest.TestCase):
             self.assertFalse(list(Draft202012Validator(schema).iter_errors('standard')))
             self.assertTrue(list(Draft202012Validator(schema).iter_errors('defined')))
         self.assertEqual(REVIEW_FADE_STYLES,('standard',))
-        self.assertEqual(REVIEW_EXAMPLE_FADE_STYLES,('standard','sharp'))
+        self.assertEqual(REVIEW_EXAMPLE_FADE_STYLES,('standard','sharp','sharp_top'))
 
     def test_recovery_cannot_reintroduce_a_forbidden_window_and_keeps_valid_siblings(self):
         card=reviewed_fixture()['cards'][2];card.update(body='Short explanation.',example='Ovo je naš primjer.')

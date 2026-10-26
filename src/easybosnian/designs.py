@@ -40,14 +40,15 @@ NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis', 'emphasis_medium', 'emphasi
 TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis', 'emphasis_medium', 'emphasis_strong')
 REVIEW_NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis')
 REVIEW_FADE_STYLES = ('standard',)  # fresh titles: smooth edges only
-REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
+REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp', 'sharp_top')
 EXAMPLE_SHADE_STRENGTHS = ('soft', 'medium', 'strong')
 TITLE_FADE_STYLES = ('standard', 'defined', 'soft')  # defined/soft are archive-only
-FADE_STYLES = (*TITLE_FADE_STYLES, 'sharp')  # sharp is an approved example-only preset
+FADE_STYLES = (*TITLE_FADE_STYLES, 'sharp', 'sharp_top')  # asymmetric presets are example-only
 FADE_CATALOGUE = {
     'standard': 'Smoothly eased edges within protected bounds; gentler outer title fade.',
     'defined': 'Earlier full-width linear shade with more defined edges, not the smooth preset. PRIMJER backing extends 18px below the last row before its 48px taper.',
     'sharp': 'PRIMJER-only full-width translucent band with a smoothly blended TOP edge and crisp straight BOTTOM boundary, 12px core padding above the label where space permits and 18px below the final row. A compact renderer-owned upper taper blends into the photograph; no lower taper, rounded box or drawn border.',
+    'sharp_top': 'PRIMJER-only full-width translucent band with a crisp straight TOP boundary and smoothly blended BOTTOM edge. Keep 12px core padding above the label where space permits, 18px below the final row and a compact renderer-owned lower taper within protected bounds; no upper taper, rounded box or drawn border.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
 PANEL_OPACITY_RANGE = (90, 100)
@@ -76,7 +77,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed Lora Italic example and label over either standard (smoothly fading upper/lower edges) or sharp (smooth upper edge and crisp straight lower edge), chosen for the actual photograph without a preferred preset. Both extend below the text. Approved colours remain selectable; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
+    'italic_photo_fade': 'Unboxed Lora Italic example and label over standard (smooth upper/lower edges), sharp (smooth upper/crisp lower) or sharp_top (crisp upper/smooth lower), equally considered for the actual photograph without a preferred preset. All extend below the text. Approved colours remain selectable; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {
