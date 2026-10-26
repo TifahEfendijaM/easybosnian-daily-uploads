@@ -274,7 +274,7 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
-        if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp'):
+        if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp','sharp_top'):
             raise ValueError('Only photographic faded examples can select a shade preset')
         if style!='italic_photo_fade' and block.get('shade_strength','soft')!='soft':
             raise ValueError('Only photographic faded examples can select shade strength')
@@ -435,6 +435,18 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                     opacity=round(alpha*t*t*(3-2*t))
                     if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
                 od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
+            elif fade_style=='sharp_top':
+                # The inverse asymmetric example strip: crisp above the label,
+                # then ease to zero below the final row inside protected bounds.
+                od=ImageDraw.Draw(overlay)
+                band_top=max(round(top),int(text_top)-SHARP_EXAMPLE_TOP_PADDING)
+                fade_end=min(round(bottom)-1,round(text_bottom+bottom_padding+PHOTO_FADE_FEATHER))
+                band_bottom=min(round(text_bottom+bottom_padding),max(round(text_bottom),fade_end-16))
+                od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
+                for y in range(band_bottom+1,fade_end):
+                    t=(fade_end-y)/max(1,fade_end-band_bottom)
+                    opacity=round(alpha*t*t*(3-2*t))
+                    if opacity:od.line((left,y,right-1,y),fill=(*backing,opacity))
             elif fade_style=='soft' and soft_mask is not None:
                 overlay.paste((*backing,255),(0,0,*image.size))
                 overlay.putalpha(soft_mask.point([round(v*alpha/255) for v in range(256)]))

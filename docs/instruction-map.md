@@ -33,7 +33,7 @@ This maintainer map records the instruction-only consolidation from main commit 
 | Fixed 100% fresh body/answer panels; palette-role text/surface combinations; legacy opacity readable | visual-style-contract: Categories | panel_opacity, fixed_fades tests |
 | No category shades; bounded chip alternative, actual accents/contrast, protected category strip | visual-style-contract: Categories | category_no_fades, visual_refinements tests |
 | Neutral title backing/palette text; standard/defined equally considered for either backing | visual-style-contract: Title | oct22_visual_rules, neutral_titles_palette_variety tests |
-| Separate unboxed Lora Italic examples; neutral/palette-coloured pairs; standard/sharp model choice | visual-style-contract: PRIMJER | oct22_visual_rules, fixed_fades tests |
+| Separate unboxed Lora Italic examples; neutral/palette-coloured pairs; standard/sharp/sharp_top model choice | visual-style-contract: PRIMJER | oct22_visual_rules, fixed_fades tests |
 | Gentle adaptive title presets, weaker white surround, lower example padding, combined shade weight | visual-style-contract: Title/PRIMJER | fixed_fades, oct22_visual_rules tests |
 | Free independent body/example/answer positioning, no adjacency/max gap; shared rows and intentional grids | visual-style-contract: Placement/Answers | visual_acceptance, visual_placement tests |
 | Full-photo strong default/middle-window exception, editorial order, contained visual quizzes | visual-style-contract: Inputs/Geometry | visual_contract, visual_placement tests |
