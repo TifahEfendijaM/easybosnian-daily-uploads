@@ -27,6 +27,42 @@ def results():
 
 
 class SuccessReportTests(unittest.TestCase):
+    def test_applied_title_opacity_survives_real_choice_and_public_report_paths(self):
+        from PIL import Image
+        from easybosnian.hybrid import render_hybrid
+        from easybosnian.visual_diagnostics import choice_record
+        from easybosnian.visual_policy import policy_metadata
+        from easybosnian.success_report import decision_lines
+        package=reviewed_fixture()
+        card=next(c for c in package['cards'] if c['kind']=='word')
+        card.update(heading='Primjer',body='A short explanation.',example='Jedan prirodan primjer.')
+        plan=dict(default_plan(card),confidence='high',palette='gold-cream',
+                  heading_tone='paper_dark',heading_shade='emphasis',heading_opacity=53)
+        plan['blocks'][0]['y']=760;plan['blocks'][1].update(y=1080,photo_tone='paper_dark')
+        for colour in ('#202020','white'):
+            with self.subTest(background=colour),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);photo=root/'photo.png';Image.new('RGB',(1080,1350),colour).save(photo)
+                metrics=render_hybrid(card,'gold-cream',photo,root/'word.jpg',plan)
+                record=choice_record(metrics,'accepted',policy_metadata(metrics['composition']),
+                                     {'source':'chatgpt','reason':'ChatGPT selected this approved palette'},'reviewed')
+                placement=self.rendering(package);placement['cards']['word']=record
+                data=with_rendering(report_data(package,results(),RUN),placement)
+                final=next(c['rendering'] for c in data['cards'] if c['category']=='Riječ dana')
+                actual=metrics['heading_shading']
+                self.assertEqual(final['heading_shading'],actual)
+                self.assertGreaterEqual(actual,53)
+                if colour=='white':self.assertGreater(actual,53)
+                for document in render_report(data):self.assertIn(f'{actual}/255 applied',document)
+                del record['heading_shading']
+                legacy=with_rendering(report_data(package,results(),RUN),placement)
+                final=next(c['rendering'] for c in legacy['cards'] if c['category']=='Riječ dana')
+                text='\n'.join(decision_lines(final))
+                self.assertIn('applied opacity not recorded',text);self.assertNotIn('0/255 applied',text)
+                for invalid in (-1,256,53.5,True,'53'):
+                    record['heading_shading']=invalid
+                    with self.assertRaisesRegex(ValueError,'title shading metadata'):
+                        with_rendering(report_data(package,results(),RUN),placement)
+
     def rendering(self,package):
         placement={'batch':package['date'],'batch_id':package['date'],'status':'reviewed','cards':{}}
         for card,palette in zip(package['cards'],('terracotta-sand','blue-ice','forest-cream')):

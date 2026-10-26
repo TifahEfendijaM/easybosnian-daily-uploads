@@ -100,6 +100,7 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
             **{key:metrics.get(key) for key in ('palette','design','category_style','heading_tone','example_tone',
                'heading_backing','block_styles','answer_badges','block_typography','composition')},
             **({'example_shading':metrics['example_shading']} if 'example_shading' in metrics else {}),
+            **({'heading_shading':metrics['heading_shading']} if 'heading_shading' in metrics else {}),
             'render_policy':policy,'palette_outcome':palette_outcome,**extra}
     result['outcome']=rendering_outcome(result,review_status)
     result['provenance']=rendering_provenance(result,review_status)
