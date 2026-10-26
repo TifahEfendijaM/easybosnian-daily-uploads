@@ -91,13 +91,18 @@ def accepted_choices(placement):
             safe['heading_fade']=composition['heading_fade']
         if isinstance(composition,dict) and composition.get('heading_shade') in (QUIZ_TITLE_SHADE_INTENTS if kind=='quiz' else NONQUIZ_TITLE_SHADE_INTENTS):
             safe['heading_shade']=composition['heading_shade']
+        opacity=composition.get('heading_opacity') if isinstance(composition,dict) else None
+        if (kind!='quiz' and type(opacity) is int and 0<=opacity<=126
+                and composition.get('heading_shade')=='emphasis'
+                and composition.get('heading_tone') in ('paper_dark','paper_ink','accent_dark')):
+            safe['heading_opacity']=opacity
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
             example=next((b for b in blocks if isinstance(b,dict) and b.get('role')=='example'),{})
-            if ((card.get('render_policy',{}).get('version') in (4,5,6)
+            if ((card.get('render_policy',{}).get('version') in (4,5,6,7)
                      and example.get('style')=='italic_photo_fade'
                      and example.get('fade_style') in REVIEW_EXAMPLE_FADE_STYLES)
-                    or (card.get('render_policy',{}).get('version') not in (4,5,6)
+                    or (card.get('render_policy',{}).get('version') not in (4,5,6,7)
                         and example.get('fade_style') in REVIEW_FADE_STYLES
                         and not card.get('render_policy',{}).get('example_fade'))):
                 safe['example_fade']=example['fade_style']
@@ -105,8 +110,8 @@ def accepted_choices(placement):
                 safe['example_shade_strength']=example['shade_strength']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
-                       and valid_panel_opacity(b.get('panel_opacity'),legacy=False) and b['panel_opacity']==100}
-            if opacities and 'render_policy' not in card:safe['panel_opacities']=opacities
+                       and valid_panel_opacity(b.get('panel_opacity'),legacy=False)}
+            if opacities and ('render_policy' not in card or card['render_policy'].get('version')==7):safe['panel_opacities']=opacities
         choices[kind]=safe
     return choices
 

@@ -163,7 +163,10 @@ def decision_lines(rendering):
     policy=rendering.get('render_policy')
     if policy:
         answers=composition and any(b['role'] in ('A','B','C','D') for b in composition['blocks'])
-        if policy.get('version')==6:
+        if policy.get('version')==7:
+            lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; allowed range 90–100%, "+
+                         ('applied equally to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
+        elif policy.get('version')==6:
             lines.append('Panel opacity: fixed at 100%; '+
                          ('every bounded explanation/answer surface is fully opaque.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         elif policy.get('version') in (2,3,4,5) and answers:
@@ -173,7 +176,7 @@ def decision_lines(rendering):
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
-            if policy.get('version') in (4,5,6):
+            if policy.get('version') in (4,5,6,7):
                 element_sources=rendering.get('element_recovery')
                 example_source=('fallback' if 'example' in element_sources['fallback'] else 'chatgpt') if element_sources else rendering.get('provenance',{}).get('layout',{}).get('source')
                 source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — ',
@@ -213,6 +216,8 @@ def decision_lines(rendering):
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
         if 'heading_shade' in composition:
             lines.append('Title shade intent: '+composition['heading_shade']+'.')
+        if composition.get('heading_opacity') is not None:
+            lines.append(f"Black title opacity: {composition['heading_opacity']}/255 requested; {rendering.get('heading_shading',0)}/255 applied.")
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
         if (composition.get('palette_exception')=='no_other_suitable_palette'
                 and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):

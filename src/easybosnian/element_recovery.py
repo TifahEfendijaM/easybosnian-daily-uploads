@@ -8,7 +8,7 @@ from .hybrid import default_plan, editorial_plan, roles
 from .visual_adjustment import nearest_valid_plan
 
 GLOBAL_GROUPS={'category':('category_style','category_tone'),
-               'heading':('heading_tone','heading_fade','heading_shade'), 'photo_window':('photo_window',), 'design':('design',)}
+               'heading':('heading_tone','heading_fade','heading_shade','heading_opacity'), 'photo_window':('photo_window',), 'design':('design',)}
 RECOVERY_REASON='Failed elements replaced; other approved elements preserved unchanged'
 
 
@@ -98,6 +98,15 @@ def recover_elements(card, requested, background, render, *, required=(), reason
                 if list(Draft202012Validator(CARD_SCHEMA['properties']['photo_window']).iter_errors(window)):continue
                 for index,role in enumerate(expected):
                     if role in failed:candidate['blocks'][index]=replacement(card,requested['blocks'][index],baseline['blocks'][index],window,candidate.get('design',baseline['design']),background,faithful)
+                # A replaced panel inherits the accepted siblings' shared opacity.
+                # Never change a preserved block to repair a failed sibling.
+                from .designs import PANEL_STYLES, valid_panel_opacity
+                kept=[b.get('panel_opacity',100) for b in candidate['blocks']
+                      if b['role'] not in failed and b.get('style') in PANEL_STYLES]
+                if kept and all(valid_panel_opacity(v,legacy=False) and v==kept[0] for v in kept):
+                    for block in candidate['blocks']:
+                        if block['role'] in failed and block['style'] in PANEL_STYLES:
+                            block['panel_opacity']=kept[0]
                 if list(Draft202012Validator(CARD_SCHEMA).iter_errors(candidate)):continue
                 locked=tuple(r for r in expected if r not in failed)
                 try:metrics=render(candidate)

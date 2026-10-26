@@ -24,7 +24,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 self.assertEqual(apply_policy(plan,panel_opacity=100),plan)
         with patch('secrets.randbelow',side_effect=AssertionError('no opacity draw allowed')) as opacity_draw:
             opacities=panel_opacities(cards)
-        self.assertEqual(opacities,{'quiz':100,'lesson':100,'word':100})
+        self.assertEqual(opacities,{'quiz':None,'lesson':None,'word':None})
         opacity_draw.assert_not_called()
         draw.assert_not_called()
 
@@ -36,7 +36,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 card['options']=[{'label':label,'text':text} for label,text in
                                   zip('ABCD',('Jabuka','Kruška','Šljiva','Dunja'))][:count]
                 source=copy.deepcopy(card);plan=default_plan(card)
-                for block,opacity in zip(plan['blocks'],(85,90,100,95)):
+                for block,opacity in zip(plan['blocks'],(90,92.5,100,95)):
                     block['panel_opacity']=opacity
                 original=copy.deepcopy(plan);applied=apply_policy(plan,panel_opacity=100)
                 expected=copy.deepcopy(plan)
@@ -50,7 +50,8 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
             # Legacy source values cannot restore transparent fresh panels.
             word=default_plan(reviewed_fixture()['cards'][2]);word['blocks'][0]['panel_opacity']=91
             self.assertEqual(apply_policy(word,panel_opacity=100)['blocks'][0]['panel_opacity'],100)
-            with self.assertRaisesRegex(ValueError,'fully opaque'):apply_policy(word,panel_opacity=91)
+            self.assertEqual(apply_policy(word)['blocks'][0]['panel_opacity'],91)
+            self.assertEqual(apply_policy(word,panel_opacity=91)['blocks'][0]['panel_opacity'],91)
 
     def test_policy_preserves_selected_example_preset_and_changes_only_opacity(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)
@@ -99,11 +100,11 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
             self.assertTrue(result['render_policy']['example_fade_applied'])
         self.assertEqual(lesson['composition']['heading_fade'],'standard')
         self.assertEqual(accepted_choices(placement)['lesson']['example_fade'],'sharp')
-        self.assertNotIn('panel_opacities',accepted_choices(placement)['quiz'])
+        self.assertEqual(set(accepted_choices(placement)['quiz']['panel_opacities'].values()),{100})
         text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
         for document in (text,markup):
             document=document.replace('\\.','.')
-            self.assertIn('Panel opacity: fixed at 100%',document)
+            self.assertIn('Shared panel opacity: 100%',document)
             self.assertNotIn('uniformly sampled',document)
             self.assertIn('ChatGPT',document)
             self.assertIn('Fallback elements only: body',document)

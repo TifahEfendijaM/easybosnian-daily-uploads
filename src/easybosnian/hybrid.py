@@ -156,7 +156,7 @@ def default_plan(card):
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(40 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','palette_exception':'none','photo_window':window,'blocks':blocks}
+            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
@@ -171,7 +171,7 @@ def editorial_plan(card):
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
     return {'confidence':'high','design':'editorial','category_style':'underlined','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','palette_exception':'none',
+            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none',
             'photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
@@ -262,6 +262,12 @@ def measured_plan(card, plan):
     if plan.get('heading_shade') in ('emphasis_medium','emphasis_strong') and plan.get('heading_tone','auto') not in (
             'paper_dark','paper_ink','accent_dark','accent_ink','paper_accent'):
         raise ValueError('Increased decorative title strength requires an explicit black backing')
+    selected_opacity=plan.get('heading_opacity')
+    if selected_opacity is not None and (
+            plan.get('heading_shade')!='emphasis' or card['kind'] not in ('lesson','word')
+            or plan['photo_window'] is not None or title_example_proximity(plan['blocks'],header_end)!='far'
+            or plan.get('heading_tone') not in ('paper_dark','paper_ink','accent_dark','accent_ink','paper_accent')):
+        raise ValueError('Selected title opacity requires black emphasis with distant PRIMJER')
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -634,13 +640,18 @@ def render_hybrid(card, palette_id, background, output, plan=None):
                    NEAR_EXAMPLE_TITLE_MAX_SHADE if near_example else NONQUIZ_TITLE_MAX_SHADE)
         minimum_shade=(QUIZ_TITLE_MIN_SHADE if plan.get('heading_shade','gentle')=='stronger' else
                        TITLE_EMPHASIS_MINIMUMS.get(plan.get('heading_shade'),0))
+        selected_opacity=plan.get('heading_opacity')
+        title_levels=TITLE_SHADE_LEVELS
+        if selected_opacity is not None:
+            minimum_shade=int(selected_opacity)
+            title_levels=range(1,NONQUIZ_TITLE_MAX_SHADE+1)
         # Equal upper/lower fades may reach the category area. Category
         # elements are drawn after all photographic shades, always on top.
         heading_colour,heading_contrast,heading_shading=protect_text(image,(64,HEADING_TOP),title_rows,title_face,colours,3,
             (0,0,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             top_padding=TITLE_FADE_PADDING,bottom_padding=TITLE_FADE_PADDING,
-            shade_levels=TITLE_SHADE_LEVELS,feather_power=TITLE_FADE_POWER,
+            shade_levels=title_levels,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
             minimum_shade=minimum_shade,

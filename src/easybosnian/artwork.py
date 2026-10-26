@@ -17,7 +17,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':44, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':45, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -234,7 +234,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 wait_for_image(item['url'],body,fetch=request)
             assets[kind]=item
             if (output/f'{kind}-story.jpg').is_file():item['story_path']=output/f'{kind}-story.jpg'
-            if review_images and package.get('batch_id') and os.getenv('MODE')=='daily':
+            if review_images and package.get('batch_id') and os.getenv('MODE') in ('daily','preview'):
                 from .stories import story_image
                 from .frozen_cards import snapshot
                 from .core import ROOT as catalogue_root
@@ -242,7 +242,11 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 story_image(path,story_path,read_json(catalogue_root/'data/design-palettes.json')[metrics['palette']],background,card,
                             category_style=metrics['category_style'])
                 item['story_path']=story_path
-                package.setdefault('rendered_sources',{})[kind]=snapshot(store,package,card,item,decisions[kind]['render_policy'])
+                if os.getenv('MODE')=='daily':
+                    package.setdefault('rendered_sources',{})[kind]=snapshot(store,package,card,item,decisions[kind]['render_policy'])
+                else:
+                    # Private preview export only; no snapshot/history/public URL.
+                    store.put_file(output_key(package),story_path.name,story_path.read_bytes())
         if review_images:
             write_json(output/'image-placement-result.json',{'batch':date,'batch_id':package.get('batch_id'),
                         'status':status,'recent_design_context':recent_status,'recent_design_runs':len(recent),'cards':decisions})
