@@ -25,7 +25,7 @@ def content_data(package,run_url):
         raise ValueError('Report belongs to another project/run')
     return {'project':PROJECT,'date':package['date'],'batch_id':output_key(package),'theme':package['theme']['name'],
             'difficulty':package.get('bosnian_level','not recorded'),'palette':package['design_palette'],'run_url':run_url,
-            'backgrounds_reused':os.getenv('CONTENT_SELECTION')=='same_images',
+            'backgrounds_reused':os.getenv('CONTENT_SELECTION')=='same_images' or (os.getenv('MODE')=='preview' and bool(os.getenv('PREVIEW_SOURCE_BATCH_ID','').strip())),
             'cards':[{'category':LABELS[c['kind']],'heading':c.get('heading',c.get('question')),'prompt':c['background_prompt']} for c in package['cards']]}
 
 

@@ -300,7 +300,8 @@ def main():
         reuse_requested=(os.getenv('CONTENT_SELECTION')=='same_images' or
                          os.getenv('CONTENT_SELECTION')=='custom' and
                          any(os.getenv(f'CUSTOM_WORD_{i}_ACTION') in ('same_image','same_image&design') for i in (1,2,3)))
-        reused=loaded_photos(package) if reuse_requested and mode=='daily' else None
+        saved_preview=mode=='preview' and bool(os.getenv('PREVIEW_SOURCE_BATCH_ID','').strip())
+        reused=loaded_photos(package) if saved_preview or reuse_requested and mode=='daily' else None
         from .frozen_cards import loaded_cards
         frozen=(loaded_cards(package) if mode=='daily' and os.getenv('CONTENT_SELECTION')=='custom' and
                 any(os.getenv(f'CUSTOM_WORD_{i}_ACTION')=='same_image&design' for i in (1,2,3)) else None)

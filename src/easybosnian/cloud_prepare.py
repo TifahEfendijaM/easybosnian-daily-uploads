@@ -183,11 +183,17 @@ def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only
 
 def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_actions=None, batch_target='latest', difficulty='random'):
     if mode not in ('verify','preview','daily'): raise ValueError('Unknown workflow mode')
+    preview_source=os.getenv('PREVIEW_SOURCE_BATCH_ID','').strip()
+    if preview_source and mode!='preview':raise ValueError('Saved batch source is preview-only')
     run_date=today();date=run_date;stage='cloud preparation infrastructure authorization'
     try:
         if mode=='daily': require_publishing()
         check_infrastructure();store=Store();history=store.history()
         if history.get('project')!=PROJECT: raise ValueError('History belongs to a different project')
+        if preview_source:
+            stage='saved preview source and photographs'
+            from .preview_sources import stage_saved_preview
+            return stage_saved_preview(store,history,preview_source,run_date)
         publication_ids=store.publications_for_date(run_date) if mode!='verify' and batch_target=='all_today' else []
         plan=plan_batch(history,run_date,batch_target,publication_batch_ids=[item['batch_id'] for item in publication_ids]) if mode!='verify' else None
         if plan:date=plan['date']
