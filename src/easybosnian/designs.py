@@ -38,6 +38,7 @@ PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
 QUIZ_TITLE_SHADE_INTENTS = ('gentle', 'stronger')
 NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis', 'emphasis_medium', 'emphasis_strong')
 TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis', 'emphasis_medium', 'emphasis_strong')
+REVIEW_NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis')
 REVIEW_FADE_STYLES = ('standard',)  # fresh titles: smooth edges only
 REVIEW_EXAMPLE_FADE_STYLES = ('standard', 'sharp')
 EXAMPLE_SHADE_STRENGTHS = ('soft', 'medium', 'strong')
@@ -49,7 +50,7 @@ FADE_CATALOGUE = {
     'sharp': 'PRIMJER-only full-width translucent band with a smoothly blended TOP edge and crisp straight BOTTOM boundary, 12px core padding above the label where space permits and 18px below the final row. A compact renderer-owned upper taper blends into the photograph; no lower taper, rounded box or drawn border.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
-PANEL_OPACITY_RANGE = (85, 100)
+PANEL_OPACITY_RANGE = (90, 100)
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size

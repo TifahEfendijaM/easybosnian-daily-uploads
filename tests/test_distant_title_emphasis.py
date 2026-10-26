@@ -68,7 +68,7 @@ class DistantTitleEmphasisTests(unittest.TestCase):
  def test_quiz_schema_and_stronger_intent_stay_separate_and_paper_or_absent_example_cannot_emphasise(self):
   fields=RESULT_SCHEMA['properties']['cards']['properties']
   self.assertEqual(fields['quiz']['properties']['heading_shade']['enum'],['gentle','stronger'])
-  for kind in ('lesson','word'):self.assertEqual(fields[kind]['properties']['heading_shade']['enum'],['gentle','emphasis','emphasis_medium','emphasis_strong'])
+  for kind in ('lesson','word'):self.assertEqual(fields[kind]['properties']['heading_shade']['enum'],['gentle','emphasis'])
   card,plan=self.card_plan();card.pop('example');plan=default_plan(card);plan['heading_shade']='emphasis'
   with self.assertRaisesRegex(ValueError,'distant PRIMJER'):measured_plan(card,plan)
   card,plan=self.card_plan();plan=editorial_plan(card);plan['heading_shade']='emphasis'
@@ -98,8 +98,8 @@ class DistantTitleEmphasisTests(unittest.TestCase):
   prompt=model.call_args.args[0]
   for text in ('less than 100px is nearby','100px or more is farther away','heading_shade=gentle or emphasis','even if the bare title is already readable','Nearby titles require heading_shade=gentle','Regardless of distance','reducing or removing the TITLE shade','PRIORITISE the PRIMJER backing','STRONGLY PREFER BLACK backing with LIGHT'):
    self.assertIn(text,prompt)
-  for text in ('For BLACK backing only','emphasis_medium','emphasis_strong','not only for readability',
-               'White backing keeps the existing gentle/emphasis behaviour',
+  for text in ('For BLACK backing only','heading_opacity from 0 through 126','not just readability',
+               'White retains its existing faint/readability-driven behaviour',
                'do not reduce or remove it merely because both shades are present'):
    self.assertIn(text,prompt)
  def test_black_strength_choice_survives_even_when_bare_title_already_passes(self):
@@ -157,7 +157,7 @@ class DistantTitleEmphasisTests(unittest.TestCase):
   self.assertEqual(fields['quiz']['properties']['heading_shade']['enum'],['gentle','stronger'])
   for intent in ('emphasis_medium','emphasis_strong'):
    proposal['cards']['word']['heading_shade']=intent
-   self.assertFalse(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
+   self.assertTrue(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
    card,plan=self.card_plan(intent=intent)
    with tempfile.TemporaryDirectory() as tmp:
     root=Path(tmp);photo=root/'photo.png';Image.new('RGB',(1080,1350),'#202020').save(photo)
