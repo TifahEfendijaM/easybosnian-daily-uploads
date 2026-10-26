@@ -54,6 +54,10 @@ on:
         type: choice
         options: [latest, none, all_today]
         default: latest
+      preview_source_batch_id:
+        description: 'PREVIEW ONLY - optional saved batch ID: keep its text/photos and independently redesign without FLUX; creates a new private batch'
+        type: string
+        default: ''
 permissions:
   actions: read
   contents: read
@@ -72,6 +76,7 @@ jobs:
       CONTENT_SELECTION: ${{ inputs.content_selection || 'new' }}
       DIFFICULTY: ${{ inputs.difficulty || 'random' }}
       BATCH_TARGET: ${{ inputs.batch_target || 'latest' }}
+      PREVIEW_SOURCE_BATCH_ID: ${{ inputs.preview_source_batch_id }}
       CUSTOM_THEME: ${{ inputs.custom_theme }}
       CUSTOM_WORD_1: ${{ inputs.custom_word_1 }}
       CUSTOM_WORD_2: ${{ inputs.custom_word_2 }}

@@ -30,7 +30,8 @@ TITLE_FADE_FEATHER = 100
 TITLE_FADE_PADDING = 24  # Equal upper/lower shoulders; category elements draw above the title fade.
 # Contrast-only titles start faint; approved black emphasis may request more.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
-NONQUIZ_TITLE_MAX_SHADE = 126  # Recorded Hoćemo li unutra? reference, 25 October.
+NONQUIZ_TITLE_MAX_SHADE = 126  # Black title cap; recorded Hoćemo li unutra? reference.
+NONQUIZ_WHITE_TITLE_MAX_SHADE = 90  # White backing washes out photographs sooner.
 TITLE_EMPHASIS_MINIMUMS = {'emphasis':12, 'emphasis_medium':66, 'emphasis_strong':126}
 NEAR_EXAMPLE_TITLE_MAX_SHADE = 78
 TITLE_EXAMPLE_NEAR_GAP = 100
@@ -360,7 +361,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0, maximum_shade=255):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0, maximum_shade=255, light_maximum_shade=None):
     """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -414,8 +415,9 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
         white=backing==(255,255,255)
         levels=light_shade_levels if white and light_shade_levels is not None else shade_levels
         current_surround=light_surround_mask if white else surround_mask
+        cap=light_maximum_shade if white and light_maximum_shade is not None else maximum_shade
         for alpha in levels:
-            if alpha<minimum_shade or alpha>maximum_shade:continue
+            if alpha<minimum_shade or alpha>cap:continue
             overlay=Image.new('RGBA',image.size)
             if fade_style=='sharp':
                 # Blend only the upper edge into the photograph. The lower
@@ -655,7 +657,8 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,
             minimum_shade=minimum_shade,
-            maximum_shade=title_cap)
+            maximum_shade=title_cap,
+            light_maximum_shade=None if card['kind']=='quiz' else min(title_cap,NONQUIZ_WHITE_TITLE_MAX_SHADE))
         if heading_shading:
             heading_backing=('#000000' if heading_colour=='#ffffff' else '#ffffff') if heading_tone=='auto' else '#ffffff' if backings[0][1]==(255,255,255) else '#000000'
     example_contrast=None;example_shading=0;example_colour=None
