@@ -104,6 +104,10 @@ def with_rendering(data,placement):
         if 'heading_backing' in result:
             if result['heading_backing'] not in (None,'#000000','#ffffff'):raise ValueError('Invalid safe title backing metadata')
             rendered[LABELS[kind]]['heading_backing']=result['heading_backing']
+        if 'heading_shading' in result:
+            alpha=result['heading_shading']
+            if type(alpha) is not int or not 0<=alpha<=255:raise ValueError('Invalid safe title shading metadata')
+            rendered[LABELS[kind]]['heading_shading']=alpha
         if 'example_shading' in result:
             alpha=result['example_shading']
             if type(alpha) is not int or not 0<=alpha<=240:raise ValueError('Invalid safe example shading metadata')
@@ -217,7 +221,8 @@ def decision_lines(rendering):
         if 'heading_shade' in composition:
             lines.append('Title shade intent: '+composition['heading_shade']+'.')
         if composition.get('heading_opacity') is not None:
-            lines.append(f"Black title opacity: {composition['heading_opacity']}/255 requested; {rendering.get('heading_shading',0)}/255 applied.")
+            applied=(f"{rendering['heading_shading']}/255 applied" if 'heading_shading' in rendering else 'applied opacity not recorded')
+            lines.append(f"Black title opacity: {composition['heading_opacity']}/255 requested; {applied}.")
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
         if (composition.get('palette_exception')=='no_other_suitable_palette'
                 and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):
