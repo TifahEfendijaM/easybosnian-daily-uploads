@@ -56,5 +56,5 @@ class EarlyTitleTaperTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as model:
             review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
         prompt=model.call_args.args[0]
-        for rule in ('taper starts IMMEDIATELY outside the measured lettering','Standard remains fully available'):
+        for rule in ('taper starts IMMEDIATELY outside the measured lettering','with neither preferred or the default'):
             self.assertIn(rule,prompt)

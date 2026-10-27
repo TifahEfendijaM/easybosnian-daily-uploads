@@ -72,7 +72,7 @@ class ExampleStrengthChoicesTests(unittest.TestCase):
         prompt=child.call_args.args[0]
         for text in ('Give ALL THREE equal consideration','neither softer nor stronger is preferred',
                      'dark palette-ink surfaces with bright paper/accent text on equal footing',
-                     'independently of shape/style','Neither light nor dark panels are preferred'):
+                     'independently of shape/style','Neither light nor dark LESSON/WORD panels are preferred'):
             self.assertIn(text,prompt)
         placement,metrics=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['status'],'accepted')

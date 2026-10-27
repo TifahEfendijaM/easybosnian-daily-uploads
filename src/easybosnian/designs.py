@@ -77,7 +77,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed Lora Italic example and label. Prefer sharp (smooth upper/crisp lower) when styles fit comparably well; standard (both edges smooth) remains available whenever it clearly fits better. Sharp_top (crisp upper/smooth lower) is eligible only above the explanation near the title, and wins there only if genuinely better, never automatically. All extend below the text. Approved colours remain selectable; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
+    'italic_photo_fade': 'Unboxed Lora Italic example and label. Compare standard (both edges smooth) and sharp (smooth upper/crisp lower) equally for the actual photograph, with neither preferred or the default. Sharp_top (crisp upper/smooth lower) is eligible only above the explanation near the title, and wins there only if genuinely better, never automatically. All extend below the text. Approved colours remain selectable; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {
@@ -126,6 +126,16 @@ def panel_colours(palette, tone='auto', *, dark=False):
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     return {'auto':(paper,ink) if dark else (ink,paper), 'ink_paper':(ink,paper),
             'paper_ink':(paper,ink), 'ink_accent':(ink,accent), 'accent_ink':(accent,ink)}[tone]
+
+
+def dark_panel_surface(block):
+    """Palette-ink surfaces only; badge/decoration colours are independent.
+
+    Every approved palette has dark ink and non-dark paper/accent. Keep the
+    style's archived auto default, including the legacy Plain panel ID.
+    """
+    tone=block.get('panel_tone','auto')
+    return tone in ('paper_ink','accent_ink') or (tone=='auto' and block.get('style')=='overlay_dark')
 
 
 def role_type(role):

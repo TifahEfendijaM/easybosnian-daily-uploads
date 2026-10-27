@@ -76,7 +76,7 @@ class CurrentVisualEligibilityTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=__import__('json').dumps(proposal)) as model:
             review_compositions(h.package,candidates)
         prompt=model.call_args.args[0]
-        for phrase in ('Give EVERY approved palette equal consideration','Neither dark nor light palettes/panels are preferred',
+        for phrase in ('Give EVERY approved palette equal consideration','Neither dark nor light palettes are preferred',
                        'MUST use photo_window=null','NOT a lesson/word last resort','Sharp/crisp/defined title edges are NOT available'):
             self.assertIn(phrase,prompt)
         self.assertNotIn('A separate middle photo window is an EXCEPTIONAL LAST RESORT',prompt)

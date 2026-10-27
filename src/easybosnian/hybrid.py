@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 from .core import ROOT
 from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      FADE_STYLES, panel_alpha, panel_colours, typography)
+                      FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -144,7 +144,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
-            **({'marker_style':'circle'} if role not in ('body','example') else {}),
+            **({'marker_style':'circle','marker_tone':'auto'} if role not in ('body','example') else {}),
             **({'photo_tone':'auto','fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
@@ -222,6 +222,8 @@ def validate_current_design(card, plan):
            and b.get('fade_style')=='sharp_top' for b in plan.get('blocks',())) and not reverse_example_fade_allowed(card,plan):
         raise ValueError('Crisp-top PRIMJER shade requires an above-body example near the title')
     if card.get('quiz_format')=='visual_identification':
+        if any(dark_panel_surface(b) for b in plan['blocks']):
+            raise ValueError('Separate-photo quiz answers require non-dark panel surfaces')
         validate_visual_answers(card,plan['blocks'])
 
 
@@ -637,6 +639,9 @@ def draw_panel(image, block, palette):
         badge_fill=paper if style in ('overlay_dark','split_panel') else accent
         if block.get('panel_tone','auto')!='auto' and badge_fill==surface_colour:badge_fill=paper
         label_colour=ink
+        if block.get('marker_tone','auto')!='auto':
+            label_colour,badge_fill=panel_colours(palette,block['marker_tone'])
+        if contrast(label_colour,badge_fill)<4.5:raise ValueError('Answer badge text fails measured contrast')
         if marker_style=='circle':draw.ellipse(marker,fill=badge_fill)
         elif marker_style=='rounded_square':draw.rounded_rectangle(marker,radius=14,fill=badge_fill)
         elif marker_style=='square':draw.rectangle(marker,fill=badge_fill)
