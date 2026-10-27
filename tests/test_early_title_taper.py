@@ -38,7 +38,7 @@ class EarlyTitleTaperTests(unittest.TestCase):
                     for y in (top-40,top,top+20,bottom+40):
                         self.assertEqual(len({new.getpixel((x,y)) for x in range(1080)}),1)
 
-    def test_actual_renderer_enables_earlier_taper_only_for_the_title(self):
+    def test_actual_renderer_keeps_title_taper_and_enables_example_taper(self):
         card=copy.deepcopy(reviewed_fixture()['cards'][2]);card['heading']='Čuvamo svoju riječ.'
         plan=default_plan(card);plan.update(heading_tone='paper_dark',heading_shade='emphasis',heading_opacity=90);calls=[]
         def observe(image,*args,**kwargs):
@@ -47,7 +47,7 @@ class EarlyTitleTaperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);photo=root/'photo.jpg';Image.new('RGB',(1080,1350),'#aaaaaa').save(photo)
             with patch('easybosnian.hybrid.protect_text',side_effect=observe):result=render_hybrid(card,'forest-cream',photo,root/'card.jpg',plan)
-        self.assertEqual([c for c in calls if c[1]],[(TITLE_FADE_FEATHER,True)])
+        self.assertEqual([c for c in calls if c[1]],[(TITLE_FADE_FEATHER,True),(None,True)])
         self.assertGreaterEqual(result['heading_contrast'],3);self.assertGreaterEqual(result['example_contrast'],4.5)
         self.assertEqual(result['composition'],plan)
 

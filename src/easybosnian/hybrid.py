@@ -24,7 +24,7 @@ SHARP_EXAMPLE_TOP_PADDING = 12
 PHOTO_FADE_FEATHER = 48
 # Qualitative PRIMJER intent maps to trusted alpha, never arbitrary opacity.
 EXAMPLE_SHADE_MINIMUMS = {'soft':64, 'medium':128, 'strong':192}
-EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
+EXAMPLE_SHADE_LEVELS = tuple(range(64,241,2))  # Finer contrast escalation; selected strength floors and cap stay fixed.
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
 TITLE_FADE_PADDING = 24  # Equal outer reach, now blended into the taper rather than solid shoulders.
@@ -430,6 +430,9 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                     # Near a protected boundary, use the available space up to
                     # the label rather than clipping a solid shade into a seam.
                     band_top=int(text_top)
+                if early_taper:
+                    # Blend former upper core padding into the same outer reach.
+                    band_top=int(text_top)
                 for y in range(fade_start,band_top):
                     t=(y-fade_start)/max(1,band_top-fade_start)
                     opacity=round(alpha*t*t*(3-2*t))
@@ -441,7 +444,7 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                 od=ImageDraw.Draw(overlay)
                 band_top=max(round(top),int(text_top)-SHARP_EXAMPLE_TOP_PADDING)
                 fade_end=min(round(bottom)-1,round(text_bottom+bottom_padding+PHOTO_FADE_FEATHER))
-                band_bottom=min(round(text_bottom+bottom_padding),max(round(text_bottom),fade_end-16))
+                band_bottom=min(round(text_bottom if early_taper else text_bottom+bottom_padding),max(round(text_bottom),fade_end-16))
                 od.rectangle((left,band_top,right-1,band_bottom),fill=(*backing,alpha))
                 for y in range(band_bottom+1,fade_end):
                     t=(fade_end-y)/max(1,fade_end-band_bottom)
@@ -692,6 +695,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[((x,y),['PRIMJER'],label_face)],
                 line_spacing=block['line_spacing'],allow_fade=block['style']!='italic_photo',backings=backings,fade_style=block.get('fade_style','standard'),bottom_padding=EXAMPLE_FADE_PADDING,
+                early_taper=block['style']=='italic_photo_fade',
                 shade_levels=EXAMPLE_SHADE_LEVELS if 'shade_strength' in block else (90,130,170,210,240),
                 minimum_shade=EXAMPLE_SHADE_MINIMUMS[block['shade_strength']]
                     if block['style']=='italic_photo_fade' and 'shade_strength' in block else 0)

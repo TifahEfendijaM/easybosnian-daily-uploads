@@ -108,7 +108,7 @@ class TitlePaletteLimitsTests(unittest.TestCase):
                 self.assertEqual(result['heading_colour'],photo_colours(palette,tone)[0][0])
                 self.assertGreaterEqual(result['heading_contrast'],3)
                 self.assertEqual(result['example_colour'],'#ffffff')
-                self.assertEqual(result['example_shading'],170)
+                self.assertLess(result['example_shading'],170)
                 self.assertGreaterEqual(result['example_contrast'],4.5)
                 self.assertEqual(result['composition'],plan);self.assertEqual(card,source)
             plan=dict(default_plan(card),confidence='high',heading_tone='accent_dark')
