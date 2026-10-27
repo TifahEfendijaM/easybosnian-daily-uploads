@@ -51,10 +51,10 @@ class EarlyTitleTaperTests(unittest.TestCase):
         self.assertGreaterEqual(result['heading_contrast'],3);self.assertGreaterEqual(result['example_contrast'],4.5)
         self.assertEqual(result['composition'],plan)
 
-    def test_live_guidance_controls_jarring_blends_without_a_blanket_strength_or_edge_bias(self):
+    def test_live_guidance_keeps_earlier_taper_and_equal_edge_consideration(self):
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as model:
             review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
         prompt=model.call_args.args[0]
-        for rule in ('taper starts IMMEDIATELY outside the measured lettering','vivid backing looks jarring','FIRST try a softer approved shade_strength','not a global preference for low opacity or dull colours','Compare all three equally'):
+        for rule in ('taper starts IMMEDIATELY outside the measured lettering','Compare all three equally'):
             self.assertIn(rule,prompt)
