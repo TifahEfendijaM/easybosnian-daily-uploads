@@ -46,3 +46,7 @@ Every palette already supports a dark surface: choose panel_tone=paper_ink (brig
 ## Approved dark-colour refinements - 27 October 2026
 
 Four existing ink roles were refined after side-by-side review: Espresso-Almond `#352923` to `#492817`, Plum-Blush `#372137` to `#4b1c49`, Slate-Silver `#263244` to `#173957`, and Olive-Stone `#29321a` to `#2d4218`. Their paper/panel, accent and scrim colours and all palette IDs remain unchanged; the catalogue still contains 36 palettes. These richer dark inks also supply dark lettering wherever the approved pairing uses the ink role. Every ink/paper and ink/accent pair remains subject to measured contrast checks. Palette expansion and colour refinements do not override the current visual-style contract.
+
+## Approved light-surface refinements - 27 October 2026
+
+After reviewing local swatches and saved-photo comparisons, three paper/panel roles were refined: Espresso-Almond `#e7ded2` to `#f1e5d5`, Copper-Linen `#ecdcc6` to `#f4e2c9`, and Olive-Stone `#e4e6cf` to `#edf0d6`. Their current ink, accent and scrim roles remain unchanged. The paper role also supplies light lettering and Story backgrounds in the supported pairings. The catalogue remains at 36 palettes; no expansion or further colour proposals are applied. All existing contrast and per-card design-selection rules continue to apply.
