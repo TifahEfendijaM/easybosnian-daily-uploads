@@ -73,3 +73,6 @@ class SharpTopExampleTests(unittest.TestCase):
             self.assertIn(text,prompt)
         self.assertNotIn('equally considered for the actual photograph without a preferred preset',prompt)
         self.assertIn('wins there only if genuinely better, never automatically',prompt)
+        for rule in ('Outside the LOWER photo area', 'STRONGLY PREFER sharp (smooth top/crisp bottom)',
+                     'Keep standard available there when it CLEARLY fits', 'Keep colour and shade strength independent'):
+            self.assertIn(rule,prompt)
