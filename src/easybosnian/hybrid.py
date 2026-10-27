@@ -27,7 +27,7 @@ EXAMPLE_SHADE_MINIMUMS = {'soft':64, 'medium':128, 'strong':192}
 EXAMPLE_SHADE_LEVELS = (64,90,128,130,170,192,210,240)
 # Restore the earlier title fade extent without widening PRIMJER shading.
 TITLE_FADE_FEATHER = 100
-TITLE_FADE_PADDING = 24  # Equal upper/lower shoulders; category elements draw above the title fade.
+TITLE_FADE_PADDING = 24  # Equal outer reach, now blended into the taper rather than solid shoulders.
 # Contrast-only titles start faint; approved black emphasis may request more.
 TITLE_SHADE_LEVELS = (12, 24, 36, 48, 54, 66, 78, 90, 102, 114, 126, 130, 144, 170, 210, 240)
 NONQUIZ_TITLE_MAX_SHADE = 126  # Black title cap; recorded Hoćemo li unutra? reference.
@@ -361,7 +361,7 @@ def title_colours(palette,tone='auto'):
     return colours,[(colours[0],backing)]
 
 
-def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0, maximum_shade=255, light_maximum_shade=None):
+def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, extra=(), line_spacing=None, allow_fade=True, backings=None, fade_style='standard', feather=None, bottom_padding=0, shade_levels=(90,130,170,210,240), feather_power=1, surround_opacity=1, light_shade_levels=None, light_surround_opacity=None, minimum_shade=0, top_padding=0, maximum_shade=255, light_maximum_shade=None, early_taper=False):
     """Real glyph contrast with approved shades, never an example box."""
     if fade_style not in FADE_STYLES:raise ValueError('Unsupported fade treatment')
     feather=PHOTO_FADE_FEATHER if feather is None else feather
@@ -462,9 +462,12 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
                         continue
                     # Taper to zero INSIDE protected bounds rather than clipping
                     # a still-opaque gradient into a visible horizontal seam.
-                    core_start=max(top,text_top-top_padding)
-                    start=max(top,core_start-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
-                    core_end=min(text_bottom+bottom_padding,max(text_bottom,end-16))
+                    # Titles blend the old solid shoulders into their taper:
+                    # same broad outer reach, full protection on the lettering,
+                    # but start fading immediately beyond the measured text.
+                    core_start=max(top,text_top if early_taper else text_top-top_padding)
+                    start=max(top,text_top-top_padding-feather);end=min(bottom-1,text_bottom+bottom_padding+feather)
+                    core_end=min(text_bottom if early_taper else text_bottom+bottom_padding,max(text_bottom,end-16))
                     if y<=start or y>=end:t=0
                     elif y<core_start:t=(y-start)/max(1,core_start-start)
                     elif y>core_end:t=(end-y)/max(1,end-core_end)
@@ -665,6 +668,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             (0,0,WIDTH,HEIGHT),backings=backings,
             fade_style=plan.get('heading_fade','standard'),feather=TITLE_FADE_FEATHER,
             top_padding=TITLE_FADE_PADDING,bottom_padding=TITLE_FADE_PADDING,
+            early_taper=True,
             shade_levels=title_levels,feather_power=TITLE_FADE_POWER,
             surround_opacity=TITLE_SURROUND_OPACITY,light_shade_levels=TITLE_WHITE_SHADE_LEVELS,
             light_surround_opacity=TITLE_WHITE_SURROUND_OPACITY,

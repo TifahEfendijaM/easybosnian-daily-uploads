@@ -18,7 +18,7 @@ STYLE_LABELS = {'overlay_dark':'Plain panel', 'rounded_plain':'Clean rounded pan
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink',
                'ink_accent', 'accent_dark', 'accent_light', 'paper_accent')
-# Fresh reviews choose approved colours and one of two fixed fade presets.
+# Fresh reviews choose approved colours and renderer-owned fixed fade presets.
 REVIEW_PHOTO_TONES = PHOTO_TONES
 # Titles retain approved text colours, with neutral backing colours only.
 REVIEW_TITLE_TONES = ('auto','paper_dark','ink_light','paper_ink','ink_paper','accent_dark','accent_light')
