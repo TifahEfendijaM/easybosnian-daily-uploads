@@ -58,6 +58,7 @@ class QuizSurfacePolicyTests(unittest.TestCase):
   prompt=model.call_args.args[0]
   for rule in ('MUST use non-dark surfaces','ONLY when they CLEARLY suit','NOT the A/B/C/D badges',
    'For LESSON/WORD panels only','marker_tone independently','dark bins/shadows and earthy clothing',
+   'DEFAULT to a LIGHT palette-matching badge fill','A very dark badge (paper_ink/accent_ink) is allowed ONLY when it CLEARLY suits',
    'with neither preferred or the default','Proximity is eligibility, NEVER an automatic selection'):
    self.assertIn(rule,prompt)
   self.assertNotIn('Prefer sharp',prompt)
