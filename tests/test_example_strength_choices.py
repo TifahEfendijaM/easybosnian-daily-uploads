@@ -74,6 +74,10 @@ class ExampleStrengthChoicesTests(unittest.TestCase):
                      'dark palette-ink surfaces with bright paper/accent text on equal footing',
                      'independently of shape/style','Neither light nor dark LESSON/WORD panels are preferred'):
             self.assertIn(text,prompt)
+        for text in ('FIRST compare visibly DIFFERENT', 'SAME or NEAR-IDENTICAL surface colour',
+                     'ONLY AS A LAST RESORT', 'ALL visibly different approved pairings',
+                     'not just hex values or photo_tone IDs', 'WITHIN the suitable, visibly distinct candidates'):
+            self.assertIn(text,prompt)
         placement,metrics=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['status'],'accepted')
         self.assertEqual(word['composition']['blocks'][-1]['shade_strength'],'medium')
