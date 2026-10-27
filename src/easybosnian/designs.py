@@ -47,8 +47,8 @@ FADE_STYLES = (*TITLE_FADE_STYLES, 'sharp', 'sharp_top')  # asymmetric presets a
 FADE_CATALOGUE = {
     'standard': 'Smoothly eased edges within protected bounds; gentler outer title fade.',
     'defined': 'Earlier full-width linear shade with more defined edges, not the smooth preset. PRIMJER backing extends 18px below the last row before its 48px taper.',
-    'sharp': 'PRIMJER-only full-width translucent band with a smoothly blended TOP edge and crisp straight BOTTOM boundary, 12px core padding above the label where space permits and 18px below the final row. A compact renderer-owned upper taper blends into the photograph; no lower taper, rounded box or drawn border.',
-    'sharp_top': 'PRIMJER-only full-width translucent band with a crisp straight TOP boundary and smoothly blended BOTTOM edge. Keep 12px core padding above the label where space permits, 18px below the final row and a compact renderer-owned lower taper within protected bounds; no upper taper, rounded box or drawn border.',
+    'sharp': 'PRIMJER-only full-width translucent band with a smoothly blended TOP edge and crisp straight BOTTOM boundary, 18px below the final row. The former 12px solid upper padding joins the 48px upper feather, so fading begins at the label boundary while keeping the same outer reach; no lower taper, rounded box or drawn border.',
+    'sharp_top': 'PRIMJER-only full-width translucent band with a crisp straight TOP boundary and smoothly blended BOTTOM edge. Keep the crisp top 12px above the label where space permits; below the final row, blend the former 18px solid padding into the 48px lower feather within protected bounds, fading immediately after the lettering with the same outer reach; no upper taper, rounded box or drawn border.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
 PANEL_OPACITY_RANGE = (90, 100)
