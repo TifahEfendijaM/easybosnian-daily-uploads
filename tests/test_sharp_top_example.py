@@ -46,6 +46,9 @@ class SharpTopExampleTests(unittest.TestCase):
     def test_schema_roundtrip_render_history_and_report_preserve_third_preset(self):
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
         proposal['cards']['word']['blocks'][-1]['fade_style']='sharp_top'
+        from easybosnian.hybrid import heading
+        proposal['cards']['word']['blocks'][-1]['y']=round(heading(h.package['cards'][2])[2]+32)
+        proposal['cards']['word']['blocks'][0]['y']=740
         self.assertFalse(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
         before=copy.deepcopy(proposal);placement,_=h.render(h.package,proposal)
         word=placement['cards']['word']
@@ -61,10 +64,10 @@ class SharpTopExampleTests(unittest.TestCase):
         invalid=copy.deepcopy(proposal['cards']['word']);invalid['blocks'][-1]['style']='italic_photo'
         with self.assertRaisesRegex(ValueError,'Only photographic faded examples'):measured_plan(h.package['cards'][2],invalid)
 
-    def test_live_instructions_compare_three_without_a_default_or_automatic_flip(self):
+    def test_live_instructions_prefer_clean_lower_edge_without_automatic_reverse_selection(self):
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
         with patch('easybosnian.cloud_prepare.run_codex',return_value=__import__('json').dumps(proposal)) as model:
             review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
         prompt=model.call_args.args[0]
-        for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','Compare all three equally','none is the default or preferred','not automatically from title proximity'):
+        for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','Prefer sharp','Standard remains fully available','Proximity is eligibility, NEVER an automatic selection'):
             self.assertIn(text,prompt)

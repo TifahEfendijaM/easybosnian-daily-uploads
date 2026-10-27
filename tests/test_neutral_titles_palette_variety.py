@@ -87,7 +87,7 @@ class NeutralTitlesPaletteVarietyTests(unittest.TestCase):
         self.assertEqual(status,'reviewed')
         prompt=child.call_args.args[0]
         self.assertIn('choose fade_style=standard, sharp or sharp_top for EACH actual',prompt)
-        self.assertIn('none is the default or preferred',prompt)
+        self.assertIn('Prefer sharp',prompt)
         self.assertIn('restriction applies EQUALLY to EVERY approved palette',prompt)
         self.assertIn('ONLY neutral black or white',prompt)
         self.assertNotIn('explicit terracotta-sand restriction',prompt)

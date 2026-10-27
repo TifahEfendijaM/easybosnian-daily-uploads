@@ -69,6 +69,15 @@ def title_example_proximity(blocks, header_end):
     return 'near' if example['y']-header_end<TITLE_EXAMPLE_NEAR_GAP else 'far'
 
 
+def reverse_example_fade_allowed(card, plan):
+    """Eligibility only: proximity never automatically selects a shade style."""
+    example=next((b for b in plan.get('blocks',()) if b.get('role')=='example'),None)
+    body=next((b for b in plan.get('blocks',()) if b.get('role')=='body'),None)
+    return bool(example and body and type(example.get('y')) is int and type(body.get('y')) is int
+                and example['y']<body['y']
+                and title_example_proximity(plan['blocks'],heading(card)[2])=='near')
+
+
 def roles(card):
     return ([o['label'] for o in card['options']] if card['kind']=='quiz' else
             ['body'] + (['example'] if card.get('example') else []))
@@ -209,6 +218,9 @@ def validate_current_design(card, plan):
         raise ValueError('Fresh title shades require smooth edges')
     if any(b.get('style')=='overlay_light' for b in plan.get('blocks',())):
         raise ValueError('Fresh underline panels use minimal_rule; overlay_light is archive-only')
+    if any(b.get('role')=='example' and b.get('style')=='italic_photo_fade'
+           and b.get('fade_style')=='sharp_top' for b in plan.get('blocks',())) and not reverse_example_fade_allowed(card,plan):
+        raise ValueError('Crisp-top PRIMJER shade requires an above-body example near the title')
     if card.get('quiz_format')=='visual_identification':
         validate_visual_answers(card,plan['blocks'])
 
@@ -239,6 +251,28 @@ def validate_visual_answers(card, blocks):
           for group,b in zip(groups,groups[1:])]
     if max(centres)-min(centres)>1 or (gaps and max(gaps)-min(gaps)>1):
         raise ValueError('Visual quiz answers require aligned groups and consistent spacing')
+
+
+def align_visual_answer_content(blocks):
+    """Keep explicit columns aligned without inferring/snap-moving any cells.
+
+    Only exactly matching x/width anchors on distinct rows express a column.
+    Unique/staggered anchors retain their existing independent centring.
+    Native style/badge insets remain intact; split rails never shift internally.
+    """
+    columns={}
+    for block in blocks:
+        if block['role'] in ('body','example') or block['style']=='split_panel':continue
+        text_right=block['text_inset']+max(block['face'].getlength(row) for row in block['rows'])
+        marker_left=14 if block.get('marker_style')=='triangle' else 20
+        block['content_offset']=(block['width']-(text_right-marker_left))/2-marker_left
+        columns.setdefault((block['x'],block['width']),[]).append(block)
+    for column in columns.values():
+        if len({block['y'] for block in column})<2:continue
+        # The widest visible answer supplies the shared inset. Shorter labels
+        # no longer drift right inside an otherwise identical invisible cell.
+        offset=min(block['content_offset'] for block in column)
+        for block in column:block['content_offset']=offset
 
 
 def measured_plan(card, plan):
@@ -643,13 +677,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
         image=ImageOps.fit(photo,(WIDTH,HEIGHT),method=Image.Resampling.LANCZOS).convert('RGBA')
     title_face,title_rows,header_end=heading(card)
     if window and card.get('quiz_format')=='visual_identification':
-        for block in blocks:
-            if block['role'] in ('body','example') or block['style']=='split_panel':continue
-            # Centre the visible badge+text group, not merely an invisible wide
-            # panel. A paper-coloured panel can blend into the page completely.
-            text_right=block['text_inset']+max(block['face'].getlength(row) for row in block['rows'])
-            marker_left=14 if block.get('marker_style')=='triangle' else 20
-            block['content_offset']=(block['width']-(text_right-marker_left))/2-marker_left
+        align_visual_answer_content(blocks)
     heading_tone=plan.get('heading_tone','auto')
     heading_backing=None
     if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
