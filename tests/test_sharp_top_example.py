@@ -71,3 +71,5 @@ class SharpTopExampleTests(unittest.TestCase):
         prompt=model.call_args.args[0]
         for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','Prefer sharp','Standard remains fully available','Proximity is eligibility, NEVER an automatic selection'):
             self.assertIn(text,prompt)
+        self.assertNotIn('equally considered for the actual photograph without a preferred preset',prompt)
+        self.assertIn('wins there only if genuinely better, never automatically',prompt)
