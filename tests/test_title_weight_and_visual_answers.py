@@ -56,12 +56,17 @@ class TitleWeightAndVisualAnswersTests(unittest.TestCase):
     from easybosnian.core import ROOT
     surface=json.loads((ROOT/'data/design-palettes.json').read_text())['teal-seaglass']['panel']
     image=Image.open(root/'card.jpg').convert('RGB')
+    visible=[]
     for box in m['panel_bounds']:
      crop=image.crop(tuple(box));diff=ImageChops.difference(crop,Image.new('RGB',crop.size,surface)).convert('L').point(lambda p:255 if p>20 else 0)
      bbox=diff.getbbox();self.assertIsNotNone(bbox)
-     # Actual visible badge + glyphs, rather than the invisible panel rectangle,
-     # stays centred even when its surface equals the page background.
-     self.assertLess(abs((bbox[0]+bbox[2])/2-crop.width/2),7)
+     visible.append(bbox)
+     # Independent cells keep their centring. Explicit grid columns share a
+     # badge/text start instead of individually centring different-length text.
+     if count!=4:self.assertLess(abs((bbox[0]+bbox[2])/2-crop.width/2),7)
+    if count==4:
+     self.assertLessEqual(abs(visible[0][0]-visible[2][0]),1)
+     self.assertLessEqual(abs(visible[1][0]-visible[3][0]),1)
  def test_accidental_offsets_and_unequal_clear_gaps_are_rejected(self):
   card,plan=self.quiz_plan(3);plan['blocks'][2]['x']+=35
   with self.assertRaisesRegex(ValueError,'aligned groups'):validate_current_design(card,plan)

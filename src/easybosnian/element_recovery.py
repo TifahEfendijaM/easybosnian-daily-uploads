@@ -83,6 +83,16 @@ def recover_elements(card, requested, background, render, *, required=(), reason
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Crisp-top PRIMJER shade requires an above-body example near the title' and not required:
+        # Repair just the ineligible edge orientation, never move accepted text
+        # towards the title merely to make the reverse preset eligible.
+        candidate=copy.deepcopy(requested)
+        next(b for b in candidate['blocks'] if b['role']=='example')['fade_style']='sharp'
+        try:metrics=render(candidate)
+        except ValueError:pass
+        else:
+            return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                'preserved':[n for n in groups if n!='example'],'fallback':['example']})
     if reason=='Non-quiz title cannot remain readable within its shade limit':
         groups=['heading',*(g for g in groups if g!='heading')]
     for size in range(1,len(groups)):
