@@ -64,12 +64,12 @@ class SharpTopExampleTests(unittest.TestCase):
         invalid=copy.deepcopy(proposal['cards']['word']);invalid['blocks'][-1]['style']='italic_photo'
         with self.assertRaisesRegex(ValueError,'Only photographic faded examples'):measured_plan(h.package['cards'][2],invalid)
 
-    def test_live_instructions_prefer_clean_lower_edge_without_automatic_reverse_selection(self):
+    def test_live_instructions_compare_normal_edges_without_automatic_reverse_selection(self):
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
         with patch('easybosnian.cloud_prepare.run_codex',return_value=__import__('json').dumps(proposal)) as model:
             review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
         prompt=model.call_args.args[0]
-        for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','Prefer sharp','Standard remains fully available','Proximity is eligibility, NEVER an automatic selection'):
+        for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','with neither preferred or the default','Proximity is eligibility, NEVER an automatic selection'):
             self.assertIn(text,prompt)
         self.assertNotIn('equally considered for the actual photograph without a preferred preset',prompt)
         self.assertIn('wins there only if genuinely better, never automatically',prompt)

@@ -83,6 +83,17 @@ def recover_elements(card, requested, background, render, *, required=(), reason
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Separate-photo quiz answers require non-dark panel surfaces' and not required:
+        from .designs import dark_panel_surface
+        candidate=copy.deepcopy(requested);failed=[]
+        for block in candidate['blocks']:
+            if dark_panel_surface(block):
+                failed.append(block['role']);block['panel_tone']='ink_paper'
+        try:metrics=render(candidate)
+        except ValueError:pass
+        else:
+            return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                'preserved':[n for n in groups if n not in failed],'fallback':failed})
     if reason=='Crisp-top PRIMJER shade requires an above-body example near the title' and not required:
         # Repair just the ineligible edge orientation, never move accepted text
         # towards the title merely to make the reverse preset eligible.
