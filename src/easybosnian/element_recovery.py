@@ -83,6 +83,16 @@ def recover_elements(card, requested, background, render, *, required=(), reason
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Custom example backing must be a dark six-digit hex colour' and not required:
+        # A failed custom RGB need not discard valid example geometry, lettering,
+        # edges, strength or siblings. The selected approved preset remains.
+        candidate=copy.deepcopy(requested)
+        next(b for b in candidate['blocks'] if b['role']=='example')['backing_colour']=None
+        try:metrics=render(candidate)
+        except ValueError:pass
+        else:
+            return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                'preserved':[n for n in groups if n!='example'],'fallback':['example']})
     if reason=='Separate-photo quiz answers require non-dark panel surfaces' and not required:
         from .designs import dark_panel_surface
         candidate=copy.deepcopy(requested);failed=[]

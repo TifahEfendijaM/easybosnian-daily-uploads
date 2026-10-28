@@ -128,6 +128,8 @@ def with_rendering(data,placement):
             composition=approved_proposal(result['composition'])
             if composition is None:
                 raise ValueError('Invalid safe final composition metadata')
+            from .hybrid import validate_example_backings
+            validate_example_backings(composition)
             if (composition['design']!=design or
                     {block['role']:block['style'] for block in composition['blocks']}!=styles or
                     composition.get('palette',result['palette'])!=result['palette']):
@@ -232,7 +234,13 @@ def decision_lines(rendering):
         lines.append(label+': '+style_label(style)+'. '+STYLE_CATALOGUE[style])
         if role in rendering['answer_badges']:
             lines.append(label+' badge: '+rendering['answer_badges'][role].replace('_',' ')+'.')
-        if role=='example' and rendering.get('example_tone'):
+        custom_backing=next((b.get('backing_colour') for b in composition.get('blocks',[]) if b['role']=='example'),None) if composition else None
+        if role=='example' and custom_backing:
+            from .hybrid import example_colours
+            palette=read_json(ROOT/'data/design-palettes.json')[rendering['palette']]
+            colours,_=example_colours(palette,rendering['example_tone'],rendering['palette'],custom_backing)
+            lines.append('PRIMJER colours: '+colours[0]+' lettering; ChatGPT-selected exact dark backing '+custom_backing+'.')
+        elif role=='example' and rendering.get('example_tone'):
             lines.append('PRIMJER colours: '+PHOTO_TONE_CATALOGUE[rendering['example_tone']])
         if composition:
             block=next(b for b in composition['blocks'] if b['role']==role)
