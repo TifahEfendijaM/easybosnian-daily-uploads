@@ -52,7 +52,7 @@ FADE_CATALOGUE = {
     'sharp_top': 'PRIMJER-only full-width translucent band with a crisp straight TOP boundary and smoothly blended BOTTOM edge. Keep the crisp top 12px above the label where space permits; below the final row, blend the former 18px solid padding into the 48px lower feather within protected bounds, fading immediately after the lettering with the same outer reach; no upper taper, rounded box or drawn border.',
 }
 PANEL_OPACITIES = {'solid': 255, 'soft': 230, 'translucent': 191}
-PANEL_OPACITY_RANGE = (90, 100)
+PANEL_OPACITY_RANGE = (100, 100)  # Fresh panels are fully opaque; legacy ranges remain readable.
 FONT_RANGES = {'body': (32, 48), 'answer': (32, 46), 'example': (28, 40)}
 MARKER_STYLES = ('circle', 'rounded_square', 'square', 'triangle')
 LEADING_RANGE = (1.20, 1.55)  # multiplier of the actual loaded face's point size

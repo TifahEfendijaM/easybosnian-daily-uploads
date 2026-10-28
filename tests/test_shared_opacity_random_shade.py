@@ -24,7 +24,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 self.assertEqual(apply_policy(plan,panel_opacity=100),plan)
         with patch('secrets.randbelow',side_effect=AssertionError('no opacity draw allowed')) as opacity_draw:
             opacities=panel_opacities(cards)
-        self.assertEqual(opacities,{'quiz':None,'lesson':None,'word':None})
+        self.assertEqual(opacities,{'quiz':100,'lesson':100,'word':100})
         opacity_draw.assert_not_called()
         draw.assert_not_called()
 
@@ -36,8 +36,7 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 card['options']=[{'label':label,'text':text} for label,text in
                                   zip('ABCD',('Jabuka','Kruška','Šljiva','Dunja'))][:count]
                 source=copy.deepcopy(card);plan=default_plan(card)
-                for block,opacity in zip(plan['blocks'],(90,92.5,100,95)):
-                    block['panel_opacity']=opacity
+                for block in plan['blocks']:block['panel_opacity']=100
                 original=copy.deepcopy(plan);applied=apply_policy(plan,panel_opacity=100)
                 expected=copy.deepcopy(plan)
                 for block in expected['blocks']:block['panel_opacity']=100
@@ -49,14 +48,14 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
                 self.assertEqual(policy_metadata(applied,panel_opacity=100)['panel_opacity'],100)
             # Legacy source values cannot restore transparent fresh panels.
             word=default_plan(reviewed_fixture()['cards'][2]);word['blocks'][0]['panel_opacity']=91
-            self.assertEqual(apply_policy(word,panel_opacity=100)['blocks'][0]['panel_opacity'],100)
-            self.assertEqual(apply_policy(word)['blocks'][0]['panel_opacity'],91)
-            self.assertEqual(apply_policy(word,panel_opacity=91)['blocks'][0]['panel_opacity'],91)
+            with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(word,panel_opacity=100)
+            with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(word)
+            with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(default_plan(card),panel_opacity=91)
 
     def test_policy_preserves_selected_example_preset_and_changes_only_opacity(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)
         plan.update(heading_tone='accent_dark',heading_fade='standard')
-        plan['blocks'][0].update(style='soft_corner',panel_opacity=93.5)
+        plan['blocks'][0].update(style='soft_corner',panel_opacity=100)
         plan['blocks'][-1]['photo_tone']='paper_ink'
         original=copy.deepcopy(plan)
         expected=copy.deepcopy(plan)
@@ -100,11 +99,11 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
             self.assertTrue(result['render_policy']['example_fade_applied'])
         self.assertEqual(lesson['composition']['heading_fade'],'standard')
         self.assertEqual(accepted_choices(placement)['lesson']['example_fade'],'sharp')
-        self.assertEqual(set(accepted_choices(placement)['quiz']['panel_opacities'].values()),{100})
+        self.assertNotIn('panel_opacities',accepted_choices(placement)['quiz'])
         text,markup=render_report(with_rendering(report_data(h.package,results(),RUN),placement))
         for document in (text,markup):
             document=document.replace('\\.','.')
-            self.assertIn('Shared panel opacity: 100%',document)
+            self.assertIn('Panel opacity: fixed at 100%',document)
             self.assertNotIn('uniformly sampled',document)
             self.assertIn('ChatGPT',document)
             self.assertIn('Fallback elements only: body',document)
@@ -124,4 +123,15 @@ class SharedOpacityRandomShadeTests(unittest.TestCase):
         policy={'version':5,'panel_opacity':87.5,'panel_opacity_applied':True,
                 'example_fade':'standard','example_fade_applied':True}
         self.assertEqual(safe_policy(policy,plan),policy)
+        plan['blocks'][0]['panel_opacity']=94.5
+        variable=dict(policy,version=7,panel_opacity=94.5)
+        self.assertEqual(safe_policy(variable,plan),variable)
+        from easybosnian.visual_history import panel_theme
+        self.assertEqual(panel_theme({'palette':'gold-cream','composition':plan}),'light')
+        historic={'status':'accepted','palette':'gold-cream','design':plan['design'],
+                  'block_styles':{b['role']:b['style'] for b in plan['blocks']},
+                  'composition':plan,'render_policy':variable}
+        self.assertEqual(accepted_choices({'cards':{'word':historic}})['word']['panel_opacities'],{'body':94.5})
+        with self.assertRaisesRegex(ValueError,'Shared opacity'):safe_policy(dict(variable,version=8),plan)
+        plan['blocks'][0]['panel_opacity']=87.5
         with self.assertRaisesRegex(ValueError,'Shared opacity'):safe_policy(dict(policy,version=6),plan)
