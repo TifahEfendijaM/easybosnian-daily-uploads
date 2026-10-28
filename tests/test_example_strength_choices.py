@@ -114,6 +114,6 @@ class ExampleStrengthChoicesTests(unittest.TestCase):
                             x,y,right,bottom=metrics['panel_bounds'][0]
                             with Image.open(root/'card.jpg') as im:
                                 actual=im.getpixel((right-12,y+34))
-                                expected=tuple(int(palette['ink'][i:i+2],16) for i in (1,3,5))
+                                expected=tuple(int(palette['dark_surface'][i:i+2],16) for i in (1,3,5))
                                 self.assertLessEqual(max(abs(a-b) for a,b in zip(actual,expected)),4)
                 self.assertGreaterEqual(contrast(palette['ink'],palette['accent']),4.5)
