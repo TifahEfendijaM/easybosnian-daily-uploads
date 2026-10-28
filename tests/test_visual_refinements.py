@@ -9,6 +9,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 from PIL import Image
 
+from easybosnian.core import ROOT,read_json
 from easybosnian.designs import CATEGORY_STYLES, PHOTO_TONES
 from easybosnian.hybrid import default_plan, measured_plan, render_hybrid
 from easybosnian.visual_diagnostics import rejection_diagnostic, safe_rejection
@@ -92,7 +93,7 @@ class VisualRefinementTests(unittest.TestCase):
                 if tone.startswith('ink_'):
                     self.assertEqual(metrics['heading_colour'],'#000000' if tone=='ink_light' else '#44271e')
                     self.assertEqual(metrics['example_colour'],'#000000' if tone=='ink_light' else '#44271e')
-                if tone.startswith('paper_'):self.assertEqual(metrics['example_colour'],'#ffffff' if tone=='paper_dark' else '#fff3e4')
+                if tone.startswith('paper_'):self.assertEqual(metrics['example_colour'],'#ffffff' if tone=='paper_dark' else read_json(ROOT/'data/design-palettes.json')['terracotta-sand']['panel'])
                 if tone=='accent_ink':self.assertEqual(metrics['example_colour'],'#f0b18f')
             self.assertEqual(card,before)
             # An explicit colour is never permission to invent a fade for italic_photo.

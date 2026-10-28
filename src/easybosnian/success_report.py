@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from .batches import output_key
 from .designs import (DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES,
-                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
+                      MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES, EXAMPLE_PHOTO_TONES,
                       STYLE_CATALOGUE, CATEGORY_CATALOGUE, PHOTO_TONE_CATALOGUE, TITLE_TONE_CATALOGUE, panel_alpha, PANEL_STYLES, style_label,
                       PANEL_TONES, FADE_STYLES)
 from .visual_diagnostics import safe_rejection, rendering_outcome, rendering_provenance, approved_proposal
@@ -97,7 +97,7 @@ def with_rendering(data,placement):
                                'block_styles':styles,'answer_badges':badges,'block_typography':safe_typography,
                                'outcome':rendering_outcome(result,placement.get('status')),
                                'provenance':rendering_provenance(result,placement.get('status'))}
-        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*PHOTO_TONES,None))):
+        for field,allowed in (('category_style',CATEGORY_STYLES),('heading_tone',PHOTO_TONES),('example_tone',(*EXAMPLE_PHOTO_TONES,None))):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
                 rendered[LABELS[kind]][field]=result[field]

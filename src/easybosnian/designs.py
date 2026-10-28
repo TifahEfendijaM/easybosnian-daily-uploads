@@ -19,7 +19,8 @@ CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink',
                'ink_accent', 'accent_dark', 'accent_light', 'paper_accent')
 # Fresh reviews choose approved colours and renderer-owned fixed fade presets.
-REVIEW_PHOTO_TONES = PHOTO_TONES
+EXAMPLE_PHOTO_TONES = (*PHOTO_TONES, 'white_secondary', 'paper_secondary')
+REVIEW_PHOTO_TONES = EXAMPLE_PHOTO_TONES
 # Titles retain approved text colours, with neutral backing colours only.
 REVIEW_TITLE_TONES = ('auto','paper_dark','ink_light','paper_ink','ink_paper','accent_dark','accent_light')
 TITLE_TONE_CATALOGUE = {
@@ -89,6 +90,8 @@ CATEGORY_CATALOGUE = {
     'tab': 'Square accent tab with a short ink underline, ink text.',
 }
 PHOTO_TONE_CATALOGUE = {
+    'white_secondary': "White example lettering on this palette's curated second dark backing; photographic faded examples only.",
+    'paper_secondary': "Palette paper-coloured example lettering on this palette's curated second dark backing; photographic faded examples only.",
     'auto': 'On photographs Pillow chooses white/black glyphs with the matching black/white fade only if required; paper layouts retain palette ink.',
     'paper_dark': 'White glyphs; fixed neutral black fade when required.',
     'ink_light': 'Black glyphs; fixed neutral white fade when required.',
