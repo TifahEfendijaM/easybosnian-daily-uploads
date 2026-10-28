@@ -129,6 +129,9 @@ def accepted_choices(placement):
                 safe['example_fade']=example['fade_style']
             if example.get('style')=='italic_photo_fade' and example.get('shade_strength') in EXAMPLE_SHADE_STRENGTHS:
                 safe['example_shade_strength']=example['shade_strength']
+            if example.get('style')=='italic_photo_fade' and example.get('backing_colour') is not None:
+                from .hybrid import valid_example_backing
+                if valid_example_backing(example['backing_colour']):safe['example_backing_colour']=example['backing_colour']
             opacities={b['role']:b['panel_opacity'] for b in blocks if isinstance(b,dict)
                        and isinstance(b.get('role'),str) and styles.get(b['role']) in PANEL_STYLES
                        and valid_panel_opacity(b.get('panel_opacity'),legacy=False)}

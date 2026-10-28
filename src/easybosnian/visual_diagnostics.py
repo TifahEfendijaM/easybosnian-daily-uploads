@@ -107,6 +107,8 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     return result
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Custom example backing requires a full-photo fade and explicit lettering tone',
+    'Custom example backing must be a dark six-digit hex colour',
     'Secondary example backing requires a photographic fade',
     'Unsupported secondary example palette',
     'Repair changed a protected approved element',

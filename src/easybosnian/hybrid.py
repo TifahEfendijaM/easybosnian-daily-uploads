@@ -1,6 +1,7 @@
 """Measured photographic compositions from data, never model-generated drawing code."""
 import json
 import copy
+import re
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
@@ -145,7 +146,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
             **({'marker_style':'circle','marker_tone':'auto'} if role not in ('body','example') else {}),
-            **({'photo_tone':'auto','fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
+            **({'photo_tone':'auto','backing_colour':None,'fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
 
@@ -277,6 +278,18 @@ def align_visual_answer_content(blocks):
         for block in column:block['content_offset']=offset
 
 
+def validate_example_backings(plan):
+    """Custom RGB is a single example-only value, never another drawing API."""
+    for block in plan['blocks']:
+        if block.get('backing_colour') is not None:
+            if (block['role']!='example' or block['style']!='italic_photo_fade'
+                    or plan['design']!='hybrid' or plan['photo_window'] is not None
+                    or block.get('photo_tone','auto')=='auto'):
+                raise ValueError('Custom example backing requires a full-photo fade and explicit lettering tone')
+            if not valid_example_backing(block['backing_colour']):
+                raise ValueError('Custom example backing must be a dark six-digit hex colour')
+
+
 def measured_plan(card, plan):
     """Reject off-canvas, overlapping, unreadable, or mismatched proposals."""
     from .visual_placement import CARD_SCHEMA
@@ -307,6 +320,7 @@ def measured_plan(card, plan):
         raise ValueError('Selected title opacity requires black emphasis with distant PRIMJER')
     if any(b.get('photo_tone') in ('white_secondary','paper_secondary') and b.get('style')!='italic_photo_fade' for b in plan['blocks']):
         raise ValueError('Secondary example backing requires a photographic fade')
+    validate_example_backings(plan)
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -389,8 +403,22 @@ def photo_colours(palette, tone='auto'):
     return [colour],[(colour,rgb)]
 
 
-def example_colours(palette, tone='auto', palette_id=None):
+def valid_example_backing(colour):
+    """Exact dark RGB only; contrast against white bounds brightness, not hue."""
+    return (isinstance(colour,str) and re.fullmatch(r'#[0-9a-f]{6}',colour) is not None
+            and contrast('#ffffff',colour)>=4.5)
+
+
+def example_colours(palette, tone='auto', palette_id=None, backing_colour=None):
     """The extra example-only role never changes panel/title/archive colours."""
+    if backing_colour is not None:
+        if not valid_example_backing(backing_colour):
+            raise ValueError('Custom example backing must be a dark six-digit hex colour')
+        if tone=='auto':
+            raise ValueError('Custom example backing requires a full-photo fade and explicit lettering tone')
+        colours,_=example_colours(palette,tone,palette_id)
+        rgb=tuple(int(backing_colour[i:i+2],16) for i in (1,3,5))
+        return colours,[(colours[0],rgb)]
     if tone not in ('white_secondary','paper_secondary'):
         return photo_colours(palette,tone)
     catalogue=json.loads((ROOT/'data/example-backings.json').read_text())
@@ -736,7 +764,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             # Text remains above y1170. Its background fade may taper into
             # the footer; the untouched logo is composited on top afterward.
             limit=photo_bounds or [0,header_end+14,WIDTH,HEIGHT-64]
-            colours,backings=example_colours(palette,block.get('photo_tone','auto'),palette_id)
+            colours,backings=example_colours(palette,block.get('photo_tone','auto'),palette_id,block.get('backing_colour'))
             example_colour,example_contrast,example_shading=protect_text(
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[((x,y),['PRIMJER'],label_face)],
