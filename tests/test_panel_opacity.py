@@ -84,7 +84,7 @@ class PanelOpacityTests(unittest.TestCase):
             palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
             legacy=Image.new('RGBA',(1080,1350),'#808080');draw_panel(legacy,block,palette)
             if style=='overlay_light':
-                expected=Image.alpha_composite(Image.new('RGBA',(1,1),'#808080'),Image.new('RGBA',(1,1),(255,249,233,235)))
+                expected=Image.alpha_composite(Image.new('RGBA',(1,1),'#808080'),Image.new('RGBA',(1,1),tuple(int(palette['panel'][i:i+2],16) for i in (1,3,5))+(235,)))
                 self.assertEqual(legacy.getpixel((540,round(750+block['height']/2))),expected.getpixel((0,0)))
             else:
                 explicit=Image.new('RGBA',(1080,1350),'#808080')

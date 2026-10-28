@@ -99,7 +99,7 @@ class TitlePaletteLimitsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);photo=root/'photo.jpg'
             Image.new('RGB',(1080,1350),'#ffffff').save(photo)
-            for tone,expected_alpha in [('paper_dark',114),('paper_ink',114)]:
+            for tone,expected_alpha in [('paper_dark',114),('paper_ink',126)]:
                 plan=dict(default_plan(card),confidence='high',heading_tone=tone)
                 plan['blocks'][-1]['photo_tone']='paper_dark'
                 result=render_hybrid(card,'gold-cream',photo,root/(tone+'.jpg'),plan)

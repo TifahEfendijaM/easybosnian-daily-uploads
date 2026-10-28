@@ -238,7 +238,7 @@ class HybridCompositionTests(unittest.TestCase):
             with Image.open(root/'card.jpg') as image:
                 # Far from text/accent/JPEG boundaries: paper remains its exact colour.
                 pixel=image.getpixel((box[2]-40,box[3]-20))
-                self.assertTrue(all(abs(a-b)<=2 for a,b in zip(pixel,(255,243,228))))
+                self.assertTrue(all(abs(a-b)<=2 for a,b in zip(pixel,tuple(int(read_json(ROOT/'data/design-palettes.json')['terracotta-sand']['panel'][i:i+2],16) for i in (1,3,5)))))
 
     def test_image_cli_uses_stripped_environment_contract_and_read_only_sandbox(self):
         with tempfile.TemporaryDirectory() as temp:
