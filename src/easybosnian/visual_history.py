@@ -38,6 +38,27 @@ def palette_policies(window,batch=()):
     return {palette:palette_policy(window,batch,palette) for palette in read_json(ROOT/'data/design-palettes.json')}
 
 
+def brightness_history(recent):
+    """Newest four distinct known batches; quiz colours never affect this tie-break."""
+    batches=[];seen=set();counts={'light':0,'dark':0}
+    for run in recent:
+        batch=run.get('batch_id')
+        key=('batch',batch) if isinstance(batch,str) and re.fullmatch(r'b-[a-f0-9]{32}',batch) else None
+        if key is not None and key in seen:continue
+        if key is not None:seen.add(key)
+        observations=run.get('panel_theme_observations')
+        if isinstance(observations,list) and len(observations)==3:
+            values=observations[1:]
+        else:values=[run.get('cards',{}).get(k,{}).get('panel_theme','unknown') for k in ('lesson','word')]
+        values=[v if v in ('light','dark','mixed','unknown') else 'unknown' for v in values]
+        weight=4-len(batches)
+        batches.append({'recency':len(batches)+1,'weight':weight,'lesson':values[0],'word':values[1]})
+        for value in values:
+            if value in counts:counts[value]+=weight
+        if len(batches)==4:break
+    return {'max_batches':4,'newest_first':True,'batches':batches,'weighted_counts':counts}
+
+
 def panel_theme(card):
     """Known current high-opacity panel treatment, independently of palette names."""
     from .core import ROOT,read_json
@@ -154,7 +175,7 @@ def recent_choices(limit=5):
             observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
             observations=[v for v in observations if isinstance(v,str) and v in catalogue]
             if choices or observations:
-                recent.append({'run_id':rid,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations,
+                recent.append({'run_id':rid,'batch_id':placement.get('batch_id') if isinstance(placement.get('batch_id'),str) and re.fullmatch(r'b-[a-f0-9]{32}',placement['batch_id']) else None,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations,
                                'panel_theme_observations':[panel_theme(placement.get('cards',{}).get(k,{})) for k in ('quiz','lesson','word')]})
             if len(recent)==limit:break
         return recent,'available'
