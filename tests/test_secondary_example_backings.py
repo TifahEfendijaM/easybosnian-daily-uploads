@@ -76,3 +76,15 @@ class SecondaryExampleBackingTests(unittest.TestCase):
         brightness=next(line for line in prompt.splitlines() if line.startswith('When the known recent LESSON/WORD surfaces'))
         self.assertNotIn('slightly',brightness)
         self.assertIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
+
+    def test_public_summary_accepts_new_example_tones_but_never_as_title_tones(self):
+        from easybosnian.success_report import report_data,with_rendering,render_report
+        from test_success_report import RUN,results
+        h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
+        proposal['cards']['word']['blocks'][-1]['photo_tone']='white_secondary'
+        placement,_=h.render(h.package,proposal)
+        report=with_rendering(report_data(h.package,results(),RUN),placement)
+        for text in render_report(report):self.assertIn('curated second dark backing',text)
+        bad=copy.deepcopy(placement);bad['cards']['word']['heading_tone']='white_secondary'
+        with self.assertRaisesRegex(ValueError,'Invalid safe colour/category metadata'):
+            with_rendering(report_data(h.package,results(),RUN),bad)
