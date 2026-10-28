@@ -101,6 +101,12 @@ def with_rendering(data,placement):
             if field in result:
                 if result[field] not in allowed:raise ValueError('Invalid safe colour/category metadata')
                 rendered[LABELS[kind]][field]=result[field]
+        if 'dark_panel_surface' in result:
+            surface=result['dark_panel_surface']
+            palette=catalogue[result['palette']]
+            if surface not in (None,palette['ink'],palette.get('dark_surface',palette['ink'])):
+                raise ValueError('Invalid safe dark-panel surface metadata')
+            rendered[LABELS[kind]]['dark_panel_surface']=surface
         if 'heading_backing' in result:
             if result['heading_backing'] not in (None,'#000000','#ffffff'):raise ValueError('Invalid safe title backing metadata')
             rendered[LABELS[kind]]['heading_backing']=result['heading_backing']
@@ -172,7 +178,7 @@ def decision_lines(rendering):
         if policy.get('version')==7:
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; allowed range 90–100%, "+
                          ('applied equally to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
-        elif policy.get('version') in (6,8):
+        elif policy.get('version') in (6,8,9):
             lines.append('Panel opacity: fixed at 100%; '+
                          ('every bounded explanation/answer surface is fully opaque.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         elif policy.get('version') in (2,3,4,5) and answers:
@@ -182,7 +188,7 @@ def decision_lines(rendering):
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
-            if policy.get('version') in (4,5,6,7,8):
+            if policy.get('version') in (4,5,6,7,8,9):
                 element_sources=rendering.get('element_recovery')
                 example_source=('fallback' if 'example' in element_sources['fallback'] else 'chatgpt') if element_sources else rendering.get('provenance',{}).get('layout',{}).get('source')
                 source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — ',
@@ -251,6 +257,9 @@ def decision_lines(rendering):
                              (preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
                 lines.append(label+' surface opacity: '+description)
                 lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
+                from .designs import dark_panel_surface
+                if dark_panel_surface(block) and rendering.get('dark_panel_surface'):
+                    lines.append(label+' dark surface: '+rendering['dark_panel_surface']+'; original decorative accent retained.')
             if role=='example':
                 lines.append('PRIMJER fade: '+block.get('fade_style','standard')+'.')
                 if style=='italic_photo_fade' and 'shade_strength' in block:

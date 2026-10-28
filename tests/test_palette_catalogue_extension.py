@@ -36,7 +36,7 @@ class ExpandedPaletteCatalogueTests(unittest.TestCase):
         package=reviewed_fixture()
         for name,palette in catalogue.items():
             with self.subTest(palette=name):
-                self.assertEqual(set(palette),{'ink','panel','accent','scrim'})
+                self.assertEqual(set(palette),{'ink','panel','accent','scrim','dark_surface'})
                 self.assertTrue(all(re.fullmatch(r'#[0-9a-f]{6}',c) for c in palette.values()))
                 for background in (palette['panel'],palette['accent'],'#ffffff'):
                     self.assertGreaterEqual(contrast(palette['ink'],background),4.5)

@@ -123,12 +123,13 @@ def panel_alpha(value):
     return PANEL_OPACITIES[value] if isinstance(value, str) else round(value * 255 / 100)
 
 
-def panel_colours(palette, tone='auto', *, dark=False):
+def panel_colours(palette, tone='auto', *, dark=False, bounded=False):
     """Approved text/surface pairs, never arbitrary colours or model primitives."""
     if tone not in PANEL_TONES:raise ValueError('Unsupported panel colour treatment')
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
-    return {'auto':(paper,ink) if dark else (ink,paper), 'ink_paper':(ink,paper),
-            'paper_ink':(paper,ink), 'ink_accent':(ink,accent), 'accent_ink':(accent,ink)}[tone]
+    surface=palette.get('dark_surface',ink) if bounded else ink
+    return {'auto':(paper,surface) if dark else (ink,paper), 'ink_paper':(ink,paper),
+            'paper_ink':(paper,surface), 'ink_accent':(ink,accent), 'accent_ink':(accent,surface)}[tone]
 
 
 def dark_panel_surface(block):
