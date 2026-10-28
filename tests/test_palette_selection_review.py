@@ -15,9 +15,9 @@ class PaletteSelectionReviewTests(unittest.TestCase):
         for phrase in ('SAME limits COLLECTIVELY to visually SIMILAR palettes',
                        'renaming the palette or switching to a near-duplicate',
                        'Sharing one hue or merely both being light/dark is NOT enough',
-                       'ALL or OVERWHELMINGLY light',
-                       'same preference towards a suitable lighter treatment',
-                       'Do not force it when the photograph, readability or harmony clearly favours',
+                       'consider light and dark surfaces EQUALLY',
+                       'ONLY when the light and dark alternatives work EQUALLY WELL',
+                       'Do not sacrifice ANY better fit for brightness variety',
                        'NEVER favour or lighten the text-card surface',
                        'Quiz-specific surface rules still take precedence',
                        'no_other_suitable_palette'):

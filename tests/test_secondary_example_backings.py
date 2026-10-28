@@ -71,9 +71,9 @@ class SecondaryExampleBackingTests(unittest.TestCase):
         for phrase in ('Curated second dark PRIMJER backing for each palette',
                        'NEVER favour or lighten the text-card surface',
                        'it is not mandatory and never forces a dark card',
-                       'even if less optimal alone'):
+                       'ONLY when the light and dark alternatives work EQUALLY WELL'):
             self.assertIn(phrase,prompt)
-        brightness=next(line for line in prompt.splitlines() if line.startswith('When the known recent LESSON/WORD surfaces'))
+        brightness=next(line for line in prompt.splitlines() if line.startswith('For LESSON/WORD brightness,'))
         self.assertNotIn('slightly',brightness)
         self.assertIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
 

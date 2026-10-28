@@ -74,7 +74,9 @@ class CustomExampleBackingTests(unittest.TestCase):
         prompt=model.call_args.args[0]
         for phrase in ('FIRST seek a visibly DIFFERENT HUE','ONLY when NO different-hue candidate',
                        'Strong contrast with that surface is welcome','MILDLY PREFERRED',
-                       'NEVER favour or lighten the text-card surface','backing_colour=null'):
+                       'NEVER favour or lighten the text-card surface','backing_colour=null',
+                       'applies to LIGHT text-card surfaces too',
+                       'Do not automatically reuse a darker version of the light surface'):
             self.assertIn(phrase,prompt)
         placement,_=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
