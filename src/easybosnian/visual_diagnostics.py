@@ -99,6 +99,7 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     result={'position':metrics['panel_position'],'status':status,
             **{key:metrics.get(key) for key in ('palette','design','category_style','heading_tone','example_tone',
                'heading_backing','block_styles','answer_badges','block_typography','composition')},
+            **({'dark_panel_surface':metrics['dark_panel_surface']} if 'dark_panel_surface' in metrics else {}),
             **({'example_shading':metrics['example_shading']} if 'example_shading' in metrics else {}),
             **({'heading_shading':metrics['heading_shading']} if 'heading_shading' in metrics else {}),
             'render_policy':policy,'palette_outcome':palette_outcome,**extra}

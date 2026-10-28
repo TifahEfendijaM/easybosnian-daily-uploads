@@ -65,7 +65,7 @@ class PanelOpacityTests(unittest.TestCase):
                            'bounds':[64,750,1016,750+spec['height']]}
                     image=Image.new('RGBA',(1080,1350),'#808080')
                     draw_panel(image,block,palette)
-                    surface=palette['ink'] if style=='overlay_dark' else palette['panel']
+                    surface=palette['dark_surface'] if style=='overlay_dark' else palette['panel']
                     expected=Image.alpha_composite(Image.new('RGBA',(1,1),'#808080'),
                         Image.new('RGBA',(1,1),(*tuple(int(surface[i:i+2],16) for i in (1,3,5)),alpha)))
                     self.assertEqual(image.getpixel((540,round(750+spec['height']/2))),expected.getpixel((0,0)))

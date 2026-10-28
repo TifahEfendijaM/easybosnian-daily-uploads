@@ -33,7 +33,7 @@ class CatalogueCleanupTests(unittest.TestCase):
   self.assertEqual(CATEGORY_STYLES,('rounded','pill','ribbon','underlined','outlined','tab'))
  def test_plain_rounded_has_smooth_corners_and_no_accent_stripe_in_either_tone(self):
   palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
-  for tone,surface in (('ink_paper',palette['panel']),('paper_ink',palette['ink'])):
+  for tone,surface in (('ink_paper',palette['panel']),('paper_ink',palette['dark_surface'])):
    block={'role':'body','style':'rounded_plain','x':64,'y':100,'width':952,'height':180,
           'bounds':[64,100,1016,280],'padding':30,'panel_opacity':100,'panel_tone':tone}
    image=Image.new('RGBA',(1080,400),'#808080');draw_panel(image,block,palette)

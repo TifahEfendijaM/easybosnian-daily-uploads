@@ -610,7 +610,7 @@ def draw_panel(image, block, palette):
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
-    colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark')
+    colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark',bounded=True)
     # Composite only the bounded surface. Glyphs, decorations and answer badges
     # remain opaque; geometry and renderer-owned drawing presets do not change.
     alpha=panel_alpha(block['panel_opacity']) if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)
@@ -694,10 +694,11 @@ def draw_panel(image, block, palette):
     return colour
 
 
-def render_hybrid(card, palette_id, background, output, plan=None):
+def render_hybrid(card, palette_id, background, output, plan=None, *, refined_panels=True):
     catalogue=json.loads((ROOT/'data/design-palettes.json').read_text())
     if palette_id not in catalogue:raise ValueError('Unknown approved palette')
-    palette=catalogue[palette_id]
+    palette=dict(catalogue[palette_id])
+    if not refined_panels:palette.pop('dark_surface',None)  # Verified pre-v9 archive reproduction only.
     plan=copy.deepcopy(plan) if plan is not None else default_plan(card)
     if plan.get('palette',palette_id)!=palette_id:raise ValueError('Composition palette differs from rendering palette')
     blocks=measured_plan(card,plan)
@@ -831,7 +832,9 @@ def render_hybrid(card, palette_id, background, output, plan=None):
     return {'size':[WIDTH,HEIGHT],
             **({'treatment':'B','question_bounds':[64,HEADING_TOP,1016,header_end],
                 'photo_size':[photo_bounds[2]-photo_bounds[0],photo_bounds[3]-photo_bounds[1]]} if card.get('quiz_format')=='visual_identification' else {}),
-            'typography':'hybrid','palette':palette_id,'panel_position':'free' if plan['confidence']=='high' else 'normal',
+            'typography':'hybrid','palette':palette_id,
+            'dark_panel_surface':palette.get('dark_surface',ink) if any(b['style'] in PANEL_STYLES and dark_panel_surface(b) for b in blocks) else None,
+            'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),
             'category_style':category['style'],'category_contrast':category['contrast'],
             'heading_tone':heading_tone,'heading_colour':heading_colour,

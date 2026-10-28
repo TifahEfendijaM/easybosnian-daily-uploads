@@ -44,7 +44,7 @@ def policy_metadata(plan, *, panel_opacity=None):
         raise ValueError('Shared opacity differs from rendered composition')
     example=next((b for b in plan['blocks'] if b['role']=='example'),None)
     example_fade=example.get('fade_style','standard') if example and example['style']=='italic_photo_fade' else None
-    return safe_policy({'version':8,'panel_opacity':actual,'panel_opacity_applied':bool(panels),
+    return safe_policy({'version':9,'panel_opacity':actual,'panel_opacity_applied':bool(panels),
                         'example_fade':example_fade,
                         'example_fade_applied':bool(example_fade is not None and example and
                                                      example['style']=='italic_photo_fade')},plan)
@@ -54,23 +54,23 @@ def safe_policy(value, plan):
     """Only checked policy metadata may reach reports; old policies stay exact."""
     fields={'panel_opacity','panel_opacity_applied','example_fade','example_fade_applied'}
     if (not isinstance(value,dict) or set(value) not in (fields,fields|{'version'})
-            or ('version' in value and (type(value['version']) is not int or value['version'] not in (2,3,4,5,6,7,8)))
-            or value['example_fade'] not in ((None,*REVIEW_EXAMPLE_FADE_STYLES) if value.get('version') in (4,5,6,7,8) else (None,'sharp') if value.get('version')==3 else (None,'standard','defined'))
+            or ('version' in value and (type(value['version']) is not int or value['version'] not in (2,3,4,5,6,7,8,9)))
+            or value['example_fade'] not in ((None,*REVIEW_EXAMPLE_FADE_STYLES) if value.get('version') in (4,5,6,7,8,9) else (None,'sharp') if value.get('version')==3 else (None,'standard','defined'))
             or type(value['example_fade_applied']) is not bool
             or type(value['panel_opacity_applied']) is not bool):
         raise ValueError('Invalid safe rendering policy metadata')
     panels=[b for b in plan['blocks'] if b['style'] in PANEL_STYLES]
     opacity=value['panel_opacity'];version=value.get('version')
-    minimum=100 if version==8 else 90 if version==7 else 85 if version in (2,3,4,5,6) else 70
+    minimum=100 if version in (8,9) else 90 if version==7 else 85 if version in (2,3,4,5,6) else 70
     if (type(opacity) not in (int,float) or not valid_panel_opacity(opacity) or opacity<minimum or
             any(b.get('panel_opacity')!=opacity for b in panels)
             or value['panel_opacity_applied']!=bool(panels)
-            or (version in (6,8) and opacity!=100)
+            or (version in (6,8,9) and opacity!=100)
             or (version in (2,3,4,5,6) and any(b['role'] in ('A','B','C','D') for b in panels) and opacity!=100)):
         raise ValueError('Shared opacity differs from rendered composition')
     example=next((b for b in plan['blocks'] if b['role']=='example'),None)
     active=bool(value['example_fade'] is not None and example and example['style']=='italic_photo_fade')
-    if version in (4,5,6,7,8) and value['example_fade']!=(example.get('fade_style','standard') if example and example['style']=='italic_photo_fade' else None):
+    if version in (4,5,6,7,8,9) and value['example_fade']!=(example.get('fade_style','standard') if example and example['style']=='italic_photo_fade' else None):
         raise ValueError('Selected shade differs from rendered composition')
     if active!=value['example_fade_applied'] or (active and example.get('fade_style')!=value['example_fade']):
         raise ValueError('Assigned shade differs from rendered composition')

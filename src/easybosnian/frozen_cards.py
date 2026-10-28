@@ -119,7 +119,8 @@ def legacy_artifact(store,previous,source_batch_id,card,photo):
             choice=placement['cards'][card['kind']];plan=choice.get('composition')
             if not isinstance(plan,dict):continue
             feed=z.read(required[1]);path=folder/(card['kind']+'-card.jpg')
-            try:metrics=render_hybrid(card,choice['palette'],original,path,plan)
+            try:metrics=render_hybrid(card,choice['palette'],original,path,plan,
+                                      refined_panels=choice.get('render_policy',{}).get('version',0)>=9)
             except ValueError:continue
             if path.read_bytes()!=feed:continue
             story_path=folder/(card['kind']+'-story.jpg')
