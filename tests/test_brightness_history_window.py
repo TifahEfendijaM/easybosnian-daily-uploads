@@ -25,7 +25,9 @@ class BrightnessHistoryWindowTests(unittest.TestCase):
   with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
    review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']},recent)
   prompt=child.call_args.args[0]
-  for phrase in ('newest at most FOUR','newest ONE or TWO','NEVER additional brightness evidence','independent nine-image palette-repetition window','even if less optimal alone'):
+  for phrase in ('newest at most FOUR','newest ONE or TWO','NEVER additional brightness evidence','independent nine-image palette-repetition window','Use recent brightness history ONLY when the light and dark alternatives work EQUALLY WELL'):
    self.assertIn(phrase,prompt)
+  self.assertNotIn('even if less optimal alone',prompt)
+  self.assertIn('Do not sacrifice ANY better fit for brightness variety',prompt)
   self.assertIn(json.dumps(brightness_history(recent)),prompt)
   self.assertIn(json.dumps(recent,ensure_ascii=False),prompt)
