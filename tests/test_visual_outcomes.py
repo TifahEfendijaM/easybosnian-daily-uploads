@@ -33,21 +33,26 @@ class VisualOutcomeTests(unittest.TestCase):
         self.assertNotIn('status',str(safe));self.assertNotIn('position',str(safe))
 
     def test_artifact_reads_are_bounded_exact_repository_and_never_extract_images(self):
+        from test_retained_visual_history import fixture,run
+        from easybosnian.core import PROJECT
+        row,placement,files=fixture()
         stream=io.BytesIO()
         with zipfile.ZipFile(stream,'w') as archive:
-            archive.writestr('b-'+'a'*32+'/image-placement-result.json',json.dumps(self.placement()))
+            for name,body in files.items():archive.writestr(name,body)
             archive.writestr('../private.txt','do not extract')
-        runs=[{'databaseId':10,'status':'completed','displayTitle':'EasyBosnian (preview)','createdAt':'now'},
-              {'databaseId':11,'status':'completed','displayTitle':'EasyBosnian (daily)','createdAt':'now'}]
+        runs={'workflow_runs':[run(10,'EasyBosnian (preview)'),run(11)]}
         artifact={'artifacts':[{'id':12,'name':'easybosnian-daily-11','expired':False,'size_in_bytes':900}]}
-        with patch('easybosnian.visual_history.gh',side_effect=[json.dumps(runs),json.dumps(artifact)]) as gh,patch('easybosnian.visual_history.gh_binary',return_value=stream.getvalue()) as binary:
+        store=MagicMock();store.history.return_value={'project':PROJECT,'days':[row]}
+        with patch('easybosnian.store.Store',return_value=store),patch('easybosnian.run_reports.get_report',return_value=None),patch('easybosnian.visual_history.gh',side_effect=[json.dumps(runs),json.dumps(artifact)]) as gh,patch('easybosnian.visual_history.gh_binary',return_value=stream.getvalue()) as binary:
             data,status=recent_choices()
         self.assertEqual(status,'available');self.assertEqual(data[0]['run_id'],11)
         self.assertEqual(gh.call_count,2)
         self.assertIn('TifahEfendijaM/easybosnian-daily-uploads',str(binary.call_args))
         self.assertNotIn('do not extract',str(data))
-        with patch('easybosnian.visual_history.gh',side_effect=RuntimeError('secret provider prose')):
-            self.assertEqual(recent_choices(),([],'unavailable'))
+        with patch('easybosnian.store.Store',return_value=store),patch('easybosnian.visual_history.gh',side_effect=RuntimeError('secret provider prose')):
+            partial,status=recent_choices()
+        self.assertEqual(status,'unavailable');self.assertEqual(partial[0]['cards'],{})
+        self.assertEqual(partial[0]['palette_observations'],['forest-cream']*3)
 
     def test_report_distinguishes_used_uncertain_and_unavailable_per_image(self):
         p=reviewed_fixture();placement=self.placement();placement.update(batch=p['date'],batch_id=p['date'])

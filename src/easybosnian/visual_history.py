@@ -1,7 +1,6 @@
 """Read recent accepted choices from protected reports/legacy artifacts; no visual references."""
 import io
 import json
-import os
 import re
 import zipfile
 
@@ -140,49 +139,120 @@ def accepted_choices(placement):
     return choices
 
 
+def retained_designs(history,limit):
+    """Current published rows only; missing snapshot evidence stays unknown."""
+    from .core import PROJECT
+    from .batches import identity,creation_order,BATCH_ID
+    from .frozen_cards import checked_source
+    if history.get('project')!=PROJECT or not isinstance(history.get('days'),list):
+        raise ValueError('Visual history belongs to another project')
+    retained={}
+    for row in sorted(history['days'],key=creation_order,reverse=True)[:limit]:
+        batch=identity(row);content=row.get('content',{})
+        if not isinstance(batch,str) or not BATCH_ID.fullmatch(batch):
+            raise ValueError('Invalid retained visual-history identity')
+        metrics={};policies={}
+        for card in content.get('cards',[]):
+            kind=card.get('kind')
+            if kind not in ('quiz','lesson','word'):continue
+            source=content.get('rendered_sources',{}).get(kind)
+            try:checked=checked_source(source,card)
+            except (ValueError,TypeError,KeyError):continue
+            metrics[kind]=checked['metrics'];policies[kind]=checked['policy']
+        retained[batch]={'date':row['date'],'created_at':row.get('created_at'),
+                         'metrics':metrics,'policies':policies}
+    return retained
+
+
+def completed_daily_runs(max_daily=15):
+    """Preview/verify/running entries never consume the bounded DAILY lookup."""
+    page=1;count=0
+    while count<max_daily:
+        result=json.loads(gh('api',f'repos/{REPO}/actions/workflows/preparation.yml/runs?per_page=100&page={page}'))
+        runs=result['workflow_runs']
+        for run in runs:
+            if run.get('status')!='completed' or run.get('display_title')!='EasyBosnian (daily)':continue
+            rid=run.get('id')
+            if type(rid) is not int or rid<=0:continue
+            count+=1
+            yield rid
+            if count==max_daily:return
+        if len(runs)<100:return
+        page+=1
+
+
+def design_report_files(store,rid):
+    """Read only bounded JSON, never artwork, arbitrary paths or model prose."""
+    from .run_reports import get_report
+    report=get_report(store,rid)
+    pattern=r'(?:b-[a-f0-9]{32}|legacy-\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2})/(?:image-placement|platforms)-result\.json'
+    if report is not None:
+        if report.get('mode')!='daily':return {}
+        return {name:body for name,body in report['files'].items()
+                if re.fullmatch(pattern,name) and len(body.encode())<=100_000}
+    # Legacy private artifacts may still prove a retained rendering. No ZIP
+    # member is extracted, and unneeded images/private notes are never read.
+    artifacts=json.loads(gh('api',f'repos/{REPO}/actions/runs/{rid}/artifacts'))['artifacts']
+    selected=next((a for a in artifacts if a['name']==f'easybosnian-daily-{rid}' and not a['expired']),None)
+    if selected is None or selected['size_in_bytes']>20_000_000 or type(selected['id']) is not int or selected['id']<=0:return {}
+    body=gh_binary('api',f'repos/{REPO}/actions/artifacts/{selected["id"]}/zip')
+    if len(body)>20_000_000:return {}
+    with zipfile.ZipFile(io.BytesIO(body)) as archive:
+        return {m.filename:archive.read(m).decode('utf-8') for m in archive.infolist()
+                if re.fullmatch(pattern,m.filename) and m.file_size<=100_000}
+
+
+def matching_published_design(files,retained):
+    """An old/deleted/unpublished design cannot stand in for the current one."""
+    from .batches import BATCH_ID
+    names=[name for name in files if name.endswith('/image-placement-result.json')]
+    if len(names)!=1:return None
+    name=names[0];prefix=name.rsplit('/',1)[0]
+    placement=json.loads(files[name]);batch=placement.get('batch_id')
+    if isinstance(batch,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}',batch):batch='legacy-'+batch
+    if not isinstance(batch,str) or not BATCH_ID.fullmatch(batch) or batch not in retained:return None
+    current=retained[batch]
+    if placement.get('batch')!=current['date'] or set(current['metrics'])!={'quiz','lesson','word'}:return None
+    outcome_name=prefix+'/platforms-result.json'
+    if outcome_name not in files:return None
+    outcome=json.loads(files[outcome_name]);outcome_batch=outcome.get('batch_id')
+    if isinstance(outcome_batch,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}',outcome_batch):outcome_batch='legacy-'+outcome_batch
+    if (outcome_batch!=batch or outcome.get('batch')!=current['date'] or outcome.get('history_saved') is not True
+            or not any(outcome.get('platforms',{}).get(platform,{}).get('published') is True
+                       for platform in ('instagram','facebook','tiktok'))):return None
+    for kind,metrics in current['metrics'].items():
+        card=placement.get('cards',{}).get(kind,{})
+        if (card.get('palette')!=metrics['palette'] or card.get('composition')!=metrics['composition']
+                or card.get('render_policy')!=current['policies'][kind]):return None
+    return batch,placement
+
+
 def recent_choices(limit=5):
-    """Bounded read of this workflow only; no pictures, source copy, keys or model prose."""
+    """Retained published batches; reports only enrich verified current choices."""
     recent=[]
     try:
-        runs=json.loads(gh('run','list','--repo',REPO,'--workflow','preparation.yml','--limit','15',
-                           '--json','databaseId,status,displayTitle,createdAt'))
-        for run in runs:
-            if run['status']!='completed' or run['displayTitle']!='EasyBosnian (daily)':continue
-            rid=run['databaseId']
-            if type(rid) is not int or rid<=0:continue
-            placement=None
-            if os.getenv('EASYBOSNIAN_WORKER_URL') and os.getenv('EASYBOSNIAN_ADMIN_TOKEN'):
-                from .run_reports import get_report
-                from .store import Store
-                report=get_report(Store(),rid)
-                if report:
-                    members=[body for name,body in report['files'].items()
-                             if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',name)
-                             and len(body.encode())<=100_000]
-                    if len(members)==1:placement=json.loads(members[0])
-            if placement is None:
-                # Read legacy artifacts only when this run predates private KV reports.
-                artifacts=json.loads(gh('api',f'repos/{REPO}/actions/runs/{rid}/artifacts'))['artifacts']
-                selected=next((a for a in artifacts if a['name']==f'easybosnian-daily-{rid}' and not a['expired']),None)
-                if selected is None:continue
-                if selected['size_in_bytes']>20_000_000 or type(selected['id']) is not int or selected['id']<=0:continue
-                body=gh_binary('api',f'repos/{REPO}/actions/artifacts/{selected["id"]}/zip')
-                if len(body)>20_000_000:continue
-                with zipfile.ZipFile(io.BytesIO(body)) as archive:
-                    members=[m for m in archive.infolist() if re.fullmatch(r'(?:b-[a-f0-9]{32}|\d{4}-\d{2}-\d{2})/image-placement-result.json',m.filename) and m.file_size<=100_000]
-                    if len(members)!=1:continue
-                    placement=json.loads(archive.read(members[0]))
-            choices=accepted_choices(placement)
-            from .core import ROOT,read_json
-            catalogue=read_json(ROOT/'data/design-palettes.json')
-            observations=[placement.get('cards',{}).get(k,{}).get('palette') for k in ('quiz','lesson','word')]
-            observations=[v for v in observations if isinstance(v,str) and v in catalogue]
-            if choices or observations:
-                recent.append({'run_id':rid,'batch_id':placement.get('batch_id') if isinstance(placement.get('batch_id'),str) and re.fullmatch(r'b-[a-f0-9]{32}',placement['batch_id']) else None,'created_at':run['createdAt'],'cards':choices,'palette_observations':observations,
-                               'panel_theme_observations':[panel_theme(placement.get('cards',{}).get(k,{})) for k in ('quiz','lesson','word')]})
-            if len(recent)==limit:break
+        from .store import Store
+        store=Store();retained=retained_designs(store.history(),limit)
+        # Current snapshot metadata establishes APPLIED colours, not who chose
+        # them. Never invent model provenance from equal IDs or a similar look.
+        for batch,row in retained.items():
+            metrics=row['metrics']
+            recent.append({'run_id':None,'batch_id':batch,'created_at':row['created_at'],'cards':{},
+                'palette_observations':[metrics[k]['palette'] for k in ('quiz','lesson','word') if k in metrics],
+                'panel_theme_observations':[panel_theme(metrics.get(k,{})) for k in ('quiz','lesson','word')]})
+        pending={batch for batch,row in retained.items() if len(row['metrics'])==3}
+        if pending:
+            for rid in completed_daily_runs():
+                match=matching_published_design(design_report_files(store,rid),retained)
+                if match is None:continue
+                batch,placement=match
+                if batch not in pending:continue
+                item=next(item for item in recent if item['batch_id']==batch)
+                item.update(run_id=rid,cards=accepted_choices(placement));pending.remove(batch)
+                if not pending:break
         return recent,'available'
     except Exception:
-        # Missing history never invalidates a fresh photographic review or triggers a retry.
+        # A failed read never triggers another request or admits unverified
+        # reports. Already checked retained observations remain usable.
         print('::warning::Recent design context unavailable; current photo review continues')
         return recent,'unavailable'

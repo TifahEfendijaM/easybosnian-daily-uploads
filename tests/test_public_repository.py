@@ -159,9 +159,11 @@ class ProtectedRunReportTests(unittest.TestCase):
 
     def test_recent_design_context_uses_private_metadata_without_artifact_reads(self):
         from easybosnian.visual_history import recent_choices
-        run={'databaseId':123,'status':'completed','displayTitle':'EasyBosnian (daily)','createdAt':'now'}
-        placement={'cards':{'quiz':{'palette':'cherry-lime','status':'default'}}}
-        report={'files':{'b-'+'a'*32+'/image-placement-result.json':json.dumps(placement)}}
-        with patch.dict(os.environ,{'EASYBOSNIAN_WORKER_URL':'https://example.test','EASYBOSNIAN_ADMIN_TOKEN':'test'}),patch('easybosnian.visual_history.gh',return_value=json.dumps([run])) as github,patch('easybosnian.run_reports.get_report',return_value=report),patch('easybosnian.store.Store'):
+        from test_retained_visual_history import fixture,run
+        row,placement,files=fixture(palette='cherry-lime')
+        report={'mode':'daily','files':files};store=MagicMock()
+        store.history.return_value={'project':PROJECT,'days':[row]}
+        with patch('easybosnian.store.Store',return_value=store),patch('easybosnian.visual_history.gh',return_value=json.dumps({'workflow_runs':[run(123)]})) as github,patch('easybosnian.run_reports.get_report',return_value=report),patch('easybosnian.visual_history.gh_binary') as archive:
             recent,status=recent_choices()
-        self.assertEqual(status,'available');self.assertEqual(recent[0]['palette_observations'],['cherry-lime']);github.assert_called_once()
+        self.assertEqual(status,'available');self.assertEqual(recent[0]['palette_observations'],['cherry-lime']*3);github.assert_called_once()
+        archive.assert_not_called()

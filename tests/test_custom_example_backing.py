@@ -75,8 +75,11 @@ class CustomExampleBackingTests(unittest.TestCase):
         for phrase in ('FIRST seek a visibly DIFFERENT HUE','ONLY when NO different-hue candidate',
                        'Strong contrast with that surface is welcome','MILDLY PREFERRED',
                        'NEVER favour or lighten the text-card surface','backing_colour=null',
-                       'applies to LIGHT text-card surfaces too',
-                       'Do not automatically reuse a darker version of the light surface'):
+                       'For DARK text-card surfaces, FIRST seek',
+                       'For LIGHT text-card surfaces, DEFAULT',
+                       'GENUINELY AND CLEARLY',
+                       'A slight improvement, novelty, variety or a tie is insufficient',
+                       'Do not apply the DARK-card different-hue-first rule to LIGHT surfaces'):
             self.assertIn(phrase,prompt)
         placement,_=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['provenance']['layout']['source'],'chatgpt')
