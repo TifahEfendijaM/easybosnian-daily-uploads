@@ -35,7 +35,7 @@ class OctoberVisualRulesTests(unittest.TestCase):
             else:
                 with self.assertRaises(ValueError):safe_policy(current,quiz)
         quiz=default_plan(package['cards'][0])
-        self.assertEqual({b['panel_opacity'] for b in apply_policy(quiz,panel_opacity=90)['blocks']},{90})
+        with self.assertRaisesRegex(ValueError,'opacity'):apply_policy(quiz,panel_opacity=90)
 
     def test_white_title_fine_strength_steps_preserve_uniform_full_width_for_both_backings(self):
         for preset in ('standard','defined'):

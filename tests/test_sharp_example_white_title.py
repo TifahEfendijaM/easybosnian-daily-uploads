@@ -92,7 +92,7 @@ class SharpExampleWhiteTitleTests(unittest.TestCase):
         proposal['cards']['word']['heading_tone']='ink_light'
         proposal['cards']['word']['blocks'][-1]['fade_style']='sharp'
         placement,_=h.render(h.package,proposal)
-        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],7)
+        word=placement['cards']['word'];self.assertEqual(word['render_policy']['version'],8)
         self.assertEqual(word['composition']['heading_fade'],'standard')
         self.assertEqual(accepted_choices(placement)['word']['heading_fade'],'standard')
         self.assertEqual(word['composition']['blocks'][-1]['fade_style'],'sharp')

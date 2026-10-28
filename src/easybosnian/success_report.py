@@ -172,7 +172,7 @@ def decision_lines(rendering):
         if policy.get('version')==7:
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; allowed range 90–100%, "+
                          ('applied equally to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
-        elif policy.get('version')==6:
+        elif policy.get('version') in (6,8):
             lines.append('Panel opacity: fixed at 100%; '+
                          ('every bounded explanation/answer surface is fully opaque.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         elif policy.get('version') in (2,3,4,5) and answers:
@@ -182,7 +182,7 @@ def decision_lines(rendering):
             lines.append(f"Shared panel opacity: {policy['panel_opacity']:g}%; uniformly sampled by the pipeline from "+limits+', '+
                          ('applied to every bounded panel in this image.' if policy['panel_opacity_applied'] else 'inactive for unboxed editorial text.'))
         if policy['example_fade'] is not None:
-            if policy.get('version') in (4,5,6,7):
+            if policy.get('version') in (4,5,6,7,8):
                 element_sources=rendering.get('element_recovery')
                 example_source=('fallback' if 'example' in element_sources['fallback'] else 'chatgpt') if element_sources else rendering.get('provenance',{}).get('layout',{}).get('source')
                 source={'chatgpt':'ChatGPT-selected preset — ','fallback':'deterministic fallback preset — ',

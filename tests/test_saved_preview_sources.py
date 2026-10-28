@@ -84,7 +84,7 @@ class SavedPreviewSourcesTests(unittest.TestCase):
    stack.enter_context(contextlib.redirect_stdout(io.StringIO()));stage_saved_preview(store,history,A,'2026-10-26')
    package=read_json(root/'build/reviewed-content.secret')['content'];paths=loaded_photos(package)
    proposal={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette=p) for c,p in zip(package['cards'],('gold-cream','blue-ice','forest-cream'))}}
-   for b in proposal['cards']['quiz']['blocks']:b['panel_opacity']=94
+   for b in proposal['cards']['quiz']['blocks']:b['panel_opacity']=100
    stack.enter_context(patch('easybosnian.artwork.ROOT',root))
    stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
    stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
@@ -92,7 +92,7 @@ class SavedPreviewSourcesTests(unittest.TestCase):
    provider=stack.enter_context(patch('easybosnian.artwork.provider',side_effect=AssertionError('no FLUX')))
    assets=artwork(store,package,review_images=True,reused_backgrounds=paths,design_attempt_limit=1)
    provider.assert_not_called();agent.assert_called_once();self.assertEqual(len(assets),3)
-   self.assertEqual({b['panel_opacity'] for b in assets['quiz']['metrics']['composition']['blocks']},{94})
+   self.assertEqual({b['panel_opacity'] for b in assets['quiz']['metrics']['composition']['blocks']},{100})
    self.assertEqual(store.put_file.call_count,6);store.expose.assert_not_called();store.save_content.assert_not_called()
    self.assertTrue(all(item['story_path'].is_file() for item in assets.values()))
  def test_workflow_exposes_one_preview_only_source_field_without_new_jobs_or_credentials(self):
