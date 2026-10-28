@@ -305,6 +305,8 @@ def measured_plan(card, plan):
             or plan['photo_window'] is not None or title_example_proximity(plan['blocks'],header_end)!='far'
             or plan.get('heading_tone') not in ('paper_dark','paper_ink','accent_dark','accent_ink','paper_accent')):
         raise ValueError('Selected title opacity requires black emphasis with distant PRIMJER')
+    if any(b.get('photo_tone') in ('white_secondary','paper_secondary') and b.get('style')!='italic_photo_fade' for b in plan['blocks']):
+        raise ValueError('Secondary example backing requires a photographic fade')
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -385,6 +387,17 @@ def photo_colours(palette, tone='auto'):
     }[tone]
     rgb=tuple(int(backing[i:i+2],16) for i in (1,3,5))
     return [colour],[(colour,rgb)]
+
+
+def example_colours(palette, tone='auto', palette_id=None):
+    """The extra example-only role never changes panel/title/archive colours."""
+    if tone not in ('white_secondary','paper_secondary'):
+        return photo_colours(palette,tone)
+    catalogue=json.loads((ROOT/'data/example-backings.json').read_text())
+    if palette_id not in catalogue:raise ValueError('Unsupported secondary example palette')
+    backing=catalogue[palette_id]
+    colour='#ffffff' if tone=='white_secondary' else palette['panel']
+    return [colour],[(colour,tuple(int(backing[i:i+2],16) for i in (1,3,5)))]
 
 
 def title_colours(palette,tone='auto'):
@@ -723,7 +736,7 @@ def render_hybrid(card, palette_id, background, output, plan=None):
             # Text remains above y1170. Its background fade may taper into
             # the footer; the untouched logo is composited on top afterward.
             limit=photo_bounds or [0,header_end+14,WIDTH,HEIGHT-64]
-            colours,backings=photo_colours(palette,block.get('photo_tone','auto'))
+            colours,backings=example_colours(palette,block.get('photo_tone','auto'),palette_id)
             example_colour,example_contrast,example_shading=protect_text(
                 image,(x,example_y),block['rows'],block['face'],colours,4.5,limit,
                 extra=[((x,y),['PRIMJER'],label_face)],

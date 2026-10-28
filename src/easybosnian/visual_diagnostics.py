@@ -107,6 +107,8 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     return result
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Secondary example backing requires a photographic fade',
+    'Unsupported secondary example palette',
     'Repair changed a protected approved element',
     'Actual panel text contrast fails; never publish unreadable copy',
     'Unboxed editorial body cannot set panel opacity',

@@ -39,7 +39,7 @@ def palette_policies(window,batch=()):
 
 
 def panel_theme(card):
-    """Known opaque panel treatment, independently of a palette's label/name."""
+    """Known current high-opacity panel treatment, independently of palette names."""
     from .core import ROOT,read_json
     from .render import luminance
     palettes=read_json(ROOT/'data/design-palettes.json')
@@ -53,8 +53,8 @@ def panel_theme(card):
     if not panels:return 'unknown'
     values=set()
     for block in panels:
-        if block.get('panel_tone','auto') not in PANEL_TONES or block.get('panel_opacity')!=100:
-            return 'unknown'  # Missing/translucent historical surfaces are not guessed.
+        if block.get('panel_tone','auto') not in PANEL_TONES or not valid_panel_opacity(block.get('panel_opacity'),legacy=False):
+            return 'unknown'  # Missing or older low-opacity surfaces are not guessed.
         text,surface=panel_colours(palette,block.get('panel_tone','auto'),dark=block['style']=='overlay_dark')
         values.add('dark' if luminance(surface)<luminance(text) else 'light')
     return next(iter(values)) if len(values)==1 else 'mixed'
