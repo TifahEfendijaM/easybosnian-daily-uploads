@@ -73,8 +73,8 @@ class CustomExampleBackingTests(unittest.TestCase):
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',selected)
         prompt=model.call_args.args[0]
         for phrase in ('make whole-image HARMONY the priority','A different hue never has to win',
-                       'Require a convincing visual connection','a modest improvement',
-                       'In a genuine equal-fit tie','choose the exact dark backing freely'):
+                       'Require a convincing visual connection','noticeable improvement',
+                       'EQUALLY or ALMOST EQUALLY WELL','Freely chosen exact dark backings remain available'):
             self.assertIn(phrase,prompt)
         placement,_=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['provenance']['layout']['source'],'chatgpt')

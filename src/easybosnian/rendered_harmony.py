@@ -2,6 +2,7 @@
 import copy
 import json
 from .core import ROOT,read_json
+from .palettes import LIGHT_SURFACE_BACKING_GUIDANCE
 from .design_repair import ATTEMPT_LIMIT
 from .hybrid import valid_example_backing,validate_current_design
 from .designs import EXAMPLE_SHADE_STRENGTHS
@@ -36,13 +37,14 @@ def inspect(card,path,metrics,*,can_revise,feedback=None):
       'Avoid an unrelated coloured band or excessive visual weight. Rich colour is welcome when coherent. '
       'Accept a fitting, appealing pairing; do not revise merely for novelty, tiny taste differences, equal usage or rotation. '
       'If it is clearly disconnected, disharmonious or heavy, propose ONLY one exact dark backing_colour and an approved '
-      'shade_strength. The backing is freely chosen, not from a predefined secondary registry. Keep lettering, palette, '
+      'shade_strength. Compare the light-surface predefined candidate and free dark backings under the guidance below; the legacy secondary registry remains unavailable. Keep lettering, palette, '
       'panel brightness/richness, all placement, width, typography, category, title and fade edges EXACT. '
       'Choose strength deliberately; Pillow may raise opacity only for contrast. Do not manufacture hue separation with opacity. '
       'For accept use reason=harmonious and both change fields=null. For revise use a defect reason; when a revision is '
       'available provide a valid dark #rrggbb with at least 4.5:1 contrast against white and soft/medium/strong. '
       'When no revision is available, assess the card but leave both fields null. Never request a fourth design proposal. '
-      'Context: '+json.dumps(context,ensure_ascii=False))
+      'Use the following preference when repairing a genuine defect, not to reopen a fitting accepted pairing for tiny taste differences. '
+      +LIGHT_SURFACE_BACKING_GUIDANCE+' Context: '+json.dumps(context,ensure_ascii=False))
     result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=[path],read_only=True))
     if list(Draft202012Validator(schema).iter_errors(result)):raise ValueError('Invalid visual composition')
     return checked_verdict(result,can_revise)

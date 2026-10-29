@@ -37,7 +37,7 @@ class ExpandedPaletteCatalogueTests(unittest.TestCase):
         for name,palette in catalogue.items():
             with self.subTest(palette=name):
                 self.assertTrue({'ink','panel','accent','scrim','dark_surface'}<=set(palette))
-                self.assertTrue(set(palette)<={'ink','panel','accent','scrim','dark_surface','example_backing','category_secondary','light_rule'})
+                self.assertTrue(set(palette)<={'ink','panel','accent','scrim','dark_surface','example_backing','category_secondary','light_rule','light_example_backing'})
                 self.assertTrue(all(re.fullmatch(r'#[0-9a-f]{6}',c) for c in palette.values()))
                 for background in (palette['panel'],palette['accent'],'#ffffff'):
                     self.assertGreaterEqual(contrast(palette['ink'],background),4.5)
