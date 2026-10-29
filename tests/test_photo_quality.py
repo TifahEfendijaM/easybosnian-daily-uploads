@@ -82,6 +82,7 @@ class PhotoSelectionIntegrationTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=inspector))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
             assets=artwork(store,package,review_images=True)

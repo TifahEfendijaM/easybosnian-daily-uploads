@@ -12,7 +12,7 @@ from PIL import Image
 from easybosnian.core import ROOT,read_json
 from easybosnian.hybrid import default_plan,example_colours,photo_colours,render_hybrid,measured_plan
 from easybosnian.render import contrast,luminance
-from easybosnian.visual_placement import MODEL_CARD_SCHEMA,review_compositions
+from easybosnian.visual_placement import CARD_SCHEMA,MODEL_CARD_SCHEMA,review_compositions
 from easybosnian.visual_history import accepted_choices
 from test_project import reviewed_fixture
 import test_visual_provenance as harness
@@ -20,7 +20,7 @@ import test_visual_provenance as harness
 class SecondaryExampleBackingTests(unittest.TestCase):
     def test_every_palette_has_one_rich_dark_secondary_with_readable_light_lettering(self):
         palettes=read_json(ROOT/'data/design-palettes.json');shades=read_json(ROOT/'data/example-backings.json')
-        self.assertEqual(set(shades),set(palettes))
+        self.assertEqual(set(shades),set(palettes)-{'mulberry-mint'})
         for name,shade in shades.items():
             with self.subTest(palette=name):
                 self.assertRegex(shade,r'^#[0-9a-f]{6}$');self.assertNotEqual(shade,palettes[name]['ink'])
@@ -46,13 +46,14 @@ class SecondaryExampleBackingTests(unittest.TestCase):
                     self.assertEqual(result['example_tone'],tone);self.assertGreaterEqual(result['example_contrast'],4.5)
                     self.assertGreaterEqual(result['heading_contrast'],3)
                     accepted={**result,'status':'accepted','palette_outcome':{'source':'chatgpt'}}
-                    self.assertEqual(accepted_choices({'cards':{'word':accepted}})['word']['example_tone'],tone)
+                    self.assertNotIn('example_tone',accepted_choices({'cards':{'word':accepted}})['word'])  # Retired pairing is never a fresh recommendation.
 
     def test_new_tokens_are_not_title_or_unshaded_controls_and_legacy_pairs_are_unchanged(self):
         card=reviewed_fixture()['cards'][2];plan=dict(default_plan(card),palette='forest-cream')
         for tone in ('white_secondary','paper_secondary'):
             plan['blocks'][-1]['photo_tone']=tone
-            self.assertFalse(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)))
+            self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
+            self.assertTrue(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)))
             bad=copy.deepcopy(plan);bad['heading_tone']=tone
             self.assertTrue(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(bad)))
             bad=copy.deepcopy(plan);bad['blocks'][-1].update(style='italic_photo',shade_strength='soft')
@@ -61,28 +62,27 @@ class SecondaryExampleBackingTests(unittest.TestCase):
         for tone in ('auto','paper_dark','ink_light','paper_ink','paper_accent'):
             self.assertEqual(example_colours(palette,tone,'forest-cream'),photo_colours(palette,tone))
 
-    def test_model_gets_registry_and_surface_independence_without_a_new_default(self):
+    def test_fresh_model_uses_free_backings_and_keeps_brightness_independent(self):
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
-        proposal['cards']['word']['blocks'][-1]['photo_tone']='white_secondary'
+        proposal['cards']['word']['blocks'][-1].update(photo_tone='paper_dark',backing_colour='#145638')
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             result,status=review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
-        self.assertEqual(status,'reviewed');self.assertEqual(result['cards']['word']['blocks'][-1]['photo_tone'],'white_secondary')
+        self.assertEqual(status,'reviewed');self.assertEqual(result['cards']['word']['blocks'][-1]['backing_colour'],'#145638')
         prompt=child.call_args.args[0]
-        for phrase in ('Curated second dark PRIMJER backing for each palette',
-                       'NEVER favour or lighten the text-card surface',
-                       'it is not mandatory and never forces a dark card',
-                       'ONLY when the light and dark alternatives work EQUALLY WELL'):
-            self.assertIn(phrase,prompt)
+        self.assertIn('whole-image HARMONY',prompt)
+        self.assertIn('ONLY when the light and dark alternatives work EQUALLY WELL',prompt)
+        self.assertIn('No predefined secondary-backing registry',prompt)
+        self.assertNotIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
         brightness=next(line for line in prompt.splitlines() if line.startswith('For LESSON/WORD brightness,'))
         self.assertNotIn('slightly',brightness)
-        self.assertIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
 
     def test_public_summary_accepts_new_example_tones_but_never_as_title_tones(self):
         from easybosnian.success_report import report_data,with_rendering,render_report
         from test_success_report import RUN,results
         h=harness.VisualProvenanceTests();h.setUp();proposal=h.proposal(h.package)
-        proposal['cards']['word']['blocks'][-1]['photo_tone']='white_secondary'
         placement,_=h.render(h.package,proposal)
+        placement['cards']['word']['composition']['blocks'][-1]['photo_tone']='white_secondary'
+        placement['cards']['word']['example_tone']='white_secondary'
         report=with_rendering(report_data(h.package,results(),RUN),placement)
         for text in render_report(report):self.assertIn('curated second dark backing',text)
         bad=copy.deepcopy(placement);bad['cards']['word']['heading_tone']='white_secondary'

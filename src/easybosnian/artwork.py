@@ -17,11 +17,14 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':55, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':56, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
 def artwork(store, package, expose=False, review_images=False, require_prepared=False, reused_backgrounds=None, frozen_cards=None, design_attempt_limit=3):
+    if not require_prepared:
+        from .palettes import current
+        package['design_palette']=current(package['design_palette'])
     date=package['date']; output=ROOT/'build'/output_key(package); output.mkdir(parents=True,exist_ok=True)
     assets={}; stage='FLUX generation'
     generation_counts={};generation_diagnostics={}
@@ -179,10 +182,13 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 from .design_repair import render_design
                 def draw(candidate):
                     return render_hybrid(card,palette,background,path,apply_policy(candidate,panel_opacity=opacity_choices[kind]))
+                design_proposals_used=1;design_service_failed=False
                 def repair(feedback):
-                    nonlocal stage
+                    nonlocal stage,design_proposals_used,design_service_failed
+                    design_proposals_used+=1
                     stage='visual design repair'
                     result,review_status=review_compositions(package,{kind:candidates[kind]},recent,feedback={kind:feedback})
+                    if review_status!='reviewed':design_service_failed=True
                     stage='Pillow rendering'
                     return result['cards'][kind],review_status
                 palette_rejection=None
@@ -206,6 +212,12 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                         metrics=draw(default_plan(card))
                         detail={'status':'rejected; safe hybrid fallback','rejection':rejection_diagnostic(fallback_error,plan)}
                     if prior_attempts:detail['design_attempts']=prior_attempts
+                from .rendered_harmony import improve
+                stage='rendered PRIMJER harmony review'
+                metrics,harmony=improve(card,path,metrics,draw,used=design_proposals_used,limit=design_attempt_limit,
+                    available=model_accepted and not design_service_failed and detail.get('status')!='rejected; safe hybrid fallback')
+                detail['example_harmony']=harmony
+                stage='Pillow rendering'
                 if detail.get('rejection'):
                     write_json(output/f'{kind}-rejection-result.json',{'batch':date,'batch_id':package.get('batch_id'),
                                'card':kind,**detail['rejection']})

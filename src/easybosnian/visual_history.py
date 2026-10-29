@@ -33,8 +33,8 @@ def palette_policy(window, batch=(), palette=REPEATED_PALETTE):
 
 
 def palette_policies(window,batch=()):
-    from .core import ROOT,read_json
-    return {palette:palette_policy(window,batch,palette) for palette in read_json(ROOT/'data/design-palettes.json')}
+    from .palettes import active
+    return {palette:palette_policy(window,batch,palette) for palette in active()}
 
 
 def brightness_history(recent):

@@ -84,6 +84,7 @@ class PhotoGenerationTests(unittest.TestCase):
    stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
    rewrite=stack.enter_context(patch('easybosnian.photo_generation.rewrite_rejected_scene',return_value=P))
    inspect=stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',return_value=first))
+   stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
    stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
    stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
    assets=artwork(store,package,review_images=True)
