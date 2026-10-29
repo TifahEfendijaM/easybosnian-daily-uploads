@@ -52,7 +52,7 @@ def replacement(card,old,base,window,design,background,faithful):
         # A line cap must never truncate the exact copy during local recovery.
         block['max_lines']=None
         if block['role']=='example':block['style']='italic_footer' if design=='editorial' else ('italic_photo' if old.get('style')=='italic_photo' else 'italic_photo_fade')
-        elif design=='editorial':block.update(style='plain',panel_tone='auto',panel_opacity=100,surface_richness=100)
+        elif design=='editorial':block.update(style='plain',panel_tone='auto',panel_opacity=100,surface_richness=100,rule_tone='accent')
         elif old.get('style')=='overlay_light':block['style']='minimal_rule'
     # The requested position remains the search target even when other fields fail.
     for key in ('x','y'):
@@ -83,6 +83,25 @@ def recover_elements(card, requested, background, render, *, required=(), reason
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Secondary category colour unavailable for this palette' and not required:
+        candidate=copy.deepcopy(requested);candidate['category_tone']='ink_accent'
+        try:metrics=render(candidate)
+        except ValueError:pass
+        else:
+            return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                'preserved':[n for n in groups if n!='category'],'fallback':['category']})
+    if reason in ('Contrasting rules require a light decorated panel','Contrasting rule colour unavailable for this palette',
+                   'Contrasting rule must be clearer than the original accent') and not required:
+        targets=[b['role'] for b in requested['blocks'] if b.get('rule_tone')=='contrast']
+        for count in range(1,len(targets)+1):
+            for changed in itertools.combinations(targets,count):
+                candidate=copy.deepcopy(requested)
+                for block in candidate['blocks']:
+                    if block['role'] in changed:block['rule_tone']='accent'
+                try:metrics=render(candidate)
+                except ValueError:continue
+                return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                    'preserved':[n for n in groups if n not in changed],'fallback':list(changed)})
     if reason=='Only light explanation panels can reduce surface richness' and not required:
         candidate=copy.deepcopy(requested)
         next(b for b in candidate['blocks'] if b['role']=='body')['surface_richness']=100

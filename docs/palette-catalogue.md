@@ -1,52 +1,25 @@
 # Approved palette catalogue
 
-`data/design-palettes.json` is the authoritative registry of 36 palettes. The catalogue began with eleven palettes. These eleven additions broadened it with more tinted surfaces, earthy neutrals and contrasting colour families:
+`data/design-palettes.json` is the authoritative registry: 36 active palettes plus archive-only graphite-chalk. `palettes.active()` supplies fresh choices; mulberry-mint replaces graphite for fresh fallback/selection. The content/archive schema retains all 37 IDs so exact saved cards and reports remain readable. Never remove archived IDs or alter a retained finished card.
 
-| Palette ID | Colour character |
-|---|---|
-| burgundy-oat | Burgundy ink, muted rose accent, warm oat paper |
-| olive-stone | Olive ink, sage accent, green-grey stone paper |
-| indigo-mist | Indigo ink, periwinkle accent, blue mist paper |
-| copper-linen | Brown ink, copper accent, natural linen paper |
-| teal-seaglass | Deep teal ink, turquoise accent, sea-glass paper |
-| aubergine-apricot | Aubergine ink, apricot accent, warm blush paper |
-| espresso-almond | Espresso ink, almond accent, warm neutral paper |
-| graphite-chalk | Graphite ink, silver-grey accent, neutral chalk paper |
-| cobalt-peach | Cobalt ink, peach accent, cool blue-white paper |
-| ochre-parchment | Brown-ochre ink, golden accent, yellow parchment paper |
-| pine-rose | Pine ink, dusty rose accent, pale sage paper |
+## Colour roles and category expansion
 
-All palettes retain the same trusted ink/accent/panel/scrim roles and existing selectable colour pairings. Dark and light card treatments can still use these roles in their supported combinations. Fresh image review compares all old and new palettes against the actual photograph; there is no preference for the additions or for catalogue order. Existing per-image selection, all-palette repetition rules and measured final-pixel contrast checks continue to apply. Photographs are never recoloured to fit a palette.
+Every palette retains its existing ink, panel, accent, scrim and curated middle-dark dark_surface values. Richer light surfaces remain the default, with deliberate bounded surface_richness reduction available. Ochre-parchment keeps its richer dark-gold example_backing role. These roles are not changed by the category/rule expansion.
 
-The preparation schema and visual-review enum must contain exactly the registry's palette IDs. Do not add arbitrary model-generated colour values or remove archived IDs. The current title/PRIMJER edge, strength and placement rules are authoritative in `docs/visual-style-contract.md`; palette refinements do not change those rules.
+Eighteen palettes add a category-only category_secondary hue: terracotta-sand, blue-ice, rose-ivory, lavender-pearl, mint-linen, coral-cream, slate-silver, plum-blush, charcoal-lemon, olive-stone, indigo-mist, copper-linen, teal-seaglass, espresso-almond, ochre-parchment, ruby-cream, magenta-porcelain and petrol-cyan. The category-specific ink_secondary pairing uses existing ink lettering on this optional surface, or its rule for an underlined category. It is not a new body, title, badge or PRIMJER colour role.
 
-## Saturated additions
+The remaining palettes already offer useful hue separation with deliberate role selection. For example, a navy category can accompany a light gold body in gold-cream; aubergine can accompany light apricot; scarlet can accompany light gold/cream. Prefer distinct category/body hue families when they suit the photograph, without forcing a secondary colour or discarding an existing better pairing.
 
-Fourteen additional families expanded the earlier 22 with richer saturated inks and vivid accents, alongside coordinated light surfaces:
+## Visible rules on light panels
 
-| Palette ID | Colour character |
-|---|---|
-| royal-blue-sun | Royal blue and bright yellow |
-| emerald-lime | Emerald and lime |
-| ruby-cream | Ruby and vivid pink |
-| violet-citrus | Violet and golden citrus |
-| ocean-tangerine | Ocean blue and tangerine |
-| magenta-porcelain | Magenta and bright pink |
-| scarlet-vanilla | Scarlet and golden yellow |
-| peacock-coral | Peacock teal and coral |
-| sapphire-lime | Sapphire and lime |
-| grape-lemon | Deep grape and lemon |
-| paprika-aqua | Paprika and aqua |
-| ultramarine-orchid | Ultramarine and orchid |
-| cherry-lime | Deep cherry and vivid lime |
-| petrol-cyan | Deep petrol blue and bright cyan |
+Twenty-seven active palettes with weak accent/light-surface separation add a richer light_rule colour. The original accent remains selectable. The bounded panel rule_tone control changes only decorative lines, brackets, borders, small handles or folded decoration; it never changes the surface, lettering, answer badge, wide split rail, category, title, PRIMJER or geometry. Use contrast only for an eligible light decorated panel with an available light_rule that is clearer against the actual selected surface. Otherwise use accent. Dark panels retain their original strong accents. Existing plans without rule_tone retain exact original behaviour.
 
-Every palette already supports a dark surface: choose panel_tone=paper_ink (bright paper text on the dark ink surface) or accent_ink (vivid accent text on dark ink). This is independent of shape, not restricted to overlay_dark. Apply the current lesson/word and quiz surface-selection rules in `docs/visual-style-contract.md`. Keep neutral/light surfaces as available combinations rather than adding palettes that invert the trusted ink/paper roles; this preserves Story/category/contrast compatibility. No new palette is preferred over the original options, and saturated does not mean using every vivid colour at once.
+ChatGPT compares both against the actual photograph, selecting the clearer rule when it fits better rather than automatically darkening every accent. Decorative contrast does not replace mandatory text contrast. Rounded answers and undecorated styles have no eligible rule. Pillow validates availability, eligibility and improved contrast; element recovery can reset only an invalid control while preserving valid sibling choices.
 
-## Approved dark-colour refinements - 27 October 2026
+## Photo-first selection and repetition
 
-Four existing ink roles were refined after side-by-side review: Espresso-Almond `#352923` to `#492817`, Plum-Blush `#372137` to `#4b1c49`, Slate-Silver `#263244` to `#173957`, and Olive-Stone `#29321a` to `#2d4218`. Their paper/panel, accent and scrim colours and all palette IDs remain unchanged; the catalogue still contains 36 palettes. These richer dark inks also supply dark lettering wherever the approved pairing uses the ink role. Every ink/paper and ink/accent pair remains subject to measured contrast checks. Palette expansion and colour refinements do not override the current visual-style contract.
+Photo/palette compatibility comes first after exact-copy, text-readability and safe-geometry requirements. A convincing complementary relationship is valid even without literal colour repetition in the photo. Neither catalogue order, light/dark brightness, new entries nor recent underuse is a ranking.
 
-## Approved light-surface refinements - 27 October 2026
+Keep the normal same-batch and rolling-nine variety targets for equally/comparably harmonious alternatives, including visibly similar palette families. A better photographic fit wins even when repeated, with the explicit photo_compatibility_priority exception. The existing no_other_suitable_palette exception retains its literal meaning. The model schema, repetition validator and public report all recognise both; do not mislabel a better fit as the absence of suitable alternatives.
 
-After reviewing local swatches and saved-photo comparisons, three paper/panel roles were refined: Espresso-Almond `#e7ded2` to `#f1e5d5`, Copper-Linen `#ecdcc6` to `#f4e2c9`, and Olive-Stone `#e4e6cf` to `#edf0d6`. Their current ink, accent and scrim roles remain unchanged. The paper role also supplies light lettering and Story backgrounds in the supported pairings. The catalogue remains at 36 palettes; no expansion or further colour proposals are applied. All existing contrast and per-card design-selection rules continue to apply.
+The independent lesson/word brightness rule remains a genuine equal-fit tiebreaker using at most four recent retained batches. Exact finished-card reuse, all shade/placement/opacity safeguards, protected original watermark, Story treatment B and publication/history behaviour stay unchanged. The post-render PRIMJER check remains scoped to backing colour/strength within the shared three-proposal budget.

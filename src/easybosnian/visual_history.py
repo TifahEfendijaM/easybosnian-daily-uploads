@@ -5,7 +5,7 @@ import re
 import zipfile
 
 from .core import REPO, gh, gh_binary
-from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, QUIZ_TITLE_SHADE_INTENTS, NONQUIZ_TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES, PANEL_TONES, panel_colours
+from .designs import DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, CATEGORY_STYLES, MARKER_STYLES, REVIEW_PHOTO_TONES, REVIEW_TITLE_TONES, REVIEW_FADE_STYLES, REVIEW_EXAMPLE_FADE_STYLES, QUIZ_TITLE_SHADE_INTENTS, NONQUIZ_TITLE_SHADE_INTENTS, EXAMPLE_SHADE_STRENGTHS, valid_panel_opacity, PANEL_STYLES, PANEL_TONES, CATEGORY_TONES, RULE_TONES, panel_colours
 
 REPEATED_PALETTE='terracotta-sand'  # Legacy default only; fresh policy checks every palette.
 
@@ -118,8 +118,11 @@ def accepted_choices(placement):
                 and composition.get('heading_shade')=='emphasis'
                 and composition.get('heading_tone') in ('paper_dark','paper_ink','accent_dark')):
             safe['heading_opacity']=opacity
+        if isinstance(composition,dict) and composition.get('category_tone') in CATEGORY_TONES:safe['category_tone']=composition['category_tone']
         blocks=composition.get('blocks',[]) if isinstance(composition,dict) else []
         if isinstance(blocks,list):
+            rules={b['role']:b['rule_tone'] for b in blocks if isinstance(b,dict) and isinstance(b.get('role'),str) and b.get('role') in styles and b.get('rule_tone') in RULE_TONES}
+            if rules:safe['panel_rules']=rules
             example=next((b for b in blocks if isinstance(b,dict) and b.get('role')=='example'),{})
             if ((card.get('render_policy',{}).get('version') in (4,5,6,7,8,9)
                      and example.get('style')=='italic_photo_fade'

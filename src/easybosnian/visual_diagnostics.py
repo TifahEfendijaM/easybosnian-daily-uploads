@@ -111,6 +111,12 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     return result
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Secondary category colour unavailable for this palette',
+    'Unsupported category colour treatment',
+    'Unsupported decorative rule treatment',
+    'Contrasting rules require a light decorated panel',
+    'Contrasting rule colour unavailable for this palette',
+    'Contrasting rule must be clearer than the original accent',
     'Only light explanation panels can reduce surface richness',
     'Light surface richness outside the approved range',
     'Custom example backing requires a full-photo fade and explicit lettering tone',

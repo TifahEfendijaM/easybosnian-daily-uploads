@@ -241,9 +241,17 @@ def decision_lines(rendering):
             applied=(f"{rendering['heading_shading']}/255 applied" if 'heading_shading' in rendering else 'applied opacity not recorded')
             lines.append(f"Black title opacity: {composition['heading_opacity']}/255 requested; {applied}.")
         lines.append('Category colour pairing: '+composition.get('category_tone','auto').replace('_',' on ')+'.')
+        if composition.get('category_tone')=='ink_secondary':
+            from .designs import category_colours
+            palette=read_json(ROOT/'data/design-palettes.json')[rendering['palette']]
+            _,surface=category_colours(palette,'ink_secondary',rendering.get('category_style','rounded'))
+            lines.append('Category secondary surface: '+surface+'.')
         if (composition.get('palette_exception')=='no_other_suitable_palette'
                 and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):
             lines.append('Repeated-palette exception: ChatGPT declared no other approved palette suitable.')
+        if (composition.get('palette_exception')=='photo_compatibility_priority'
+                and rendering.get('provenance',{}).get('palette',{}).get('source')=='chatgpt'):
+            lines.append('Repeated-palette exception: ChatGPT judged this palette a better photographic colour fit than the alternatives.')
     for role,style in rendering['block_styles'].items():
         label='PRIMJER' if role=='example' else 'Explanation' if role=='body' else 'Answer '+role
         lines.append(label+': '+style_label(style)+'. '+STYLE_CATALOGUE[style])
@@ -269,6 +277,10 @@ def decision_lines(rendering):
                              (preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
                 lines.append(label+' surface opacity: '+description)
                 lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
+                if block.get('rule_tone')=='contrast':
+                    from .designs import panel_rule_colour
+                    palette=read_json(ROOT/'data/design-palettes.json')[rendering['palette']]
+                    lines.append(label+' decorative rule: contrasting '+panel_rule_colour(palette,block)+'; original lettering and badges retained.')
                 if role=='body':lines.append('Explanation surface richness: '+str(block.get('surface_richness',100))+'%; panel remains opaque.')
                 from .designs import dark_panel_surface
                 if dark_panel_surface(block) and rendering.get('dark_panel_surface'):

@@ -36,6 +36,11 @@ TITLE_TONE_CATALOGUE = {
     'paper_accent':'Legacy palette paper-coloured title text; neutral black fade when used.',
 }
 PANEL_TONES = ('auto', 'ink_paper', 'paper_ink', 'ink_accent', 'accent_ink')
+CATEGORY_TONES = (*PANEL_TONES, 'ink_secondary')
+PALETTE_EXCEPTIONS = ('none','no_other_suitable_palette','photo_compatibility_priority')
+RULE_TONES = ('accent','contrast')
+RULE_STYLES = frozenset(('rounded','outlined','overlay_light','side_rule','bottom_sheet','minimal_rule',
+    'double_frame','notebook_margin','top_ribbon','corner_brackets','soft_corner','folded_corner'))
 QUIZ_TITLE_SHADE_INTENTS = ('gentle', 'stronger')
 NONQUIZ_TITLE_SHADE_INTENTS = ('gentle', 'emphasis', 'emphasis_medium', 'emphasis_strong')
 TITLE_SHADE_INTENTS = ('gentle', 'stronger', 'emphasis', 'emphasis_medium', 'emphasis_strong')
@@ -163,3 +168,33 @@ def typography(role, size, leading, max_lines=None, wrapping='balanced'):
     if max_lines is not None and (type(max_lines) is not int or not 1 <= max_lines <= 12):
         raise ValueError('Invalid maximum line count')
     if wrapping not in WRAPPING:raise ValueError('Unsupported wrapping preference')
+
+
+def category_colours(palette, tone='auto', style='rounded'):
+    """Extra category hue cannot become a body, badge or title colour role."""
+    if tone=='ink_secondary':
+        if 'category_secondary' not in palette:raise ValueError('Secondary category colour unavailable for this palette')
+        return palette['ink'],palette['category_secondary']
+    if tone not in CATEGORY_TONES:raise ValueError('Unsupported category colour treatment')
+    if tone=='auto':return palette['ink'],palette['panel'] if style=='outlined' else palette['accent']
+    return panel_colours(palette,tone)
+
+
+def has_panel_rule(block):
+    return block.get('style') in RULE_STYLES and (block.get('role')=='body' or block.get('style')!='rounded')
+
+
+def panel_rule_colour(palette, block):
+    """Optional decorative-only colour; original lettering/rails/badges stay exact."""
+    tone=block.get('rule_tone','accent')
+    if tone=='accent':return palette['accent']
+    if tone not in RULE_TONES:raise ValueError('Unsupported decorative rule treatment')
+    if dark_panel_surface(block) or not has_panel_rule(block):
+        raise ValueError('Contrasting rules require a light decorated panel')
+    if 'light_rule' not in palette:raise ValueError('Contrasting rule colour unavailable for this palette')
+    _,surface=panel_colours(palette,block.get('panel_tone','auto'),dark=block.get('style')=='overlay_dark',bounded=True)
+    if block.get('role')=='body':surface=light_surface_colour(surface,block.get('surface_richness',100))
+    from .render import contrast
+    if contrast(palette['light_rule'],surface)<=contrast(palette['accent'],surface):
+        raise ValueError('Contrasting rule must be clearer than the original accent')
+    return palette['light_rule']

@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 from .core import ROOT
 from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, typography)
+                      FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, category_colours, panel_rule_colour, has_panel_rule, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -144,7 +144,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
     spec=fallback_spec(card,role,width,style)
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
             **({'panel_opacity':100} if role!='example' else {}),
-            **({'panel_tone':'auto'} if role!='example' else {}),
+            **({'panel_tone':'auto','rule_tone':'accent'} if role!='example' else {}),
             **({'marker_style':'circle','marker_tone':'auto'} if role not in ('body','example') else {}),
             **({'surface_richness':100} if role=='body' else {}),
             **({'photo_tone':'auto','backing_colour':None,'fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
@@ -327,6 +327,8 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
+        if block.get('rule_tone','accent')=='contrast' and (dark_panel_surface(block) or not has_panel_rule(block)):
+            raise ValueError('Contrasting rules require a light decorated panel')
         richness=block.get('surface_richness',100)
         if richness!=100 and (block['role']!='body' or style not in PANEL_STYLES or dark_panel_surface(block)):
             raise ValueError('Only light explanation panels can reduce surface richness')
@@ -581,8 +583,8 @@ def category_label(image, label, palette, style='rounded', top=CATEGORY_TOP, pap
     face=font(27,'SemiBold');width=round(face.getlength(label))+46
     x=64;right=x+width;bottom=top+CATEGORY_HEIGHT
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
-    text_colour,surface=panel_colours(palette,tone)
-    if tone=='auto':text_colour,surface=ink,paper if style=='outlined' else accent
+    text_colour,surface=category_colours(palette,tone,style)
+    if tone=='ink_secondary':accent=palette['category_secondary']
     draw=ImageDraw.Draw(image)
     if style=='underlined':
         xy=(x,top+18)
@@ -617,6 +619,7 @@ def draw_panel(image, block, palette):
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
+    rule=panel_rule_colour(palette,block)
     colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark',bounded=True)
     if role=='body':surface_colour=light_surface_colour(surface_colour,block.get('surface_richness',100))
     # Composite only the bounded surface. Glyphs, decorations and answer badges
@@ -640,43 +643,43 @@ def draw_panel(image, block, palette):
     else:raise ValueError('Unsupported trusted panel renderer')
     image.paste(Image.alpha_composite(image,surface))
     draw=ImageDraw.Draw(image)
-    if style=='outlined':draw.rectangle((x,y,right,bottom),outline=accent,width=3)
+    if style=='outlined':draw.rectangle((x,y,right,bottom),outline=rule,width=3)
     elif style=='overlay_light':
-        draw.line((x+padding,bottom-12,right-padding,bottom-12),fill=accent,width=2)
+        draw.line((x+padding,bottom-12,right-padding,bottom-12),fill=rule,width=2)
     elif style=='side_rule':
-        draw.rectangle((x,y,x+12,bottom),fill=accent)
+        draw.rectangle((x,y,x+12,bottom),fill=rule)
     elif style=='bottom_sheet':
-        mid=(x+right)/2;draw.rounded_rectangle((mid-32,y+10,mid+32,y+15),radius=2,fill=accent)
+        mid=(x+right)/2;draw.rounded_rectangle((mid-32,y+10,mid+32,y+15),radius=2,fill=rule)
     elif style=='split_panel':
         draw.rectangle((x,y,x+82,bottom),fill=accent)
         if role=='body':
             draw.line((x+28,y+padding,x+54,y+padding),fill=ink,width=4)
             draw.line((x+28,y+padding+14,x+54,y+padding+14),fill=ink,width=4)
     elif style=='minimal_rule':
-        draw.line((x,bottom-2,right,bottom-2),fill=accent,width=5)
+        draw.line((x,bottom-2,right,bottom-2),fill=rule,width=5)
     elif style=='double_frame':
-        draw.rectangle((x,y,right,bottom),outline=accent,width=4)
+        draw.rectangle((x,y,right,bottom),outline=rule,width=4)
         draw.rectangle((x+10,y+10,right-10,bottom-10),outline=ink,width=1)
     elif style=='notebook_margin':
-        draw.line((x+12,y+12,x+12,bottom-12),fill=accent,width=3)
+        draw.line((x+12,y+12,x+12,bottom-12),fill=rule,width=3)
         for tick_y in range(round(y+18),round(bottom-12),16):
-            draw.line((x+3,tick_y,x+8,tick_y),fill=accent,width=2)
+            draw.line((x+3,tick_y,x+8,tick_y),fill=rule,width=2)
     elif style=='top_ribbon':
-        draw.rectangle((x,y,right,y+8),fill=accent)
+        draw.rectangle((x,y,right,y+8),fill=rule)
         draw.line((x+padding,bottom-10,right-padding,bottom-10),fill=ink,width=1)
     elif style=='corner_brackets':
         for corner_x,direction_x in ((x+8,1),(right-8,-1)):
             for corner_y,direction_y in ((y+8,1),(bottom-8,-1)):
                 draw.line((corner_x+32*direction_x,corner_y,corner_x,corner_y,
-                           corner_x,corner_y+24*direction_y),fill=accent,width=3)
+                           corner_x,corner_y+24*direction_y),fill=rule,width=3)
     elif style=='soft_corner':
         rule_x=x+18+(block.get('content_offset',0) if role!='body' else 0)
-        draw.line((rule_x,y+padding,rule_x,bottom-padding),fill=accent,width=4)
+        draw.line((rule_x,y+padding,rule_x,bottom-padding),fill=rule,width=4)
     elif style=='folded_corner':
-        draw.line((x+3,y+3,right-26,y+3,right-3,y+26),fill=accent,width=3)
-        draw.polygon(((right-24,y),(right-24,y+24),(right,y+24)),fill=accent)
+        draw.line((x+3,y+3,right-26,y+3,right-3,y+26),fill=rule,width=3)
+        draw.polygon(((right-24,y),(right-24,y+24),(right,y+24)),fill=rule)
     if role=='body' and style in ('rounded','outlined'):
-        draw.rounded_rectangle((x+18,y+padding,x+23,bottom-padding),radius=2,fill=accent)
+        draw.rounded_rectangle((x+18,y+padding,x+23,bottom-padding),radius=2,fill=rule)
     if role!='body':
         marker_style=block.get('marker_style','circle')
         if marker_style not in MARKER_STYLES:raise ValueError('Unsupported answer badge')

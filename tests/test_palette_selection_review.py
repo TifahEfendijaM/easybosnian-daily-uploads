@@ -13,7 +13,7 @@ class PaletteSelectionReviewTests(unittest.TestCase):
             review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
         prompt=model.call_args.args[0]
         for phrase in ('SAME limits COLLECTIVELY to visually SIMILAR palettes',
-                       'renaming the palette or switching to a near-duplicate',
+                       'renaming or switching to a near-duplicate',
                        'Sharing one hue or merely both being light/dark is NOT enough',
                        'consider light and dark surfaces EQUALLY',
                        'ONLY when the light and dark alternatives work EQUALLY WELL',
