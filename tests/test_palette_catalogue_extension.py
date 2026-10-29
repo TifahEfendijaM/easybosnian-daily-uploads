@@ -31,18 +31,18 @@ class ExpandedPaletteCatalogueTests(unittest.TestCase):
         catalogue=read_json(ROOT/'data/design-palettes.json')
         self.assertTrue(set(NEW_PALETTES)<=set(catalogue))
         self.assertEqual(set(read_json(ROOT/'data/content.schema.json')['properties']['design_palette']['enum']),set(catalogue))
-        self.assertEqual(set(MODEL_CARD_SCHEMA['properties']['palette']['enum']),set(catalogue))
-        self.assertEqual(set(palette_policies([])),set(catalogue))
+        self.assertEqual(set(MODEL_CARD_SCHEMA['properties']['palette']['enum']),set(catalogue)-{'graphite-chalk'})
+        self.assertEqual(set(palette_policies([])),set(catalogue)-{'graphite-chalk'})
         package=reviewed_fixture()
         for name,palette in catalogue.items():
             with self.subTest(palette=name):
-                self.assertEqual(set(palette),{'ink','panel','accent','scrim','dark_surface'})
+                self.assertEqual(set(palette),{'ink','panel','accent','scrim','dark_surface'}|({'example_backing'} if name=='ochre-parchment' else set()))
                 self.assertTrue(all(re.fullmatch(r'#[0-9a-f]{6}',c) for c in palette.values()))
                 for background in (palette['panel'],palette['accent'],'#ffffff'):
                     self.assertGreaterEqual(contrast(palette['ink'],background),4.5)
                 package['design_palette']=name;validate(package)
                 selected,outcome=select_palette({'palette':name},'gold-cream')
-                self.assertEqual(selected,name);self.assertEqual(outcome['source'],'chatgpt')
+                self.assertEqual(selected,'gold-cream' if name=='graphite-chalk' else name);self.assertEqual(outcome['source'],'fallback' if name=='graphite-chalk' else 'chatgpt')
         _,outcome=select_palette({'palette':'unapproved-custom-colours'},'gold-cream')
         self.assertEqual(outcome['source'],'fallback')
 

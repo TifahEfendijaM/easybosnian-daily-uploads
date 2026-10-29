@@ -18,7 +18,7 @@ class PaletteSelectionReviewTests(unittest.TestCase):
                        'consider light and dark surfaces EQUALLY',
                        'ONLY when the light and dark alternatives work EQUALLY WELL',
                        'Do not sacrifice ANY better fit for brightness variety',
-                       'NEVER favour or lighten the text-card surface',
+                       'NEVER favour or lighten/darken the panel',
                        'Quiz-specific surface rules still take precedence',
                        'no_other_suitable_palette'):
             self.assertIn(phrase,prompt)

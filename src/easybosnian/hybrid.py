@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 from .core import ROOT
 from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
-                      FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, typography)
+                      FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
                      draw_rows, font, measure, wrap)
 
@@ -146,6 +146,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto'} if role!='example' else {}),
             **({'marker_style':'circle','marker_tone':'auto'} if role not in ('body','example') else {}),
+            **({'surface_richness':100} if role=='body' else {}),
             **({'photo_tone':'auto','backing_colour':None,'fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
@@ -326,6 +327,9 @@ def measured_plan(card, plan):
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
                         block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))
         style=block['style']
+        richness=block.get('surface_richness',100)
+        if richness!=100 and (block['role']!='body' or style not in PANEL_STYLES or dark_panel_surface(block)):
+            raise ValueError('Only light explanation panels can reduce surface richness')
         if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp','sharp_top'):
             raise ValueError('Only photographic faded examples can select a shade preset')
         if style!='italic_photo_fade' and block.get('shade_strength','soft')!='soft':
@@ -420,7 +424,10 @@ def example_colours(palette, tone='auto', palette_id=None, backing_colour=None):
         rgb=tuple(int(backing_colour[i:i+2],16) for i in (1,3,5))
         return colours,[(colours[0],rgb)]
     if tone not in ('white_secondary','paper_secondary'):
-        return photo_colours(palette,tone)
+        colours,backings=photo_colours(palette,tone)
+        if tone=='paper_ink' and palette.get('example_backing'):
+            c=palette['example_backing'];backings=[(colours[0],tuple(int(c[i:i+2],16) for i in (1,3,5)))]
+        return colours,backings
     catalogue=json.loads((ROOT/'data/example-backings.json').read_text())
     if palette_id not in catalogue:raise ValueError('Unsupported secondary example palette')
     backing=catalogue[palette_id]
@@ -611,6 +618,7 @@ def draw_panel(image, block, palette):
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
     colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark',bounded=True)
+    if role=='body':surface_colour=light_surface_colour(surface_colour,block.get('surface_richness',100))
     # Composite only the bounded surface. Glyphs, decorations and answer badges
     # remain opaque; geometry and renderer-owned drawing presets do not change.
     alpha=panel_alpha(block['panel_opacity']) if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)

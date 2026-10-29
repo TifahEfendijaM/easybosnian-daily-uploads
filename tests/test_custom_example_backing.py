@@ -72,14 +72,9 @@ class CustomExampleBackingTests(unittest.TestCase):
             selected,status=review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',selected)
         prompt=model.call_args.args[0]
-        for phrase in ('FIRST seek a visibly DIFFERENT HUE','ONLY when NO different-hue candidate',
-                       'Strong contrast with that surface is welcome','MILDLY PREFERRED',
-                       'NEVER favour or lighten the text-card surface','backing_colour=null',
-                       'For DARK text-card surfaces, FIRST seek',
-                       'For LIGHT text-card surfaces, DEFAULT',
-                       'GENUINELY AND CLEARLY',
-                       'A slight improvement, novelty, variety or a tie is insufficient',
-                       'Do not apply the DARK-card different-hue-first rule to LIGHT surfaces'):
+        for phrase in ('make whole-image HARMONY the priority','A different hue never has to win',
+                       'Require a convincing visual connection','a modest improvement',
+                       'In a genuine equal-fit tie','choose the exact dark backing freely'):
             self.assertIn(phrase,prompt)
         placement,_=h.render(h.package,proposal)
         word=placement['cards']['word'];self.assertEqual(word['provenance']['layout']['source'],'chatgpt')

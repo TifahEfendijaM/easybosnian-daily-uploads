@@ -39,6 +39,7 @@ class VisualProvenanceTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             shade_draw=stack.enter_context(patch('secrets.choice',side_effect=AssertionError('no visual draw expected')))
             opacity_draw=stack.enter_context(patch('secrets.randbelow',side_effect=AssertionError('no opacity draw expected')))
             child=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))

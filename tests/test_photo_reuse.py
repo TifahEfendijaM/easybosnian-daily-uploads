@@ -87,6 +87,7 @@ class PhotoReuseTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             provider=stack.enter_context(patch('easybosnian.artwork.provider'))
             review=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             store=MagicMock();assets=artwork(store,package,review_images=True,reused_backgrounds=paths)
             provider.assert_not_called();review.assert_called_once();store.expose.assert_not_called()

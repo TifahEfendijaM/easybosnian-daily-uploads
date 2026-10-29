@@ -87,6 +87,7 @@ class SavedPreviewSourcesTests(unittest.TestCase):
    for b in proposal['cards']['quiz']['blocks']:b['panel_opacity']=100
    stack.enter_context(patch('easybosnian.artwork.ROOT',root))
    stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
+   stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
    stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
    agent=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
    provider=stack.enter_context(patch('easybosnian.artwork.provider',side_effect=AssertionError('no FLUX')))

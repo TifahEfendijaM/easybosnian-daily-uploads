@@ -20,7 +20,7 @@ PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'acc
                'ink_accent', 'accent_dark', 'accent_light', 'paper_accent')
 # Fresh reviews choose approved colours and renderer-owned fixed fade presets.
 EXAMPLE_PHOTO_TONES = (*PHOTO_TONES, 'white_secondary', 'paper_secondary')
-REVIEW_PHOTO_TONES = EXAMPLE_PHOTO_TONES
+REVIEW_PHOTO_TONES = PHOTO_TONES  # Secondary registry is archive-only; fresh backings are freely chosen.
 # Titles retain approved text colours, with neutral backing colours only.
 REVIEW_TITLE_TONES = ('auto','paper_dark','ink_light','paper_ink','ink_paper','accent_dark','accent_light')
 TITLE_TONE_CATALOGUE = {
@@ -78,7 +78,7 @@ STYLE_CATALOGUE = {
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',
-    'italic_photo_fade': 'Unboxed Lora Italic example and label. Outside the lower photo area, compare standard (both edges smooth) and sharp (smooth upper/crisp lower) equally, with neither preferred or the default. For a lower-photo example, strongly prefer sharp; use standard there when it clearly fits better. Placement, colour and shade strength remain independent. Sharp_top (crisp upper/smooth lower) is eligible only above the explanation near the title, and wins there only if genuinely better, never automatically. All extend below the text. On dark body surfaces, first seek a harmonious dark backing of a different hue; related hues are a last resort. On light body surfaces, default to a dark backing from the selected palette or its hue families; an outside hue needs a clearly better whole-image fit or an unsuitable normal pairing. Freely selected exact RGB remains available. Rich dark colour is mildly preferred when comparably suitable. Approved lettering and predefined backings remain selectable; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
+    'italic_photo_fade': 'Unboxed Lora Italic example and label. Outside the lower photo area, compare standard (both edges smooth) and sharp (smooth upper/crisp lower) equally, with neither preferred or the default. For a lower-photo example, strongly prefer sharp; use standard there when it clearly fits better. Placement, colour and shade strength remain independent. Sharp_top (crisp upper/smooth lower) is eligible only above the explanation near the title, and wins there only if genuinely better, never automatically. All extend below the text. Compare related hues, different hues and suitable dark neutrals against the actual photograph, panel, lettering and accent; whole-image harmony wins, never forced hue separation. For light surfaces a modest better fit may justify a different hue; prefer same-family only in a genuine tie. Freely chosen exact dark RGB remains available; historical secondary pairs remain archive-readable. Rich dark colour is welcome when coherent; geometry/strength are renderer-owned. Earlier defined treatments remain readable in saved plans.',
     'italic_footer': 'Unboxed approved Lora Italic example on editorial paper footer below photo, small PRIMJER label and thin separator. No example box.',
 }
 CATEGORY_CATALOGUE = {
@@ -130,6 +130,14 @@ def panel_colours(palette, tone='auto', *, dark=False, bounded=False):
     surface=palette.get('dark_surface',ink) if bounded else ink
     return {'auto':(paper,surface) if dark else (ink,paper), 'ink_paper':(ink,paper),
             'paper_ink':(paper,surface), 'ink_accent':(ink,accent), 'accent_ink':(accent,surface)}[tone]
+
+
+def light_surface_colour(colour, richness=100):
+    """Keep 70–100% of the base tint; the surface stays completely opaque."""
+    if type(richness) not in (int,float) or not math.isfinite(richness) or not 70<=richness<=100:
+        raise ValueError('Light surface richness outside the approved range')
+    channels=tuple(int(colour[i:i+2],16) for i in (1,3,5))
+    return '#'+''.join(f'{round(255+(c-255)*richness/100):02x}' for c in channels)
 
 
 def dark_panel_surface(block):

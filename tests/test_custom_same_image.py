@@ -111,6 +111,7 @@ class CustomSameImageTests(unittest.TestCase):
             provider=MagicMock();provider.generate.return_value=photo()
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             review=stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             store=MagicMock();assets=artwork(store,package,review_images=True,reused_backgrounds={'word':saved})

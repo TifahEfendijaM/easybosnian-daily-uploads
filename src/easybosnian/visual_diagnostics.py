@@ -31,10 +31,13 @@ def select_palette(plan, fallback):
     from .render import contrast
     catalogue=read_json(ROOT/'data/design-palettes.json')
     if fallback not in catalogue:raise ValueError('Unknown approved palette')
+    from .palettes import active,current
+    fallback=current(fallback)
+    choices=active()
     requested=plan.get('palette')
     reason=None
     if 'palette' not in plan:reason='ChatGPT palette missing'
-    elif not isinstance(requested,str) or requested not in catalogue:
+    elif not isinstance(requested,str) or requested not in choices:
         reason='ChatGPT palette not approved'
     else:
         colours=catalogue[requested]
@@ -108,6 +111,8 @@ def choice_record(metrics,status,policy,palette_outcome,review_status=None,**ext
     return result
 
 TRUSTED_REJECTION_MESSAGES = frozenset((
+    'Only light explanation panels can reduce surface richness',
+    'Light surface richness outside the approved range',
     'Custom example backing requires a full-photo fade and explicit lettering tone',
     'Custom example backing must be a dark six-digit hex colour',
     'Secondary example backing requires a photographic fade',

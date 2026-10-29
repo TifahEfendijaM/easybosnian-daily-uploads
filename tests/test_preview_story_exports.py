@@ -20,6 +20,7 @@ class PreviewStoryExportsTests(unittest.TestCase):
    stack.enter_context(patch('easybosnian.artwork.ROOT',root))
    stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
    stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
+   stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
    stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
    stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)))
    snapshots=stack.enter_context(patch('easybosnian.frozen_cards.snapshot',side_effect=AssertionError('preview cannot snapshot')))

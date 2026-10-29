@@ -54,7 +54,8 @@ class NeutralTitlesPaletteVarietyTests(unittest.TestCase):
         self.assertEqual(result['composition'],plan);self.assertEqual(card,original)
 
     def test_every_palette_has_the_same_window_and_batch_policy_and_exception(self):
-        palettes=list(read_json(ROOT/'data/design-palettes.json'))
+        from easybosnian.palettes import active
+        palettes=list(active())
         for candidate in palettes:
             with self.subTest(palette=candidate):
                 other=[p for p in palettes if p!=candidate]

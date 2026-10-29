@@ -23,12 +23,12 @@ B='b-'+'b'*32
 
 
 class FrozenCardTests(unittest.TestCase):
-    def fixture(self,root,kind='word'):
-        package=reviewed_fixture();package['batch_id']=A
+    def fixture(self,root,kind='word',palette='gold-cream'):
+        package=reviewed_fixture();package['batch_id']=A;package['design_palette']=palette
         card=next(c for c in package['cards'] if c['kind']==kind);photo=root/'photo.jpg';Image.new('RGB',(1024,1024),'#888888').save(photo)
-        plan=default_plan(card);plan.update(confidence='high',palette='gold-cream')
-        path=root/f'{kind}-card.jpg';metrics=render_hybrid(card,'gold-cream',photo,path,plan)
-        story=root/f'{kind}-story.jpg';tall_story_image(card,photo,story,read_json(CODE_ROOT/'data/design-palettes.json')['gold-cream'])
+        plan=default_plan(card);plan.update(confidence='high',palette=palette)
+        path=root/f'{kind}-card.jpg';metrics=render_hybrid(card,palette,photo,path,plan)
+        story=root/f'{kind}-story.jpg';tall_story_image(card,photo,story,read_json(CODE_ROOT/'data/design-palettes.json')[palette])
         cache={};store=MagicMock()
         def call(method,url,body=None,**kwargs):
             if method=='PUT':cache[url]=body;return {'stored':True}
@@ -79,7 +79,7 @@ class FrozenCardTests(unittest.TestCase):
 
     def test_mixed_artwork_reuse_excludes_frozen_card_from_flux_and_visual_choices(self):
         with tempfile.TemporaryDirectory() as temp,contextlib.ExitStack() as stack:
-            root=Path(temp);old,store,cache,photo=self.fixture(root)
+            root=Path(temp);old,store,cache,photo=self.fixture(root,palette='graphite-chalk')
             source=old['rendered_sources']['word'];package=copy.deepcopy(old);package['batch_id']=B
             package['background_sources']={'word':{'batch_id':A,'artwork_id':'r-'+'1'*32}}
             fixed={'word':{'source':source,'card':root/'word-card.jpg','story':root/'word-story.jpg'}}
@@ -87,6 +87,7 @@ class FrozenCardTests(unittest.TestCase):
             generator=stack.enter_context(patch('easybosnian.artwork.provider'));generator.return_value.generate.return_value=stream.getvalue()
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             plans={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='gold-cream') for c in package['cards'] if c['kind']!='word'}}
             review=stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
@@ -97,6 +98,8 @@ class FrozenCardTests(unittest.TestCase):
             self.assertEqual(digest(assets['word']['story_path'].read_bytes()),source['story_sha256'])
             placement=read_json(root/'build'/B/'image-placement-result.json')['cards']['word']
             self.assertEqual(placement['provenance']['layout']['source'],'reused')
+            self.assertEqual(placement['palette'],'graphite-chalk')
+            self.assertEqual(package['design_palette'],'mulberry-mint')
             store.expose.assert_not_called()
 
     def test_saved_preview_does_not_retain_stale_finished_card_fingerprints(self):
@@ -108,6 +111,7 @@ class FrozenCardTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             plans={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='gold-cream') for c in package['cards']}}
             stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))

@@ -127,6 +127,9 @@ def with_rendering(data,placement):
         if result.get('design_attempts'):
             from .visual_diagnostics import safe_design_attempts
             rendered[LABELS[kind]]['design_attempts']=safe_design_attempts(result['design_attempts'])
+        if result.get('example_harmony'):
+            from .rendered_harmony import safe_harmony
+            rendered[LABELS[kind]]['example_harmony']=safe_harmony(result['example_harmony'])
         if result.get('photo_quality'):
             from .photo_quality import safe_quality
             rendered[LABELS[kind]]['photo_quality']=safe_quality(result['photo_quality'])
@@ -210,6 +213,12 @@ def decision_lines(rendering):
         attempts=rendering['design_attempts']
         lines.append('Design attempts: '+str(max(a['attempt'] for a in attempts))+'; last proposal '+attempts[-1]['result']+
                      '; final layout source '+rendering.get('provenance',{}).get('layout',{}).get('source','unknown')+'.')
+    if rendering.get('example_harmony'):
+        review=rendering['example_harmony']
+        lines.append('Rendered PRIMJER harmony: '+review['status']+'; '+str(len(review['checks']))+
+                     ' check(s); '+str(review['design_proposals'])+' of 3 total design proposals used. Only backing colour/strength may change.')
+        if review['checks']:
+            lines.append('PRIMJER harmony last check: '+review['checks'][-1]['reason']+'.')
     if rendering.get('photo_quality'):
         quality=rendering['photo_quality']
         lines.append('Photo inspection: '+quality['status']+'; selected attempt '+str(quality['selected_attempt'])+
@@ -247,7 +256,10 @@ def decision_lines(rendering):
             colours,_=example_colours(palette,rendering['example_tone'],rendering['palette'],custom_backing)
             lines.append('PRIMJER colours: '+colours[0]+' lettering; ChatGPT-selected exact dark backing '+custom_backing+'.')
         elif role=='example' and rendering.get('example_tone'):
-            lines.append('PRIMJER colours: '+PHOTO_TONE_CATALOGUE[rendering['example_tone']])
+            palette=read_json(ROOT/'data/design-palettes.json')[rendering['palette']]
+            if rendering['example_tone']=='paper_ink' and palette.get('example_backing'):
+                lines.append('PRIMJER colours: '+palette['panel']+' lettering; rich same-family backing '+palette['example_backing']+'.')
+            else:lines.append('PRIMJER colours: '+PHOTO_TONE_CATALOGUE[rendering['example_tone']])
         if composition:
             block=next(b for b in composition['blocks'] if b['role']==role)
             if style in PANEL_STYLES:
@@ -257,6 +269,7 @@ def decision_lines(rendering):
                              (preset or 'legacy preset')+f' ({round(alpha/255*100)}%).')
                 lines.append(label+' surface opacity: '+description)
                 lines.append(label+' text/surface pairing: '+block.get('panel_tone','auto').replace('_',' on ')+'.')
+                if role=='body':lines.append('Explanation surface richness: '+str(block.get('surface_richness',100))+'%; panel remains opaque.')
                 from .designs import dark_panel_surface
                 if dark_panel_surface(block) and rendering.get('dark_panel_surface'):
                     lines.append(label+' dark surface: '+rendering['dark_panel_surface']+'; original decorative accent retained.')

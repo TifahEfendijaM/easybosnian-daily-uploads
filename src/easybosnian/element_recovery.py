@@ -52,7 +52,7 @@ def replacement(card,old,base,window,design,background,faithful):
         # A line cap must never truncate the exact copy during local recovery.
         block['max_lines']=None
         if block['role']=='example':block['style']='italic_footer' if design=='editorial' else ('italic_photo' if old.get('style')=='italic_photo' else 'italic_photo_fade')
-        elif design=='editorial':block.update(style='plain',panel_tone='auto',panel_opacity=100)
+        elif design=='editorial':block.update(style='plain',panel_tone='auto',panel_opacity=100,surface_richness=100)
         elif old.get('style')=='overlay_light':block['style']='minimal_rule'
     # The requested position remains the search target even when other fields fail.
     for key in ('x','y'):
@@ -83,6 +83,14 @@ def recover_elements(card, requested, background, render, *, required=(), reason
     requested['blocks']=[blocks.get(r,{'role':r}) for r in expected]
     baseline=editorial_plan(card) if requested.get('design')=='editorial' and card['kind']!='quiz' else default_plan(card)
     groups=[*expected,*GLOBAL_GROUPS]
+    if reason=='Only light explanation panels can reduce surface richness' and not required:
+        candidate=copy.deepcopy(requested)
+        next(b for b in candidate['blocks'] if b['role']=='body')['surface_richness']=100
+        try:metrics=render(candidate)
+        except ValueError:pass
+        else:
+            return metrics,safe_recovery({'reason':RECOVERY_REASON,
+                'preserved':[n for n in groups if n!='body'],'fallback':['body']})
     if reason=='Custom example backing must be a dark six-digit hex colour' and not required:
         # A failed custom RGB need not discard valid example geometry, lettering,
         # edges, strength or siblings. The selected approved preset remains.
