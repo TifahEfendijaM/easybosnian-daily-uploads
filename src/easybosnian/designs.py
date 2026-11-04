@@ -138,8 +138,8 @@ def panel_colours(palette, tone='auto', *, dark=False, bounded=False):
 
 
 def light_surface_colour(colour, richness=100):
-    """Keep 70–100% of the base tint; the surface stays completely opaque."""
-    if type(richness) not in (int,float) or not math.isfinite(richness) or not 70<=richness<=100:
+    """Keep 20–100% of the base tint; the surface stays completely opaque."""
+    if type(richness) not in (int,float) or not math.isfinite(richness) or not 20<=richness<=100:
         raise ValueError('Light surface richness outside the approved range')
     channels=tuple(int(colour[i:i+2],16) for i in (1,3,5))
     return '#'+''.join(f'{round(255+(c-255)*richness/100):02x}' for c in channels)

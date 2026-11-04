@@ -46,12 +46,12 @@ class FlexibleOpacityTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'Selected title opacity'):measured_plan(quiz,q)
  def test_fresh_schema_accepts_continuous_bounded_choices_but_not_legacy_fixed_presets(self):
   package=reviewed_fixture();proposal={'cards':{c['kind']:dict(default_plan(c),palette='gold-cream') for c in package['cards']}}
-  word=proposal['cards']['word'];word.update(heading_tone='paper_dark',heading_shade='emphasis',heading_opacity=53)
+  word=proposal['cards']['word'];word.update(heading_tone='paper_dark',heading_shade='emphasis',heading_opacity=89)
   word['blocks'][0]['panel_opacity']=100
   self.assertFalse(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
   for alpha in (-1,127,53.2,True,'53',{'alpha':53}):
    word['heading_opacity']=alpha;self.assertTrue(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
-  word['heading_opacity']=53
+  word['heading_opacity']=89
   for preset in ('emphasis_medium','emphasis_strong'):
    word['heading_shade']=preset;self.assertTrue(list(Draft202012Validator(RESULT_SCHEMA).iter_errors(proposal)))
   word['heading_shade']='emphasis';proposal['cards']['quiz']['heading_opacity']=53
@@ -106,5 +106,5 @@ class FlexibleOpacityTests(unittest.TestCase):
    actual,status=review_compositions(package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in package['cards']})
   self.assertEqual(status,'reviewed');self.assertEqual(actual['cards'],proposal['cards'])
   prompt=model.call_args.args[0]
-  for text in ('heading_opacity from 0 through 126','without snapping to the old three presets','FIXED panel_opacity=100','not a creative choice','not just readability'):
+  for text in ('heading_opacity from 66 through 126','without snapping to the old three presets','FIXED panel_opacity=100','not a creative choice','not just readability'):
    self.assertIn(text,prompt)

@@ -28,7 +28,7 @@ class SurfaceRichnessTests(unittest.TestCase):
     def test_paler_is_explicit_bounded_rgb_change_not_transparency(self):
         self.assertEqual(light_surface_colour('#bde4dc'), '#bde4dc')
         self.assertEqual(light_surface_colour('#bde4dc',70),'#d1ece6')
-        for bad in (69,101,True,None,'80',float('nan'),float('inf')):
+        for bad in (19,101,True,None,'80',float('nan'),float('inf')):
             with self.assertRaises(ValueError):light_surface_colour('#bde4dc',bad)
         card=reviewed_fixture()['cards'][2];plan=default_plan(card);plan['blocks'][0].update(style='rounded_plain',panel_tone='ink_paper')
         source=copy.deepcopy(plan)
@@ -51,7 +51,7 @@ class SurfaceRichnessTests(unittest.TestCase):
         for tone in ('paper_ink','accent_ink'):
             bad=copy.deepcopy(plan);bad['blocks'][0].update(panel_tone=tone,surface_richness=80)
             with self.assertRaisesRegex(ValueError,'Only light explanation'):measured_plan(card,bad)
-        for value in (69,101,True):
+        for value in (19,101,True):
             bad=copy.deepcopy(plan);bad['blocks'][0]['surface_richness']=value
             self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(bad)))
         quiz=default_plan(reviewed_fixture()['cards'][0]);quiz['blocks'][0]['surface_richness']=80

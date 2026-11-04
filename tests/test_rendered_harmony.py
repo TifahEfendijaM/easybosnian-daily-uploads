@@ -11,9 +11,12 @@ from easybosnian.rendered_harmony import improve,inspect,safe_harmony
 from easybosnian.cloud_prepare import AgentIntegrityError
 from test_project import reviewed_fixture
 
-ACCEPT={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}
-def revision(colour='#145638',strength='medium'):
-    return {'verdict':'revise','reason':'poor_palette_harmony','backing_colour':colour,'shade_strength':strength}
+ACCEPT={'verdict':'accept','reason':'harmonious','elements':[],'composition':None}
+def revision(metrics,colour='#145638',strength='medium',can_revise=True):
+    plan=copy.deepcopy(metrics['composition'])
+    plan['blocks'][-1].update(backing_colour=colour,shade_strength=strength)
+    return {'verdict':'revise','reason':'poor_palette_harmony','elements':['example'],
+            'composition':plan if can_revise else None}
 
 class RenderedHarmonyTests(unittest.TestCase):
     def fixture(self,root):
@@ -40,7 +43,7 @@ class RenderedHarmonyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             card,path,metrics,draw=self.fixture(Path(tmp));before=copy.deepcopy(metrics);pixels=path.read_bytes();seen=[]
             def review(*args,**kwargs):
-                seen.append(path.read_bytes());return revision() if len(seen)==1 else ACCEPT
+                seen.append(path.read_bytes());return revision(metrics) if len(seen)==1 else ACCEPT
             actual,detail=improve(card,path,metrics,draw,review=review)
             expected=copy.deepcopy(before['composition']);expected['blocks'][-1].update(backing_colour='#145638',shade_strength='medium')
             self.assertEqual(actual['composition'],expected);self.assertEqual(metrics,before)
@@ -53,7 +56,7 @@ class RenderedHarmonyTests(unittest.TestCase):
             card,path,metrics,draw=self.fixture(Path(tmp));seen=[]
             def review(*args,**kwargs):
                 seen.append(kwargs['can_revise'])
-                return revision() if kwargs['can_revise'] else revision(None,None)
+                return revision(metrics,can_revise=kwargs['can_revise'])
             actual,detail=improve(card,path,metrics,draw,used=2,review=review)
             self.assertEqual(seen,[True,False]);self.assertEqual(detail['design_proposals'],3)
             self.assertEqual(detail['status'],'budget_exhausted')
@@ -67,16 +70,16 @@ class RenderedHarmonyTests(unittest.TestCase):
                     path.write_bytes(b'rejected candidate');raise ValueError('Actual photographic text contrast fails; never publish unreadable copy')
                 return draw(plan)
             def review(*args,**kwargs):
-                seen.append(path.read_bytes());return revision() if len(seen)==1 else ACCEPT
+                seen.append(path.read_bytes());return revision(metrics) if len(seen)==1 else ACCEPT
             actual,detail=improve(card,path,metrics,bad_draw,review=review)
-            self.assertEqual(path.read_bytes(),before);self.assertEqual(seen,[before,before])
+            self.assertEqual(path.read_bytes(),before);self.assertTrue(seen==[before,before])
             self.assertEqual(actual['composition'],metrics['composition'])
             self.assertEqual(detail['checks'][0]['result'],'rejected');self.assertEqual(detail['design_proposals'],2)
 
     def test_services_and_invalid_model_responses_do_not_retry_or_edit(self):
         with tempfile.TemporaryDirectory() as tmp:
             card,path,metrics,draw=self.fixture(Path(tmp));before=path.read_bytes()
-            for value in (revision('#ffffff'),{**ACCEPT,'private':'SECRET'},revision(None,None)):
+            for value in ({**ACCEPT,'elements':['invalid']},{**ACCEPT,'private':'SECRET'},{**ACCEPT,'verdict':'revise'}):
                 review=Mock(return_value=value);actual,detail=improve(card,path,metrics,draw,review=review)
                 review.assert_called_once();self.assertEqual(detail['status'],'unavailable');self.assertEqual(actual,metrics)
                 self.assertNotIn('SECRET',str(detail));self.assertEqual(path.read_bytes(),before)
@@ -85,17 +88,33 @@ class RenderedHarmonyTests(unittest.TestCase):
             self.assertEqual(actual,metrics);self.assertNotIn('SECRET',str(detail))
             with self.assertRaises(AgentIntegrityError):improve(card,path,metrics,draw,review=Mock(side_effect=AgentIntegrityError('changed')))
 
-    def test_quiz_unshaded_and_unavailable_review_skip_without_service_calls(self):
+    def test_quiz_and_unshaded_cards_are_inspected_but_unavailable_review_skips(self):
         with tempfile.TemporaryDirectory() as tmp:
-            card,path,metrics,draw=self.fixture(Path(tmp));review=Mock(side_effect=AssertionError('no call'))
-            for kind,style,available,status in (('quiz','italic_photo_fade',True,'not_applicable'),
-                ('word','italic_photo',True,'not_applicable'),('word','italic_photo_fade',False,'skipped_review_unavailable')):
+            card,path,metrics,draw=self.fixture(Path(tmp))
+            for kind,style in (('quiz','italic_photo_fade'),('word','italic_photo')):
                 c=copy.deepcopy(card);c['kind']=kind;m=copy.deepcopy(metrics);m['composition']['blocks'][-1]['style']=style
-                _,detail=improve(c,path,m,draw,review=review,available=available);self.assertEqual(detail['status'],status)
-            review.assert_not_called()
+                review=Mock(return_value=ACCEPT)
+                _,detail=improve(c,path,m,draw,review=review)
+                self.assertEqual(detail['status'],'accepted');review.assert_called_once()
+            review=Mock();_,detail=improve(card,path,metrics,draw,review=review,available=False)
+            self.assertEqual(detail['status'],'skipped_review_unavailable');review.assert_not_called()
             for bad in ({'status':'secret'}, {'status':'accepted','design_proposals':4,'checks':[]},
                 {'status':'accepted','design_proposals':1,'checks':[{'check':1,'result':'accepted','reason':'SECRET'}]}):
                 with self.assertRaises(ValueError):safe_harmony(bad)
+
+    def test_whole_card_revisions_preserve_unflagged_siblings_and_use_new_palette(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);card,path,metrics,_=self.fixture(root);before=copy.deepcopy(metrics['composition'])
+            def draw(plan):return render_hybrid(card,plan['palette'],root/'photo.jpg',path,plan)
+            plan=copy.deepcopy(before);plan['palette']='blue-ice';plan['blocks'][0]['surface_richness']=30
+            proposal={'verdict':'revise','reason':'poor_palette_harmony','elements':['palette','body'],'composition':plan}
+            result,detail=improve(card,path,metrics,draw,review=Mock(side_effect=[proposal,ACCEPT]))
+            self.assertEqual(detail['status'],'refined');self.assertEqual(result['palette'],'blue-ice')
+            self.assertEqual(result['composition'],plan);self.assertEqual(plan['blocks'][1],before['blocks'][1])
+            # A changed title is rejected unless explicitly identified as a defect.
+            plan['heading_tone']='paper_dark';proposal['elements']=['body']
+            result,detail=improve(card,path,metrics,draw,review=Mock(side_effect=[proposal,ACCEPT]))
+            self.assertEqual(result['composition'],before);self.assertEqual(detail['checks'][0]['result'],'rejected')
 
     def test_artwork_stores_only_final_revised_card_and_prepared_reuse_skips_review(self):
         import contextlib,io
@@ -110,7 +129,7 @@ class RenderedHarmonyTests(unittest.TestCase):
         provider=MagicMock();provider.generate.return_value=stream.getvalue();store=MagicMock();seen=[]
         def review(card,path,metrics,**kwargs):
             seen.append((card['kind'],path.read_bytes()))
-            return revision() if card['kind']=='word' and len([k for k,_ in seen if k=='word'])==1 else ACCEPT
+            return revision(metrics) if card['kind']=='word' and len([k for k,_ in seen if k=='word'])==1 else ACCEPT
         with tempfile.TemporaryDirectory() as tmp,contextlib.ExitStack() as stack:
             root=Path(tmp)
             for target,value in (('easybosnian.artwork.ROOT',root),('easybosnian.artwork.provider',provider),):
@@ -120,16 +139,16 @@ class RenderedHarmonyTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
             checker=stack.enter_context(patch('easybosnian.rendered_harmony.inspect',side_effect=review))
             with contextlib.redirect_stdout(io.StringIO()):assets=artwork(store,package,review_images=True)
-            self.assertEqual([k for k,_ in seen],['word','word'])
+            self.assertEqual([k for k,_ in seen],['quiz','lesson','word','word'])
             selected=assets['word']['path'].read_bytes();self.assertNotEqual(seen[-2][1],selected)
             stored=[c.args[2] for c in store.put_file.call_args_list if c.args[1]=='word-card.jpg']
             self.assertEqual(stored,[selected])
             report=read_json(root/'build'/package['batch_id']/'image-placement-result.json')
-            self.assertEqual(report['cards']['word']['example_harmony']['status'],'refined')
+            self.assertEqual(report['cards']['word']['design_harmony']['status'],'refined')
             from easybosnian.success_report import report_data,with_rendering,render_report
             from test_success_report import RUN,results
             public=with_rendering(report_data(package,results(),RUN),report)
-            self.assertTrue(all('Rendered PRIMJER harmony: refined' in text for text in render_report(public)))
+            self.assertTrue(all('Rendered whole-card design review: refined' in text.replace(chr(92),'') for text in render_report(public)))
             checker.reset_mock()
             with contextlib.redirect_stdout(io.StringIO()):reused=artwork(store,package,require_prepared=True)
             checker.assert_not_called();self.assertEqual(reused['word']['path'].read_bytes(),selected)
