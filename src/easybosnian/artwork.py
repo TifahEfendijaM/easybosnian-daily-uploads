@@ -17,7 +17,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':58, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':59, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -105,12 +105,12 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             sources={k:[package.get('background_sources',{}).get(k,package.get('background_source'))] for k in photo_paths}
             def regenerate(card,path):
                 nonlocal stage
-                from .photo_generation import LIMIT
+                from .photo_generation import LIMIT,is_upstream_conflict
                 if generation_counts.get(card['kind'],0)>=LIMIT:return False
                 stage='FLUX generation'
                 try:raw=photo_bytes(card)
                 except SafeError as error:
-                    if (error.stage=='FLUX generation' and error.reason=='ai_content_rejected'
+                    if ((error.stage=='FLUX generation' and error.reason=='ai_content_rejected' or is_upstream_conflict(error))
                             and generation_counts.get(card['kind'],0)>=LIMIT):return False
                     raise
                 Image.open(io.BytesIO(raw)).convert('RGB').save(path,'JPEG',quality=95)
@@ -181,7 +181,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 stage='Pillow rendering'
                 from .design_repair import render_design
                 def draw(candidate):
-                    return render_hybrid(card,palette,background,path,apply_policy(candidate,panel_opacity=opacity_choices[kind]))
+                    return render_hybrid(card,candidate.get('palette',palette),background,path,apply_policy(candidate,panel_opacity=opacity_choices[kind]))
                 design_proposals_used=1;design_service_failed=False
                 def repair(feedback):
                     nonlocal stage,design_proposals_used,design_service_failed
@@ -213,10 +213,14 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                         detail={'status':'rejected; safe hybrid fallback','rejection':rejection_diagnostic(fallback_error,plan)}
                     if prior_attempts:detail['design_attempts']=prior_attempts
                 from .rendered_harmony import improve
-                stage='rendered PRIMJER harmony review'
+                stage='rendered card design review'
                 metrics,harmony=improve(card,path,metrics,draw,used=design_proposals_used,limit=design_attempt_limit,
-                    available=model_accepted and not design_service_failed and detail.get('status')!='rejected; safe hybrid fallback')
-                detail['example_harmony']=harmony
+                    available=model_accepted and not design_service_failed and detail.get('status')!='rejected; safe hybrid fallback',recent=recent,
+                    batch_palettes=[d['palette'] for d in decisions.values()])
+                detail['design_harmony']=harmony
+                if metrics['palette']!=palette:
+                    palette=metrics['palette']
+                    palette_outcome={'source':'chatgpt','reason':'ChatGPT selected this approved palette'}
                 stage='Pillow rendering'
                 if detail.get('rejection'):
                     write_json(output/f'{kind}-rejection-result.json',{'batch':date,'batch_id':package.get('batch_id'),

@@ -98,7 +98,7 @@ class DistantTitleEmphasisTests(unittest.TestCase):
   prompt=model.call_args.args[0]
   for text in ('less than 100px is nearby','100px or more is farther away','heading_shade=gentle or emphasis','even if the bare title is already readable','Nearby titles require heading_shade=gentle','Regardless of distance','reducing or removing the TITLE shade','PRIORITISE the PRIMJER backing','STRONGLY PREFER BLACK backing with LIGHT'):
    self.assertIn(text,prompt)
-  for text in ('For BLACK backing only','heading_opacity from 0 through 126','not just readability',
+  for text in ('For BLACK backing only','heading_opacity from 66 through 126','EQUAL footing',
                'White retains its faint/readability-driven strength selection',
                'do not reduce or remove it merely because both shades are present'):
    self.assertIn(text,prompt)

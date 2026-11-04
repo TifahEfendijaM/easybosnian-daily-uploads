@@ -127,6 +127,9 @@ def with_rendering(data,placement):
         if result.get('design_attempts'):
             from .visual_diagnostics import safe_design_attempts
             rendered[LABELS[kind]]['design_attempts']=safe_design_attempts(result['design_attempts'])
+        if result.get('design_harmony'):
+            from .rendered_harmony import safe_harmony
+            rendered[LABELS[kind]]['design_harmony']=safe_harmony(result['design_harmony'])
         if result.get('example_harmony'):
             from .rendered_harmony import safe_harmony
             rendered[LABELS[kind]]['example_harmony']=safe_harmony(result['example_harmony'])
@@ -213,6 +216,11 @@ def decision_lines(rendering):
         attempts=rendering['design_attempts']
         lines.append('Design attempts: '+str(max(a['attempt'] for a in attempts))+'; last proposal '+attempts[-1]['result']+
                      '; final layout source '+rendering.get('provenance',{}).get('layout',{}).get('source','unknown')+'.')
+    if rendering.get('design_harmony'):
+        review=rendering['design_harmony']
+        lines.append('Rendered whole-card design review: '+review['status']+'; '+str(len(review['checks']))+
+                     ' check(s); '+str(review['design_proposals'])+' of 3 total design proposals used. All elements inspected; only named defects may change.')
+        if review['checks']:lines.append('Whole-card last check: '+review['checks'][-1]['reason']+'.')
     if rendering.get('example_harmony'):
         review=rendering['example_harmony']
         lines.append('Rendered PRIMJER harmony: '+review['status']+'; '+str(len(review['checks']))+
@@ -225,7 +233,7 @@ def decision_lines(rendering):
                      ' of '+str(len(quality['attempts']))+'; '+quality['reason']+'.')
         if quality.get('generation_attempts'):
             events=quality['generation_attempts']
-            lines.append('FLUX generation attempts: '+str(len(events))+'; confirmed content-safety refusals: '+str(events.count('content_rejected'))+'.')
+            lines.append('FLUX generation attempts: '+str(len(events))+'; confirmed content-safety refusals: '+str(events.count('content_rejected'))+'; upstream conflicts: '+str(events.count('upstream_conflict'))+'.')
     if category:lines.append('Category: '+CATEGORY_CATALOGUE[category])
     tone=rendering.get('heading_tone')
     if tone:lines.append('Title: '+(TITLE_TONE_CATALOGUE if 'heading_backing' in rendering else PHOTO_TONE_CATALOGUE)[tone])

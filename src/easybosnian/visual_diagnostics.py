@@ -119,6 +119,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Contrasting rule must be clearer than the original accent',
     'Only light explanation panels can reduce surface richness',
     'Light surface richness outside the approved range',
+    'Fresh black title emphasis requires opacity at least 66',
     'Custom example backing requires a full-photo fade and explicit lettering tone',
     'Custom example backing must be a dark six-digit hex colour',
     'Secondary example backing requires a photographic fade',

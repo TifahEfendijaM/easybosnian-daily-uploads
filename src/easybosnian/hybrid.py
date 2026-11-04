@@ -223,9 +223,11 @@ def validate_current_design(card, plan):
     if any(b.get('role')=='example' and b.get('style')=='italic_photo_fade'
            and b.get('fade_style')=='sharp_top' for b in plan.get('blocks',())) and not reverse_example_fade_allowed(card,plan):
         raise ValueError('Crisp-top PRIMJER shade requires an above-body example near the title')
+    if (plan.get('heading_shade')=='emphasis'
+            and plan.get('heading_tone') in ('paper_dark','paper_ink','accent_dark')
+            and (plan.get('heading_opacity') is None or plan['heading_opacity']<66)):
+        raise ValueError('Fresh black title emphasis requires opacity at least 66')
     if card.get('quiz_format')=='visual_identification':
-        if any(dark_panel_surface(b) for b in plan['blocks']):
-            raise ValueError('Separate-photo quiz answers require non-dark panel surfaces')
         validate_visual_answers(card,plan['blocks'])
 
 

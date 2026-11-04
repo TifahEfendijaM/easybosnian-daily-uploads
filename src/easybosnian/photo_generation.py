@@ -1,9 +1,15 @@
-"""Bounded photo requests; only a confirmed NSFW refusal permits rephrasing."""
+"""Bounded photo requests: defect/NSFW regeneration and the specific 8007/409 conflict."""
 import json
 from .http import SafeError
 from .photo_quality import revised_prompt
 
 LIMIT=3
+
+
+def is_upstream_conflict(error):
+    return (error.stage=='FLUX generation' and error.http_status==409
+            and error.provider_code==8007 and error.provider_http_status==409
+            and error.reason=='ai_call_failed')
 
 
 def rewrite_rejected_scene(card):
@@ -35,7 +41,8 @@ def rewrite_rejected_scene(card):
 def generate_photo(card,send,counts,diagnostics,*,rewrite=None):
     """Share three total inference attempts with later explicit defect repairs.
 
-    No retries for quota, capacity, transport, auth, unknown failures or the
+    Only the specifically approved 8007/409 conflict may repeat within this budget.
+    No retries for quota, capacity, transport, auth, other unknown failures or the
     rewriter itself. The provider must have confirmed the NSFW classification.
     """
     kind=card['kind'];rewrite=rewrite or rewrite_rejected_scene
@@ -43,6 +50,12 @@ def generate_photo(card,send,counts,diagnostics,*,rewrite=None):
         counts[kind]=counts.get(kind,0)+1
         try:raw=send()
         except SafeError as error:
+            conflict=is_upstream_conflict(error)
+            if conflict:
+                diagnostics.setdefault(kind,[]).append('upstream_conflict')
+                if counts[kind]>=LIMIT:raise
+                print(f'::warning::{kind} FLUX upstream conflict; bounded inference attempt {counts[kind]+1} of {LIMIT}')
+                continue
             rejected=error.stage=='FLUX generation' and error.reason=='ai_content_rejected'
             diagnostics.setdefault(kind,[]).append('content_rejected' if rejected else 'service_error')
             if not rejected or counts[kind]>=LIMIT:raise

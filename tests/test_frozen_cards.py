@@ -87,7 +87,7 @@ class FrozenCardTests(unittest.TestCase):
             generator=stack.enter_context(patch('easybosnian.artwork.provider'));generator.return_value.generate.return_value=stream.getvalue()
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
-            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','elements':[],'composition':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             plans={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='gold-cream') for c in package['cards'] if c['kind']!='word'}}
             review=stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
@@ -111,7 +111,7 @@ class FrozenCardTests(unittest.TestCase):
             stack.enter_context(patch('easybosnian.artwork.ROOT',root))
             stack.enter_context(patch('easybosnian.artwork.provider',return_value=provider))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
-            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}))
+            stack.enter_context(patch('easybosnian.rendered_harmony.inspect',return_value={'verdict':'accept','reason':'harmonious','elements':[],'composition':None}))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
             plans={'cards':{c['kind']:dict(default_plan(c),confidence='high',palette='gold-cream') for c in package['cards']}}
             stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))

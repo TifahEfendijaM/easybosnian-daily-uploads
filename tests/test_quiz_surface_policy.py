@@ -20,17 +20,17 @@ class QuizSurfacePolicyTests(unittest.TestCase):
     for tone in PANEL_TONES:
      text,surface=panel_colours(palette,tone,dark=style=='overlay_dark')
      self.assertEqual(dark_panel_surface({'style':style,'panel_tone':tone}),luminance(surface)<luminance(text))
- def test_fresh_centred_quiz_rejects_only_dark_main_surfaces(self):
+ def test_fresh_centred_quiz_allows_dark_main_surfaces(self):
   card,plan=self.plan()
   for tone,style in (('paper_ink','rounded'),('accent_ink','rounded'),('auto','overlay_dark')):
    candidate=copy.deepcopy(plan);candidate['blocks'][0].update(panel_tone=tone,style=style)
-   with self.assertRaisesRegex(ValueError,'non-dark panel surfaces'):validate_current_design(card,candidate)
+   validate_current_design(card,candidate)
    candidate['blocks'][0]['panel_tone']='ink_paper';candidate['blocks'][0]['marker_tone']='paper_ink'
    validate_current_design(card,candidate)
    card['quiz_format']='other';candidate['photo_window']=None;candidate['blocks'][0]['panel_tone']=tone
    validate_current_design(card,candidate)  # Dark full-photo panels remain eligible when clearly better.
    card['quiz_format']='visual_identification'
- def test_recovery_changes_only_bad_panel_pair_and_retains_badge_and_sibling(self):
+ def test_dark_panel_pair_is_retained_without_unnecessary_recovery(self):
   card,plan=self.plan();plan['confidence']='high';plan['blocks'][0].update(panel_tone='paper_ink',marker_tone='accent_ink')
   before=copy.deepcopy(plan)
   with tempfile.TemporaryDirectory() as temp:
@@ -38,10 +38,9 @@ class QuizSurfacePolicyTests(unittest.TestCase):
    draw=lambda p:render_hybrid(card,'forest-cream',photo,root/'card.jpg',p)
    legacy=draw(plan);self.assertEqual(legacy['composition'],before)
    metrics,detail=render_design(card,plan,photo,draw,model_accepted=True,attempt_limit=1)
-  expected=copy.deepcopy(before);expected['blocks'][0]['panel_tone']='ink_paper'
+  expected=copy.deepcopy(before)
   self.assertEqual(metrics['composition'],expected);self.assertEqual(plan,before)
-  self.assertEqual(detail['element_recovery']['fallback'],['A'])
-  self.assertIn('B',detail['element_recovery']['preserved'])
+  self.assertNotIn('element_recovery',detail)
  def test_dark_badge_renders_on_light_panel_independently(self):
   card,plan=self.plan();block=plan['blocks'][0];block.update(panel_tone='ink_paper',marker_tone='paper_ink',marker_style='square')
   palette=json.loads((ROOT/'data/design-palettes.json').read_text())['forest-cream']
@@ -56,8 +55,8 @@ class QuizSurfacePolicyTests(unittest.TestCase):
   with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as model:
    review_compositions(h.package,{c['kind']:{'sheet':Path(c['kind']+'.jpg')} for c in h.package['cards']})
   prompt=model.call_args.args[0]
-  for rule in ('MUST use non-dark surfaces','ONLY when they CLEARLY suit','NOT the A/B/C/D badges',
-   'For LESSON/WORD panels only','marker_tone independently','dark bins/shadows and earthy clothing',
+  for rule in ('lettering EQUALLY','neither brightness is a default','NOT the A/B/C/D badges',
+   'For LESSON/WORD panels only','marker_tone independently','bins, shadows and earthy clothing',
    'DEFAULT to a LIGHT palette-matching badge fill','A very dark badge (paper_ink/accent_ink) is allowed ONLY when it CLEARLY suits',
    'with neither preferred or the default','Proximity is eligibility, NEVER an automatic selection'):
    self.assertIn(rule,prompt)

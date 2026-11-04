@@ -12,7 +12,7 @@ from easybosnian.visual_placement import review_compositions
 from test_project import reviewed_fixture
 import test_visual_provenance as harness
 
-ACCEPT={'verdict':'accept','reason':'harmonious','backing_colour':None,'shade_strength':None}
+ACCEPT={'verdict':'accept','reason':'harmonious','elements':[],'composition':None}
 
 class LightExampleBackingTests(unittest.TestCase):
     def test_all_active_candidates_are_dark_rich_and_related_to_the_light_surface(self):
@@ -50,7 +50,8 @@ class LightExampleBackingTests(unittest.TestCase):
             self.assertIn('not to reopen a fitting accepted pairing',prompt)
             self.assertEqual(child.call_args.kwargs['images'],[path])
             # A real defect may switch to the curated colour; only colour/strength change.
-            responses=iter([{'verdict':'revise','reason':'poor_palette_harmony','backing_colour':active()['forest-cream']['light_example_backing'],'shade_strength':'medium'},ACCEPT])
+            revised=copy.deepcopy(plan);revised['blocks'][-1].update(backing_colour=active()['forest-cream']['light_example_backing'],shade_strength='medium')
+            responses=iter([{'verdict':'revise','reason':'poor_palette_harmony','elements':['example'],'composition':revised},ACCEPT])
             actual,detail=improve(card,path,metrics,lambda p:render_hybrid(card,'forest-cream',photo,path,p),review=lambda *a,**kw:next(responses))
             expected=copy.deepcopy(plan);expected['blocks'][-1].update(backing_colour=active()['forest-cream']['light_example_backing'],shade_strength='medium')
             self.assertEqual(actual['composition'],expected);self.assertEqual(detail['status'],'refined')
