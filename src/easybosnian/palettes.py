@@ -11,8 +11,14 @@ def current(name):return 'mulberry-mint' if name=='graphite-chalk' else name
 
 LIGHT_SURFACE_BACKING_GUIDANCE = (
     'For a LIGHT actual explanation-card MAIN SURFACE, compare the predefined same-family DARK '
-    'light_example_backing and a freely chosen harmonious different-hue DARK backing EQUALLY before deciding. '
-    'Prefer the predefined same-family backing when both fit EQUALLY or ALMOST EQUALLY WELL. '
+    'light_example_backing, a suitable DARK version of a DIFFERENT hue already used in the chosen '
+    "palette's accent or actual category surface, and a freely chosen harmonious different-hue DARK backing. "
+    'Give these candidates equal consideration against the photograph and rendered composition. '
+    'For the palette-related candidate, judge the actual accent/category hue relative to the actual body '
+    'surface; a different role name alone does not make it a different hue. Choose a dark relative when '
+    'the accent/category colour is bright, keeping readable white/warm-ivory example lettering. '
+    'Palette membership alone does not establish harmony or give that candidate priority over a better fit. '
+    'Prefer the predefined same-family backing when alternatives fit EQUALLY or ALMOST EQUALLY WELL. '
     'Choose a different hue when it gives a noticeable improvement in whole-image harmony, photographic '
     'connection or visual balance, even if modest; a barely distinguishable subjective advantage is not enough. '
     "The light_example_backing is curated for this palette's default light panel surface, NOT its ink or name. "
