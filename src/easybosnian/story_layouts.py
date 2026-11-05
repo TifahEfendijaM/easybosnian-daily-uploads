@@ -5,9 +5,29 @@ from .core import ROOT
 from .render import LABELS, centered, contrast, density, draw_rows, font, measure, wrap
 
 
-def tall_story_image(card, background, destination, palette, category_style='rounded'):
+def story_category_label(image, label, palette, style, top, tone='auto', colour=None):
+    """Retain the feed treatment, including resolved unboxed lettering."""
+    from .hybrid import category_label, CATEGORY_HEIGHT
+    from .designs import category_colours
+    support=None;drawing_palette=palette
+    if style=='underlined':
+        selected,surface=category_colours(palette,tone,style)
+        selected=colour or (palette['ink'] if tone=='auto' else selected)
+        if contrast(selected,palette['panel'])<4.5:
+            support=next((c for c in (surface,palette['ink'],palette['panel']) if contrast(selected,c)>=4.5),None)
+            if support is None:raise ValueError('Retained Story category lettering has no readable palette backing')
+            width=round(font(27,'SemiBold').getlength(label))+46
+            ImageDraw.Draw(image).rectangle((52,top-8,76+width,top+CATEGORY_HEIGHT+8),fill=support)
+            drawing_palette={**palette,'panel':support}
+        colour=selected
+    result=category_label(image,label,drawing_palette,style,top=top,paper_surface=True,tone=tone,
+                          resolved_colour=colour if style=='underlined' else None)
+    return {**result,'tone':tone,'support':support}
+
+
+def tall_story_image(card, background, destination, palette, category_style='rounded', category_tone='auto', category_colour=None):
     if card['kind'] == 'quiz':
-        return _quiz_image(card, background, destination, palette, height=1920,category_style=category_style)
+        return _quiz_image(card, background, destination, palette, height=1920,category_style=category_style,category_tone=category_tone,category_colour=category_colour)
     if card['kind'] not in ('lesson', 'word'):
         raise ValueError('Tall Story treatment is only for lesson and word cards')
     if not background:
@@ -17,8 +37,7 @@ def tall_story_image(card, background, destination, palette, category_style='rou
         raise ValueError('Tall Story text contrast fails; reject rather than alter text')
     image = Image.new('RGBA', (1080, 1920), paper)
     draw = ImageDraw.Draw(image)
-    from .hybrid import category_label
-    category_label(image,LABELS[card['kind']],palette,category_style,top=180,paper_surface=True)
+    category=story_category_label(image,LABELS[card['kind']],palette,category_style,180,category_tone,category_colour)
     draw=ImageDraw.Draw(image)
     title_face = font(80, 'SemiBold')
     title_rows = wrap(card['heading'], title_face, 952)
@@ -71,7 +90,7 @@ def tall_story_image(card, background, destination, palette, category_style='rou
         logo.thumbnail((102, 80), Image.Resampling.LANCZOS)
     image.alpha_composite(logo, (1016 - logo.width, 1690))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
-    return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,'category_style':category_style,
+    return {'treatment': 'B', 'size': [1080, 1920], 'body_font_size': body_size,'category_style':category_style,'category_tone':category_tone,'category_colour':category['colour'],'category_support':category['support'],
             'panel_bounds': bounds, 'example_bounds':example_bounds,'example_rule_bounds':example_rule_bounds,
             'example_style':'Lora Italic on paper footer' if card.get('example') else None,
             'example_contrast':round(contrast(ink,paper),2) if card.get('example') else None, 'photo_size': list(photo.size), 'photo_cropped': False}
@@ -84,7 +103,7 @@ def visual_quiz_image(card, background, destination, palette, height=1920, serif
     return _quiz_image(card, background, destination, palette, height, serif_heading)
 
 
-def _quiz_image(card, background, destination, palette, height, serif_heading=False,category_style='rounded'):
+def _quiz_image(card, background, destination, palette, height, serif_heading=False,category_style='rounded',category_tone='auto',category_colour=None):
     """All quiz Stories use B; visual naming may also use it in the feed."""
     if card['kind'] != 'quiz':
         raise ValueError('Separate quiz photo requires a quiz card')
@@ -95,8 +114,7 @@ def _quiz_image(card, background, destination, palette, height, serif_heading=Fa
     if body_contrast < 4.5: raise ValueError('Visual quiz text contrast fails')
     image = Image.new('RGBA', (1080, height), paper); draw = ImageDraw.Draw(image)
     top = 180 if height == 1920 else 64
-    from .hybrid import category_label
-    category_label(image,LABELS['quiz'],palette,category_style,top=top,paper_surface=True)
+    category=story_category_label(image,LABELS['quiz'],palette,category_style,top,category_tone,category_colour)
     draw=ImageDraw.Draw(image)
     if serif_heading:
         from .hybrid import serif
@@ -142,7 +160,7 @@ def _quiz_image(card, background, destination, palette, height, serif_heading=Fa
         logo.thumbnail((102, 80), Image.Resampling.LANCZOS)
     image.alpha_composite(logo, (1016 - logo.width, 1690 if height == 1920 else 1230))
     image.convert('RGB').save(destination, 'JPEG', quality=94, subsampling=0, optimize=True)
-    return {'treatment': 'B', 'size': [1080, height], 'body_font_size': body_size,'category_style':category_style,
+    return {'treatment': 'B', 'size': [1080, height], 'body_font_size': body_size,'category_style':category_style,'category_tone':category_tone,'category_colour':category['colour'],'category_support':category['support'],
             'panel_padding': padding, 'panel_bounds': bounds, 'photo_size': list(photo.size),
             'question_bounds': [64, question_top, 1016, question_top + question_height],
             'photo_bounds': [(1080-photo.width)//2, photo_top, (1080+photo.width)//2, photo_top+photo.height],

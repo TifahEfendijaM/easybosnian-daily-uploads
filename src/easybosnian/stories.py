@@ -26,9 +26,9 @@ def artwork_palette(package,assets,kind=None):
     return catalogue[selected]
 
 
-def story_image(source,destination,palette,background=None,card=None,category_style='rounded'):
+def story_image(source,destination,palette,background=None,card=None,category_style='rounded',category_tone='auto',category_colour=None):
     if card:
-        return tall_story_image(card,background,destination,palette,category_style=category_style)
+        return tall_story_image(card,background,destination,palette,category_style=category_style,category_tone=category_tone,category_colour=category_colour)
     with Image.open(source) as image:
         if image.size!=(1080,1350): raise ValueError('Story source must be the 1080×1350 published card')
         card=image.convert('RGB')
@@ -43,6 +43,12 @@ def story_image(source,destination,palette,background=None,card=None,category_st
         canvas.save(destination,'JPEG',quality=94,subsampling=0,optimize=True)
 
 
+def story_category_options(metrics):
+    return {'category_style':metrics.get('category_style','rounded'),
+            'category_tone':(metrics.get('composition') or {}).get('category_tone','auto'),
+            'category_colour':metrics.get('category_colour')}
+
+
 def prepared_story(asset,path,palette,card,renderer):
     source=asset.get('story_path')
     if source is not None:
@@ -51,7 +57,7 @@ def prepared_story(asset,path,palette,card,renderer):
         if source.resolve()!=path.resolve():shutil.copyfile(source,path)
     else:
         renderer(asset['path'],path,palette,asset.get('background_path'),card,
-                 category_style=asset.get('metrics',{}).get('category_style','rounded'))
+                 **story_category_options(asset.get('metrics',{})))
 
 
 def verify_story(ig,media_id):

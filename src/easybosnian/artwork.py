@@ -17,7 +17,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':60, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':61, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -251,12 +251,12 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
             assets[kind]=item
             if (output/f'{kind}-story.jpg').is_file():item['story_path']=output/f'{kind}-story.jpg'
             if review_images and package.get('batch_id') and os.getenv('MODE') in ('daily','preview'):
-                from .stories import story_image
+                from .stories import story_image,story_category_options
                 from .frozen_cards import snapshot
                 from .core import ROOT as catalogue_root
                 story_path=output/f'{kind}-story.jpg'
                 story_image(path,story_path,read_json(catalogue_root/'data/design-palettes.json')[metrics['palette']],background,card,
-                            category_style=metrics['category_style'])
+                            **story_category_options(metrics))
                 item['story_path']=story_path
                 if os.getenv('MODE')=='daily':
                     package.setdefault('rendered_sources',{})[kind]=snapshot(store,package,card,item,decisions[kind]['render_policy'])

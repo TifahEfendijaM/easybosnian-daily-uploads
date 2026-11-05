@@ -37,6 +37,9 @@ class LightExampleBackingTests(unittest.TestCase):
             result,status=review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');prompt=child.call_args.args[0]
         self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt);self.assertIn(DARK_SURFACE_BACKING_GUIDANCE,prompt)
+        self.assertIn('equal footing FROM THE START',prompt)
+        self.assertIn('Do not try the darker main-surface hue first',prompt)
+        self.assertIn('Only AFTER that equal comparison',prompt)
         for p in active().values():self.assertIn(p['light_example_backing'],prompt)
         self.assertNotIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
         with tempfile.TemporaryDirectory() as tmp:

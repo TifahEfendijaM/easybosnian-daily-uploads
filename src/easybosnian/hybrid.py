@@ -589,9 +589,11 @@ def protect_text(image, xy, rows, face, colours, threshold, region_limit=None, e
     return colour,score,alpha
 
 
-def category_label(image, label, palette, style='rounded', top=CATEGORY_TOP, paper_surface=False, tone='auto'):
+def category_label(image, label, palette, style='rounded', top=CATEGORY_TOP, paper_surface=False, tone='auto', resolved_colour=None):
     """Six fixed category treatments, shared anchors/typography and exact accents."""
     if style not in CATEGORY_STYLES:raise ValueError('Unsupported category treatment')
+    if resolved_colour is not None and (not paper_surface or style!='underlined'):
+        raise ValueError('Resolved category lettering is only for unboxed paper labels')
     face=font(27,'SemiBold');width=round(face.getlength(label))+46
     x=64;right=x+width;bottom=top+CATEGORY_HEIGHT
     ink,paper,accent=palette['ink'],palette['panel'],palette['accent']
@@ -601,7 +603,7 @@ def category_label(image, label, palette, style='rounded', top=CATEGORY_TOP, pap
     if style=='underlined':
         xy=(x,top+18)
         if paper_surface:
-            colour=ink if tone=='auto' else text_colour;score=contrast(colour,paper);shade=0
+            colour=resolved_colour or (ink if tone=='auto' else text_colour);score=contrast(colour,paper);shade=0
             if score<4.5:raise ValueError('Category text fails measured contrast')
         else:
             try:
@@ -861,7 +863,7 @@ def render_hybrid(card, palette_id, background, output, plan=None, *, refined_pa
             'dark_panel_surface':palette.get('dark_surface',ink) if any(b['style'] in PANEL_STYLES and dark_panel_surface(b) for b in blocks) else None,
             'panel_position':'free' if plan['confidence']=='high' else 'normal',
             'composition':plan,'design':plan['design'],'block_styles':{b['role']:b['style'] for b in blocks},'body_font_size':next((b['size'] for b in blocks if b['role']!='example'),density(card)[0]),
-            'category_style':category['style'],'category_contrast':category['contrast'],
+            'category_style':category['style'],'category_contrast':category['contrast'],'category_colour':category['colour'],
             'heading_tone':heading_tone,'heading_colour':heading_colour,
             'heading_backing':heading_backing,
             'example_tone':next((b.get('photo_tone','auto') for b in blocks if b['role']=='example'),None),'example_colour':example_colour,
