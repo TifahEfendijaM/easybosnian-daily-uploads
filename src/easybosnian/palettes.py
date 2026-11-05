@@ -27,11 +27,30 @@ LIGHT_SURFACE_BACKING_GUIDANCE = (
     'suitable dark relative of that actual surface and other harmonious dark backings. '
     'Neither the predefined nor a different-hue choice is compulsory when it clashes or feels heavy; '
     'suitable dark neutrals remain available when clearly better. Apply this near-equal preference ONLY '
-    'to light explanation surfaces; DARK-surface harmony-first guidance stays unchanged. Never choose '
+    'to light explanation surfaces; dark surfaces follow their separate different-hue-first rule. Never choose '
     'or lighten/darken the panel, change the overall palette or increase shade strength to simplify backing '
     'selection. Keep white/warm-ivory lettering, independent strength/edges/placement, and the existing '
     'rendered-card harmony and contrast checks. When selecting the predefined candidate, copy its exact '
     "hex into the example's backing_colour with a compatible explicit photo_tone; null does not select this role. "
     'This role is example-only selection metadata, never a body/title/category/badge/Story colour control '
     'or an automatic render/fallback substitution. No random draw or equal-frequency quota.'
+)
+
+
+DARK_SURFACE_BACKING_GUIDANCE = (
+    'For a DARK actual explanation-card MAIN SURFACE only, try harmonious DIFFERENT-HUE DARK '
+    'PRIMJER backings FIRST. Explicitly compare BOTH a suitable dark relative of a different hue '
+    'already used in this palette’s accent or actual category surface AND a freely chosen '
+    'different hue that harmonises with the photograph and composition. Neither of these two '
+    'sources has automatic priority; choose the better fitting rendered result. Assess actual '
+    'hues relative to the panel surface, not palette names or colour-role labels. Keep colours '
+    'rich when fitting and lettering white/warm ivory. Only if neither different-hue approach '
+    'produces a harmonious, readable, visually balanced result should you use a SAME-HUE dark '
+    'backing. A suitable dark neutral can rescue the composition when these colours do not work. '
+    'Never force a clash, excessive contrast or a heavy band just to obtain a different hue. '
+    'Keep the already suitable palette, panel brightness and surface colour independent of this '
+    'choice. Verify the actual blended result beside the panel in the phone-size finished-card '
+    'review and revise a clear defect within the shared design budget. This preference applies '
+    'ONLY to dark main surfaces; light surfaces retain their existing equal-consideration and '
+    'same-family near-equal-fit preference.'
 )

@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 from PIL import Image
 from easybosnian.core import ROOT,read_json
-from easybosnian.palettes import active,LIGHT_SURFACE_BACKING_GUIDANCE
+from easybosnian.palettes import active,LIGHT_SURFACE_BACKING_GUIDANCE,DARK_SURFACE_BACKING_GUIDANCE
 from easybosnian.hybrid import default_plan,render_hybrid,valid_example_backing
 from easybosnian.render import contrast
 from easybosnian.rendered_harmony import inspect,improve
@@ -36,7 +36,7 @@ class LightExampleBackingTests(unittest.TestCase):
         with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(proposal)) as child:
             result,status=review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');prompt=child.call_args.args[0]
-        self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt)
+        self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt);self.assertIn(DARK_SURFACE_BACKING_GUIDANCE,prompt)
         for p in active().values():self.assertIn(p['light_example_backing'],prompt)
         self.assertNotIn(json.dumps(read_json(ROOT/'data/example-backings.json')),prompt)
         with tempfile.TemporaryDirectory() as tmp:
@@ -45,7 +45,7 @@ class LightExampleBackingTests(unittest.TestCase):
             path=root/'card.jpg';metrics=render_hybrid(card,'forest-cream',photo,path,plan)
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
                 self.assertEqual(inspect(card,path,metrics,can_revise=True),ACCEPT)
-            prompt=child.call_args.args[0];self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt)
+            prompt=child.call_args.args[0];self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt);self.assertIn(DARK_SURFACE_BACKING_GUIDANCE,prompt)
             self.assertIn(active()['forest-cream']['light_example_backing'],prompt)
             self.assertIn('not to reopen a fitting accepted pairing',prompt)
             images=child.call_args.kwargs['images']

@@ -242,6 +242,8 @@ def decision_lines(rendering):
         if rendering['heading_backing']=='#ffffff' and policy and policy.get('version') in (3,4):
             lines.append('White title edge: fixed defined treatment; very gentle outer shade with measured contrast.')
     if composition:
+        if 'heading_richness' in composition:
+            lines.append(f"Title colour richness: {composition['heading_richness']}% of the original palette colour.")
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
         if 'heading_shade' in composition:
             lines.append('Title shade intent: '+composition['heading_shade']+'.')

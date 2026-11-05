@@ -74,8 +74,8 @@ class ExampleStrengthChoicesTests(unittest.TestCase):
                      'dark palette-ink surfaces with bright paper/accent text on equal footing',
                      'independently of shape/style','Neither light nor dark LESSON/WORD panels are preferred'):
             self.assertIn(text,prompt)
-        for text in ('make whole-image HARMONY the priority', 'A different hue never has to win',
-                     'related hues are not a last resort',
+        for text in ('make whole-image HARMONY the priority', 'try harmonious DIFFERENT-HUE DARK',
+                     'Only if neither different-hue approach',
                      'Require a convincing visual connection',
                      'Judge final blended appearance, not tone IDs or hex distance alone',
                      'Rich/saturated DARK colours are welcome and MILDLY PREFERRED'):
