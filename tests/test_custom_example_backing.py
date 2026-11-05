@@ -72,7 +72,7 @@ class CustomExampleBackingTests(unittest.TestCase):
             selected,status=review_compositions(h.package,{k:{'sheet':k+'.jpg'} for k in proposal['cards']})
         self.assertEqual(status,'reviewed');self.assertNotIn('card_failures',selected)
         prompt=model.call_args.args[0]
-        for phrase in ('make whole-image HARMONY the priority','A different hue never has to win',
+        for phrase in ('make whole-image HARMONY the priority','try harmonious DIFFERENT-HUE DARK',
                        'Require a convincing visual connection','noticeable improvement',
                        'EQUALLY or ALMOST EQUALLY WELL','Freely chosen exact dark backings remain available'):
             self.assertIn(phrase,prompt)

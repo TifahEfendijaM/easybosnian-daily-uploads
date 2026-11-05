@@ -8,7 +8,7 @@ from .hybrid import default_plan, editorial_plan, roles
 from .visual_adjustment import nearest_valid_plan
 
 GLOBAL_GROUPS={'category':('category_style','category_tone'),
-               'heading':('heading_tone','heading_fade','heading_shade','heading_opacity'), 'photo_window':('photo_window',), 'design':('design',)}
+               'heading':('heading_tone','heading_richness','heading_fade','heading_shade','heading_opacity'), 'photo_window':('photo_window',), 'design':('design',)}
 RECOVERY_REASON='Failed elements replaced; other approved elements preserved unchanged'
 
 

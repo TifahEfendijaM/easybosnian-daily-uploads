@@ -168,7 +168,7 @@ def default_plan(card):
         blocks.append(declared_block(card,role,x=64,y=round(y)))
         y+=spec['height']+(40 if role=='body' else 16)
     return {'confidence':'uncertain','design':'hybrid','category_style':'rounded','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none','photo_window':window,'blocks':blocks}
+            'heading_tone':'auto','heading_richness':100,'heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none','photo_window':window,'blocks':blocks}
 
 
 def editorial_plan(card):
@@ -183,7 +183,7 @@ def editorial_plan(card):
     if card.get('example'):
         blocks.append(declared_block(card,'example',800,'italic_footer',x=64,y=photo_top+photo_height+24))
     return {'confidence':'high','design':'editorial','category_style':'underlined','category_tone':'auto',
-            'heading_tone':'auto','heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none',
+            'heading_tone':'auto','heading_richness':100,'heading_fade':'standard','heading_shade':'gentle','heading_opacity':None,'palette_exception':'none',
             'photo_window':{'y':photo_top,'height':photo_height,'fit':'cover'},'blocks':blocks}
 
 
@@ -439,13 +439,23 @@ def example_colours(palette, tone='auto', palette_id=None, backing_colour=None):
     return [colour],[(colour,tuple(int(backing[i:i+2],16) for i in (1,3,5)))]
 
 
-def title_colours(palette,tone='auto'):
-    """Title text keeps its approved colour; every title backing is neutral."""
+def title_text_colour(colour, richness=100, *, light):
+    """Retain palette hue while moving light/dark title lettering towards neutral."""
+    if type(richness) is not int or not 20 <= richness <= 100:
+        raise ValueError('Title colour richness outside the approved range')
+    target = 255 if light else 0
+    channels = (int(colour[i:i+2],16) for i in (1,3,5))
+    return '#'+''.join(f'{round(target+(c-target)*richness/100):02x}' for c in channels)
+
+
+def title_colours(palette,tone='auto',richness=100):
+    """Title lettering may soften its palette tint; backings remain neutral."""
     colours,_=photo_colours(palette,tone)
     if tone=='auto':return colours,None
     # Read older paired-tone IDs too, without restoring coloured title fades.
     white=tone in ('ink_light','ink_paper','ink_accent','accent_light')
     backing=(255,255,255) if white else (0,0,0)
+    colours=[title_text_colour(c,richness,light=not white) for c in colours]
     return colours,[(colours[0],backing)]
 
 
@@ -740,9 +750,11 @@ def render_hybrid(card, palette_id, background, output, plan=None, *, refined_pa
         align_visual_answer_content(blocks)
     heading_tone=plan.get('heading_tone','auto')
     heading_backing=None
-    if window:heading_colour,heading_contrast,heading_shading=ink,contrast(ink,paper),0
+    if window:
+        heading_colour=title_text_colour(ink,plan.get('heading_richness',100),light=False)
+        heading_contrast,heading_shading=contrast(heading_colour,paper),0
     else:
-        colours,backings=title_colours(palette,heading_tone)
+        colours,backings=title_colours(palette,heading_tone,plan.get('heading_richness',100))
         near_example=title_example_proximity(blocks,header_end)=='near'
         title_cap=(255 if card['kind']=='quiz' else
                    NEAR_EXAMPLE_TITLE_MAX_SHADE if near_example else NONQUIZ_TITLE_MAX_SHADE)
