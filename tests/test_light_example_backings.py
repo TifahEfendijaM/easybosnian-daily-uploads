@@ -48,7 +48,11 @@ class LightExampleBackingTests(unittest.TestCase):
             prompt=child.call_args.args[0];self.assertIn(LIGHT_SURFACE_BACKING_GUIDANCE,prompt)
             self.assertIn(active()['forest-cream']['light_example_backing'],prompt)
             self.assertIn('not to reopen a fitting accepted pairing',prompt)
-            self.assertEqual(child.call_args.kwargs['images'],[path])
+            images=child.call_args.kwargs['images']
+            self.assertEqual(images[0],path)
+            self.assertEqual(len(images),2)
+            with Image.open(images[1]) as phone:
+                self.assertEqual(phone.size,(432,540))
             # A real defect may switch to the curated colour; only colour/strength change.
             revised=copy.deepcopy(plan);revised['blocks'][-1].update(backing_colour=active()['forest-cream']['light_example_backing'],shade_strength='medium')
             responses=iter([{'verdict':'revise','reason':'poor_palette_harmony','elements':['example'],'composition':revised},ACCEPT])
