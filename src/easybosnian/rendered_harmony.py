@@ -1,6 +1,7 @@
 """Inspect every rendered element; revise only named defects within one budget."""
 import copy
 import json
+from PIL import Image
 from .design_repair import ATTEMPT_LIMIT
 from .hybrid import validate_current_design
 from .visual_diagnostics import review_failure,REVIEW_FAILURES,rejection_diagnostic
@@ -26,11 +27,21 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
       'earlier_final_palettes_in_this_batch':list(batch_palettes)}
     rules=composition_prompt({'cards':[card],'design_palette':metrics['palette']},
                              {card['kind']:{}},recent)
+    phone_path=path.with_name(path.stem+'-phone-review.jpg')
+    with Image.open(path) as source:
+        phone=source.convert('RGB')
+        phone.thumbnail((432,768),Image.Resampling.LANCZOS)
+        phone.save(phone_path,'JPEG',quality=95,subsampling=0)
     prompt=('Read-only final WHOLE-CARD inspection of the ACTUAL Pillow-rendered card attached. '
       'Inspect EVERY visible element: overall palette/photo compatibility, explanation surface and richness, '
       'all quiz option surfaces/badges, category, title colour/shading, PRIMJER colour/strength/edges and placement. '
       'Judge actual opacity and combined visual weight, not isolated swatches or contrast alone. '
-      'The attached image is the finished card, NOT a before-overlay photo/crop sheet. '
+      'Both attachments show the SAME finished card: first full resolution, then a phone-size copy. '
+      'Use the phone-size view to judge the blended PRIMJER band beside the explanation panel and '
+      'the whole composition, and the original for detail. Check whether its actual hue, saturation '
+      'and applied opacity create a disconnected stripe or disproportionate visual emphasis. '
+      'If so, revise only the affected colour/strength or other clearly defective elements under the shared rules. '
+      'Also reassess main-panel brightness by photographic fit, never by word/lesson/quiz identity. '
       'Accept fitting choices; the purpose is to repair defects, not to reopen a fitting accepted pairing for novelty, tiny taste differences or forced variety. '
       'For a clear visual defect name ONLY the affected elements, and return a complete revised composition '
       'using the approved fields below. Preserve ALL other elements EXACT; copy, photo, logo and quiz order are immutable. '
@@ -44,7 +55,7 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
       json.dumps(context,ensure_ascii=False)+' Apply these same selection rules when correcting a defect: '+rules.replace(
           'Sheets follow context kind order: complete original photo LEFT, exact 1080x1350 feed crop RIGHT. No rendered card, layout or style reference is provided.',
           'The attached image is the actual finished card. Inspect the photograph as it appears beneath the rendered design.'))
-    result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=[path],read_only=True))
+    result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=[path,phone_path],read_only=True))
     if list(Draft202012Validator(schema).iter_errors(result)):raise ValueError('Invalid visual composition')
     return checked_verdict(result,can_revise)
 
