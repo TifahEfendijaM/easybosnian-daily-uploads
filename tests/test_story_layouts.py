@@ -147,3 +147,60 @@ class StoryLayoutTests(unittest.TestCase):
             card['body'] += 'a'*(length-len(card['body']))
             result=tall_story_image(card,self.photo,self.root/'story.jpg',self.palette)
             self.assertEqual(result['body_font_size'],size)
+
+    def test_stories_retain_feed_category_surface_and_lettering_for_every_card_kind(self):
+        from easybosnian.hybrid import category_label
+        from easybosnian.designs import category_colours
+        from easybosnian.stories import story_category_options
+        for card in self.package['cards']:
+            for style in ('rounded','pill','ribbon','outlined','tab'):
+                for tone in ('ink_secondary','paper_ink'):
+                    with self.subTest(kind=card['kind'],style=style,tone=tone):
+                        feed=Image.new('RGBA',(1080,1350),'#666666')
+                        from easybosnian.render import LABELS
+                        category=category_label(feed,LABELS[card['kind']],self.palette,style,tone=tone)
+                        metrics={'category_style':style,'category_colour':category['colour'],
+                                 'composition':{'category_tone':tone}}
+                        result=story_image(self.card,self.root/'story.jpg',self.palette,self.photo,card,
+                                           **story_category_options(metrics))
+                        self.assertEqual(result['category_tone'],tone)
+                        self.assertEqual(result['category_colour'],category['colour'])
+                        self.assertIsNone(result['category_support'])
+                        _,surface=category_colours(self.palette,tone,style)
+                        expected=tuple(int(surface[i:i+2],16) for i in (1,3,5))
+                        with Image.open(self.root/'story.jpg') as story:
+                            actual=story.getpixel((80,211))
+                        self.assertLessEqual(max(abs(a-b) for a,b in zip(actual,expected)),4)
+
+    def test_unboxed_story_retains_resolved_light_feed_lettering_with_local_solid_support(self):
+        from easybosnian.hybrid import category_label
+        from easybosnian.render import LABELS
+        from easybosnian.stories import story_category_options
+        label=LABELS['word'];feed=Image.new('RGBA',(1080,1350),'#111111')
+        accepted=category_label(feed,label,self.palette,'underlined')
+        self.assertEqual(accepted['colour'],self.palette['panel'])
+        options=story_category_options({'category_style':'underlined','category_colour':accepted['colour'],
+                                        'composition':{'category_tone':'auto'}})
+        result=story_image(self.card,self.root/'story.jpg',self.palette,self.photo,self.package['cards'][2],**options)
+        self.assertEqual(result['category_colour'],accepted['colour'])
+        self.assertEqual(result['category_support'],self.palette['ink'])
+        with Image.open(self.root/'story.jpg') as story:
+            # Only the label gains contrast support; the surrounding page remains exact paper.
+            for xy,colour in (((60,205),self.palette['ink']),((540,175),self.palette['panel'])):
+                actual=story.getpixel(xy);expected=tuple(int(colour[i:i+2],16) for i in (1,3,5))
+                self.assertLessEqual(max(abs(a-b) for a,b in zip(actual,expected)),5)
+
+    def test_unprepared_story_receives_final_category_choices_but_saved_story_stays_exact(self):
+        from easybosnian.stories import prepared_story
+        from unittest.mock import Mock
+        metrics={'category_style':'ribbon','category_colour':self.palette['ink'],
+                 'composition':{'category_tone':'ink_secondary'}}
+        asset={'path':self.card,'background_path':self.photo,'metrics':metrics}
+        renderer=Mock();path=self.root/'new-story.jpg'
+        prepared_story(asset,path,self.palette,self.package['cards'][2],renderer)
+        self.assertEqual(renderer.call_args.kwargs,{'category_style':'ribbon','category_tone':'ink_secondary',
+                                                   'category_colour':self.palette['ink']})
+        saved=self.root/'saved-story.jpg';Image.new('RGB',(1080,1920),'#abcd12').save(saved)
+        asset['story_path']=saved;renderer.reset_mock()
+        prepared_story(asset,path,self.palette,self.package['cards'][2],renderer)
+        renderer.assert_not_called();self.assertEqual(path.read_bytes(),saved.read_bytes())
