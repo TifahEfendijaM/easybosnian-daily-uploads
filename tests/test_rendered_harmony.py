@@ -31,13 +31,26 @@ class RenderedHarmonyTests(unittest.TestCase):
     def test_inspector_sees_actual_card_in_read_only_strict_contract_without_private_package(self):
         with tempfile.TemporaryDirectory() as tmp:
             card,path,metrics,_=self.fixture(Path(tmp));card.update(private_review='SECRET',answer_key='SECRET')
+            original=path.read_bytes()
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
                 self.assertEqual(inspect(card,path,metrics,can_revise=True),ACCEPT)
             prompt=child.call_args.args[0];kwargs=child.call_args.kwargs
             self.assertNotIn('SECRET',prompt);self.assertIn('ACTUAL Pillow-rendered card',prompt)
-            self.assertEqual(kwargs['images'],[path]);self.assertTrue(kwargs['read_only'])
+            self.assertEqual(kwargs['images'][0],path);self.assertEqual(len(kwargs['images']),2)
+            phone_path=kwargs['images'][1]
+            with Image.open(phone_path) as phone:
+                self.assertEqual(phone.size,(432,540))
+                self.assertEqual(phone.mode,'RGB')
+            self.assertEqual(path.read_bytes(),original);self.assertTrue(kwargs['read_only'])
             self.assertFalse(kwargs['result_contract']['additionalProperties'])
             self.assertIn('actual opacity',prompt);self.assertIn('EXACT',prompt)
+            # A subsequent inspection must see the newly rendered card at both sizes.
+            Image.new('RGB',(1080,1350),'#123456').save(path)
+            with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
+                inspect(card,path,metrics,can_revise=False)
+            child.assert_called_once()
+            with Image.open(phone_path) as phone:
+                self.assertLess(max(abs(a-b) for a,b in zip(phone.getpixel((216,270)),(18,52,86))),3)
 
     def test_revision_changes_only_backing_and_strength_then_inspects_new_render(self):
         with tempfile.TemporaryDirectory() as tmp:
