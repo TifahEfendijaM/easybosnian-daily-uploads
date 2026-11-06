@@ -54,6 +54,8 @@ class PhotoQualityTests(unittest.TestCase):
             prompt=child.call_args.args[0]
             self.assertNotIn('correct_option',prompt);self.assertNotIn('private_review',prompt)
             self.assertIn('intentional cropping',prompt);self.assertEqual(len(child.call_args.kwargs['images']),1)
+            child.assert_called_once()
+            self.assertEqual(child.call_args.kwargs['timeout'],600)
             self.assertTrue(child.call_args.kwargs['read_only'])
         with self.assertRaises(ValueError):revised_prompt('draw a layout #ff0000')
 
