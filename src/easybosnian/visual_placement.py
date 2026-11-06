@@ -8,7 +8,7 @@ from PIL import Image, ImageOps
 
 from .core import ROOT, read_json
 from .palettes import active as active_palettes, LIGHT_SURFACE_BACKING_GUIDANCE, DARK_SURFACE_BACKING_GUIDANCE
-from .designs import (MIN_FRESH_SURFACE_RICHNESS, DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
+from .designs import (MIN_FRESH_TITLE_RICHNESS, MIN_FRESH_SURFACE_RICHNESS, DESIGNS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, STYLE_CATALOGUE,
                      REVIEW_BODY_STYLES, REVIEW_ANSWER_STYLES, style_label,
                      FONT_RANGES, LEADING_RANGE, WRAPPING, MARKER_STYLES, CATEGORY_STYLES,
                      CATEGORY_CATALOGUE, PHOTO_TONES, EXAMPLE_PHOTO_TONES, PHOTO_TONE_CATALOGUE, PANEL_OPACITIES,
@@ -87,6 +87,8 @@ def model_fields(properties, removed=()):
     if 'photo_tone' in fields:fields['photo_tone']={'enum':list(REVIEW_PHOTO_TONES)}
     if 'heading_fade' in fields:fields['heading_fade']={'enum':list(REVIEW_FADE_STYLES)}
     if 'fade_style' in fields:fields['fade_style']={'enum':list(REVIEW_EXAMPLE_FADE_STYLES)}
+    if 'heading_richness' in fields:
+        fields['heading_richness'] = {**fields['heading_richness'], 'minimum': MIN_FRESH_TITLE_RICHNESS}
     if 'surface_richness' in fields:
         fields['surface_richness'] = {**fields['surface_richness'], 'minimum': MIN_FRESH_SURFACE_RICHNESS}
     if 'panel_opacity' in fields:
@@ -202,7 +204,7 @@ Choose the overall palette and explanation-card surface for their OWN suitabilit
 For ochre-parchment with a LIGHT actual panel surface, the same-family example_backing is a vivid DARK mustard/gold rather than dull brown. Prefer this richer hue family when suited; exact backing_colour may still be chosen freely for the actual photo. The paper_ink preset uses that example-only gold; other palette roles remain unchanged.
 For a bounded light explanation panel, give every surface_richness value from 70 through 100 equal consideration. Choose the tint that best suits the photograph and keeps the text readable. At 100 the surface uses the full catalogue colour. At 70 it blends 70% of that colour with 30% white. The panel stays fully opaque. This control affects only the explanation surface. Dark panels and unboxed copy require 100. Quiz options have no surface_richness control.
 
-For TITLE TEXT, prefer a restrained palette tint: lighter titles closer to white and darker titles closer to black. Choose heading_richness=45 as the normal starting point, and compare 20–50 against this photograph; higher values through 100 are exceptions when the richer title clearly fits better or improves readability. 100 preserves the original approved palette colour. Pillow blends a light title toward white and a dark title toward black while retaining the selected hue family; this affects title lettering only, never its opacity, backing, other text or palette hex values. Neutral white/black titles are already neutral. Separate-photo quiz headings use palette ink darkened by the same control. Choose heading_tone for a compatible light/dark pairing and keep the title clear without competing with the photo or category. All shade/proximity limits and final contrast checks apply. No custom title hex colours or filters.
+For TITLE TEXT, prefer a restrained palette tint: lighter titles closer to white and darker titles closer to black. Start both light and dark title lettering at heading_richness=45. Keep 45 when it suits the photograph. If the tint looks too strong, lower it to a minimum of 40. If it looks too weak, increase it up to 100 when the richer colour clearly fits better or improves readability. 100 preserves the original approved palette colour. Pillow blends a light title toward white and a dark title toward black while retaining the selected hue family; this affects title lettering only, never its opacity, backing, other text or palette hex values. Neutral white/black titles are already neutral. Separate-photo quiz headings use palette ink darkened by the same control. Choose heading_tone for a compatible light/dark pairing and keep the title clear without competing with the photo or category. All shade/proximity limits and final contrast checks apply. No custom title hex colours or filters.
 
 # Title readability, backing preference and geometry
 For lesson/word titles ONLY (Znaš li? and Riječ dana), distinguish PRIMJER proximity using the existing distance from the title text boundary to the example start: less than 100px is nearby; 100px or more is farther away. With nearby PRIMJER, FIRST assess readability WITHOUT shading. If the intended colour is unreadable or barely readable, FIRST consider changing it to a harmonious approved palette text colour (ink, paper or accent), then compare other compatible colours. Prefer a comfortably readable palette-matching unshaded title. In this nearby case ONLY consider a lesson/word title shade when the title would otherwise remain unreadable or barely readable after those colour checks. Do not add lesson/word title shading merely for decoration, balance or visual emphasis in the nearby case, retain white/cream plus shade by habit, or force clashing/unreadable bare text. Nearby titles require heading_shade=gentle and keep the stricter 78/255 cap.

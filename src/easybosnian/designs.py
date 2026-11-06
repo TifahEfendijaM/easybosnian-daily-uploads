@@ -1,6 +1,7 @@
 """Trusted declarative catalogue. Every treatment has a real Pillow renderer."""
 import math
 MIN_FRESH_SURFACE_RICHNESS = 70
+MIN_FRESH_TITLE_RICHNESS = 40
 DESIGNS = ('hybrid', 'editorial')
 BODY_STYLES = ('rounded', 'rounded_plain', 'outlined', 'plain', 'overlay_dark', 'overlay_light',
                'side_rule', 'bottom_sheet', 'split_panel', 'minimal_rule',
