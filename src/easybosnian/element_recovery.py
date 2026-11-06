@@ -154,6 +154,14 @@ def recover_elements(card, requested, background, render, *, required=(), reason
                     for block in candidate['blocks']:
                         if block['role'] in failed and block['style'] in PANEL_STYLES:
                             block['panel_opacity']=kept[0]
+                if card['kind']=='quiz':
+                    retained = {b.get('surface_richness', 100) for b in requested['blocks']
+                                if b['role'] not in failed and type(b.get('surface_richness', 100)) in (int, float)}
+                    if len(retained)==1:
+                        richness = retained.pop()
+                        for block in candidate['blocks']:
+                            if block['role'] in failed:
+                                block['surface_richness'] = richness
                 if list(Draft202012Validator(CARD_SCHEMA).iter_errors(candidate)):continue
                 locked=tuple(r for r in expected if r not in failed)
                 try:metrics=render(candidate)

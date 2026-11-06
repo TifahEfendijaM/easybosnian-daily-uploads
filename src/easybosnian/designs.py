@@ -195,7 +195,7 @@ def panel_rule_colour(palette, block):
         raise ValueError('Contrasting rules require a light decorated panel')
     if 'light_rule' not in palette:raise ValueError('Contrasting rule colour unavailable for this palette')
     _,surface=panel_colours(palette,block.get('panel_tone','auto'),dark=block.get('style')=='overlay_dark',bounded=True)
-    if block.get('role')=='body':surface=light_surface_colour(surface,block.get('surface_richness',100))
+    surface=light_surface_colour(surface,block.get('surface_richness',100))
     from .render import contrast
     if contrast(palette['light_rule'],surface)<=contrast(palette['accent'],surface):
         raise ValueError('Contrasting rule must be clearer than the original accent')

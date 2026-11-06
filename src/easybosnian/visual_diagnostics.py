@@ -171,6 +171,8 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Increased decorative title strength requires an explicit black backing',
     'Selected title opacity requires black emphasis with distant PRIMJER',
     'All panels in an image must share one opacity',
+    'Quiz options must share one surface richness',
+    'Dark quiz option surfaces require full richness',
     'Assigned panel opacity outside the approved range',
     'Only photographic faded examples can select a shade preset',
     'Only photographic faded examples can select shade strength',
