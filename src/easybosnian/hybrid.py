@@ -146,7 +146,7 @@ def declared_block(card,role,width=952,style=None,**geometry):
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto','rule_tone':'accent'} if role!='example' else {}),
             **({'marker_style':'circle','marker_tone':'auto'} if role not in ('body','example') else {}),
-            **({'surface_richness':100} if role=='body' else {}),
+            **({'surface_richness':100} if role!='example' else {}),
             **({'photo_tone':'auto','backing_colour':None,'fade_style':'standard','shade_strength':'soft'} if role=='example' else {}),
             'line_spacing':spec['line_spacing'],'max_lines':None,'wrapping':'balanced',**geometry}
 
@@ -332,6 +332,12 @@ def measured_plan(card, plan):
     if any(b.get('photo_tone') in ('white_secondary','paper_secondary') and b.get('style')!='italic_photo_fade' for b in plan['blocks']):
         raise ValueError('Secondary example backing requires a photographic fade')
     validate_example_backings(plan)
+    if card['kind']=='quiz':
+        values = [block.get('surface_richness', 100) for block in plan['blocks']]
+        if any(value != values[0] for value in values):
+            raise ValueError('Quiz options must share one surface richness')
+        if values[0] != 100 and any(dark_panel_surface(block) for block in plan['blocks']):
+            raise ValueError('Dark quiz option surfaces require full richness')
     measured=[]
     for block in plan['blocks']:
         spec=block_spec(card,block['role'],block['width'],block['style'],block['font_size'],
@@ -340,7 +346,7 @@ def measured_plan(card, plan):
         if block.get('rule_tone','accent')=='contrast' and (dark_panel_surface(block) or not has_panel_rule(block)):
             raise ValueError('Contrasting rules require a light decorated panel')
         richness=block.get('surface_richness',100)
-        if richness!=100 and (block['role']!='body' or style not in PANEL_STYLES or dark_panel_surface(block)):
+        if block['role']=='body' and richness!=100 and (style not in PANEL_STYLES or dark_panel_surface(block)):
             raise ValueError('Only light explanation panels can reduce surface richness')
         if style!='italic_photo_fade' and block.get('fade_style') in ('defined','sharp','sharp_top'):
             raise ValueError('Only photographic faded examples can select a shade preset')
@@ -642,8 +648,8 @@ def draw_panel(image, block, palette):
     x,y=block['x'],block['y'];right,bottom=block['bounds'][2:]
     style=block['style'];role=block['role'];padding=block['padding']
     rule=panel_rule_colour(palette,block)
-    colour,surface_colour=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark',bounded=True)
-    if role=='body':surface_colour=light_surface_colour(surface_colour,block.get('surface_richness',100))
+    colour,base_surface=panel_colours(palette,block.get('panel_tone','auto'),dark=style=='overlay_dark',bounded=True)
+    surface_colour=light_surface_colour(base_surface,block.get('surface_richness',100))
     # Composite only the bounded surface. Glyphs, decorations and answer badges
     # remain opaque; geometry and renderer-owned drawing presets do not change.
     alpha=panel_alpha(block['panel_opacity']) if 'panel_opacity' in block else (235 if style=='overlay_light' else 255)
@@ -711,7 +717,7 @@ def draw_panel(image, block, palette):
                 marker_x+52,
                 y+(block['height']+52)/2)
         badge_fill=paper if style in ('overlay_dark','split_panel') else accent
-        if block.get('panel_tone','auto')!='auto' and badge_fill==surface_colour:badge_fill=paper
+        if block.get('panel_tone','auto')!='auto' and badge_fill==base_surface:badge_fill=paper
         label_colour=ink
         if block.get('marker_tone','auto')!='auto':
             label_colour,badge_fill=panel_colours(palette,block['marker_tone'])

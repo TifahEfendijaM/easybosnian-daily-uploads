@@ -35,6 +35,7 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
     prompt=('Read-only final WHOLE-CARD inspection of the ACTUAL Pillow-rendered card attached. '
       'Inspect EVERY visible element: overall palette/photo compatibility, explanation surface and richness, '
       'all quiz option surfaces/badges, category, title colour/shading, PRIMJER colour/strength/edges and placement. '
+      'When revising the shared quiz option richness, include every answer in the affected elements. '
       'Judge actual opacity and combined visual weight, not isolated swatches or contrast alone. '
       'Both attachments show the SAME finished card: first full resolution, then a phone-size copy. '
       'Use the phone-size view to judge the blended PRIMJER band beside the explanation panel and '

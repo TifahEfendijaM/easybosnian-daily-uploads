@@ -245,6 +245,9 @@ def decision_lines(rendering):
         if 'heading_richness' in composition:
             lines.append(f"Title colour richness: {composition['heading_richness']}% of the original palette colour.")
         lines.append('Title fade: '+composition.get('heading_fade','standard')+'.')
+        first = next(iter(composition.get('blocks', [])), {})
+        if first.get('role') == 'A' and 'surface_richness' in first:
+            lines.append(f"Shared quiz option surface richness: {first['surface_richness']:g}%.")
         if 'heading_shade' in composition:
             lines.append('Title shade intent: '+composition['heading_shade']+'.')
         if composition.get('heading_opacity') is not None:

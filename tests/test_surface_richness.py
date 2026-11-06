@@ -63,7 +63,7 @@ class SurfaceRichnessTests(unittest.TestCase):
                 else:
                     validate_current_design(card, plan)
 
-    def test_dark_unboxed_and_answers_cannot_use_richness_control(self):
+    def test_dark_unboxed_and_example_richness_restrictions(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)
         for tone in ('paper_ink','accent_ink'):
             bad=copy.deepcopy(plan);bad['blocks'][0].update(panel_tone=tone,surface_richness=80)
@@ -71,11 +71,30 @@ class SurfaceRichnessTests(unittest.TestCase):
         for value in (19,101,True):
             bad=copy.deepcopy(plan);bad['blocks'][0]['surface_richness']=value
             self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(bad)))
-        quiz=default_plan(reviewed_fixture()['cards'][0]);quiz['blocks'][0]['surface_richness']=80
+        quiz=default_plan(reviewed_fixture()['cards'][0]);quiz['blocks'][0]['surface_richness']=74
         self.assertTrue(list(Draft202012Validator(CARD_SCHEMA).iter_errors(quiz)))
         branches=MODEL_CARD_SCHEMA['properties']['blocks']['items']['anyOf']
         self.assertIn('surface_richness',branches[0]['required'])
-        self.assertNotIn('surface_richness',branches[1]['properties']);self.assertNotIn('surface_richness',branches[2]['properties'])
+        self.assertEqual(branches[1]['properties']['surface_richness']['minimum'],75);self.assertNotIn('surface_richness',branches[2]['properties'])
+
+    def test_quiz_richness_is_shared_bounded_and_only_light(self):
+        for fmt in ('other', 'visual_identification'):
+            card = dict(reviewed_fixture()['cards'][0], quiz_format=fmt)
+            plan = default_plan(card)
+            for value in (75, 86.5, 100):
+                for block in plan['blocks']:
+                    block.update(surface_richness=value, panel_tone='ink_paper')
+                measured_plan(card, plan)
+            plan['blocks'][0]['surface_richness'] = 75
+            with self.assertRaisesRegex(ValueError, 'must share'):
+                measured_plan(card, plan)
+            for block in plan['blocks']:
+                block.update(surface_richness=75, panel_tone='paper_ink')
+            with self.assertRaisesRegex(ValueError, 'Dark quiz'):
+                measured_plan(card, plan)
+            for block in plan['blocks']:
+                del block['surface_richness']
+            measured_plan(card, plan)
 
     def test_recovery_of_inactive_richness_preserves_all_other_body_choices(self):
         from easybosnian.element_recovery import recover_elements
