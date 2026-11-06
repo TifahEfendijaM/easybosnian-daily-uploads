@@ -72,7 +72,8 @@ class SharpTopExampleTests(unittest.TestCase):
         for text in ('sharp_top has a crisp straight TOP and smoothly blended BOTTOM','with neither preferred or the default','Proximity is eligibility, NEVER an automatic selection'):
             self.assertIn(text,prompt)
         self.assertNotIn('equally considered for the actual photograph without a preferred preset',prompt)
-        self.assertIn('wins there only if genuinely better, never automatically',prompt)
+        self.assertIn('favour sharp_top when the two fades visually merge into one heavy band',prompt)
+        self.assertIn('If a clear gap is already visible, usually favour standard with both edges smooth',prompt)
         for rule in ('Outside the LOWER photo area', 'STRONGLY PREFER sharp (smooth top/crisp bottom)',
                      'Keep standard available there when it CLEARLY fits', 'Keep colour and shade strength independent'):
             self.assertIn(rule,prompt)
