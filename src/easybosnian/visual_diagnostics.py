@@ -185,6 +185,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Separate photograph must remain free of explanation panels',
     'Separate photo layouts are reserved for picture-identification quizzes',
     'Fresh title shades require smooth edges',
+    'Fresh title colour richness must be between 40 and 100',
     'Fresh underline panels use minimal_rule; overlay_light is archive-only',
     'Crisp-top PRIMJER shade requires an above-body example near the title',
     'Separate-photo quiz answers require non-dark panel surfaces',

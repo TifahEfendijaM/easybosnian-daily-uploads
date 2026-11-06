@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 
 from .core import ROOT
-from .designs import (MIN_FRESH_SURFACE_RICHNESS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
+from .designs import (MIN_FRESH_TITLE_RICHNESS, MIN_FRESH_SURFACE_RICHNESS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
                       FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, category_colours, panel_rule_colour, has_panel_rule, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
@@ -221,6 +221,9 @@ def validate_current_design(card, plan):
             richness = block.get('surface_richness', 100)
             if type(richness) not in (int, float) or not MIN_FRESH_SURFACE_RICHNESS <= richness <= 100:
                 raise ValueError('Fresh explanation surface richness must be between 70 and 100')
+    title_richness = plan.get('heading_richness', 100)
+    if type(title_richness) is not int or not MIN_FRESH_TITLE_RICHNESS <= title_richness <= 100:
+        raise ValueError('Fresh title colour richness must be between 40 and 100')
     if plan.get('heading_fade','standard')!='standard':
         raise ValueError('Fresh title shades require smooth edges')
     if any(b.get('style')=='overlay_light' for b in plan.get('blocks',())):

@@ -4,8 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 from PIL import Image
+from jsonschema import Draft202012Validator
+from easybosnian.visual_placement import CARD_SCHEMA, MODEL_CARD_SCHEMA
 from easybosnian.core import ROOT,read_json
-from easybosnian.hybrid import default_plan,render_hybrid,title_colours,title_text_colour
+from easybosnian.hybrid import default_plan,render_hybrid,title_colours,title_text_colour,validate_current_design
 from test_project import reviewed_fixture
 
 
@@ -22,6 +24,22 @@ class TitleColourRichnessTests(unittest.TestCase):
         for value in (True,19,101,35.5,'35'):
             with self.assertRaises(ValueError):
                 title_text_colour('#335577',value,light=True)
+
+    def test_fresh_floor_for_both_tones_preserves_older_tints(self):
+        card = reviewed_fixture()['cards'][2]
+        field = MODEL_CARD_SCHEMA['properties']['heading_richness']
+        for tone in ('accent_dark', 'ink_paper'):
+            plan = dict(default_plan(card), heading_tone=tone)
+            for richness in (20, 39, 40, 45, 100):
+                with self.subTest(tone=tone, richness=richness):
+                    plan['heading_richness'] = richness
+                    Draft202012Validator(CARD_SCHEMA).validate(plan)
+                    self.assertEqual(Draft202012Validator(field).is_valid(richness), richness >= 40)
+                    if richness < 40:
+                        with self.assertRaisesRegex(ValueError, 'title colour richness'):
+                            validate_current_design(card, plan)
+                    else:
+                        validate_current_design(card, plan)
 
     def test_render_softens_only_title_and_keeps_archived_omission_exact(self):
         card=copy.deepcopy(reviewed_fixture()['cards'][2])
