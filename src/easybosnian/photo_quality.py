@@ -2,7 +2,7 @@
 import copy
 import json
 import re
-from .visual_placement import composition_sheet
+from .visual_placement import VISUAL_REVIEW_TIMEOUT, composition_sheet
 from .design_repair import ATTEMPT_LIMIT
 
 REASONS=('acceptable','major_anatomy_defect','broken_object_geometry','unusable_scene',
@@ -49,6 +49,7 @@ def repair_prompt(card,value):
             'headroom, blank area, text placement or top/bottom-third instructions. No new teaching claims. '
             'The prior replacement failed this contract; rebuild from the original approved scene. Context: '+
             json.dumps({k:card[k] for k in ('kind','background_prompt','question','options') if k in card},ensure_ascii=False))
+        print('Correcting a photo repair prompt (180s deadline).', flush=True)
         result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,read_only=True))
         if list(Draft202012Validator(schema).iter_errors(result)):
             value=''  # Invalid response is not a valid corrected scene.
@@ -111,7 +112,9 @@ def inspect_photos(package,photos):
         'realistic textures and true-to-life colours, and end exactly No text, no lettering, no logos. '
         'replacement_prompt=null keeps the original scene prompt. No private answer key is provided. '
         'Context: '+json.dumps(context,ensure_ascii=False))
-    result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=sheets,read_only=True))
+    print(f'Photo quality inspection: {len(sheets)} photo(s) in one request, '
+          f'{VISUAL_REVIEW_TIMEOUT}s deadline.', flush=True)
+    result=json.loads(run_codex(prompt,timeout=VISUAL_REVIEW_TIMEOUT,result_contract=schema,images=sheets,read_only=True))
     if list(Draft202012Validator(schema).iter_errors(result)):raise ValueError('Invalid photo quality review')
     for choice in result['photos'].values():
         if (choice['status']=='accepted')!=(choice['reason']=='acceptable'):raise ValueError('Inconsistent photo quality verdict')

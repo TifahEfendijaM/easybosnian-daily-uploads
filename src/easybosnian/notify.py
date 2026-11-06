@@ -11,6 +11,7 @@ NEXT={
     'validation':'Correct the reviewed content and preserve schema, history, quiz secrecy and measured-fit checks.',
     'Instagram poll validation':'Review the quiz/caption limits. Oversized answers publish unchanged without a poll; caption overflow requires a reviewed rewrite.',
     'Instagram poll attachment':'The carousel is already published. Inspect its native poll and the run artifact; do not republish just to repair the poll. Meta add-ons cannot be edited after publication.',
+    'photo quality inspection':'Check the artwork log for the photo inspection or scene correction that stopped. This stage precedes publication; the run requires a completed photo review before it can publish.',
     'Pillow rendering':'Shorten reviewed copy or fix typography; never truncate text or strip diacritics.',
     'FLUX generation':'Check the Cloudflare Free quota and model availability; no paid fallback exists.',
     'storage':'Check this project’s D1/KV access, free quota and image visibility.',
