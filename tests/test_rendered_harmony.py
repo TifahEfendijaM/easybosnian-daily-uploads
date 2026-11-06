@@ -119,7 +119,7 @@ class RenderedHarmonyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);card,path,metrics,_=self.fixture(root);before=copy.deepcopy(metrics['composition'])
             def draw(plan):return render_hybrid(card,plan['palette'],root/'photo.jpg',path,plan)
-            plan=copy.deepcopy(before);plan['palette']='blue-ice';plan['blocks'][0]['surface_richness']=30
+            plan=copy.deepcopy(before);plan['palette']='blue-ice';plan['blocks'][0]['surface_richness']=75
             proposal={'verdict':'revise','reason':'poor_palette_harmony','elements':['palette','body'],'composition':plan}
             result,detail=improve(card,path,metrics,draw,review=Mock(side_effect=[proposal,ACCEPT]))
             self.assertEqual(detail['status'],'refined');self.assertEqual(result['palette'],'blue-ice')
