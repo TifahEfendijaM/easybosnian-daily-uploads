@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image
 from easybosnian.core import ROOT,read_json
 from easybosnian.designs import light_surface_colour
-from easybosnian.hybrid import default_plan,measured_plan,render_hybrid,example_colours
+from easybosnian.hybrid import default_plan,measured_plan,render_hybrid,example_colours,validate_current_design
 from easybosnian.palettes import active,current
 from easybosnian.visual_placement import CARD_SCHEMA,MODEL_CARD_SCHEMA
 from easybosnian.render import contrast
@@ -45,6 +45,23 @@ class SurfaceRichnessTests(unittest.TestCase):
                 body=plan['blocks'][0];pixel=im.getpixel((body['x']+50,body['y']+8))
                 self.assertTrue(all(abs(x-y)<=3 for x,y in zip(pixel,(209,236,230))),pixel)
             self.assertEqual(plan['blocks'][1:],source['blocks'][1:]);self.assertEqual(plan['blocks'][0]['panel_opacity'],100)
+
+    def test_new_panel_floor_and_archive_compatibility(self):
+        card = reviewed_fixture()['cards'][2]
+        plan = default_plan(card)
+        body = plan['blocks'][0]
+        field = MODEL_CARD_SCHEMA['properties']['blocks']['items']['anyOf'][0]['properties']['surface_richness']
+        validator = Draft202012Validator(field)
+        for value in (40, 69.99, 70, 83.5, 100):
+            with self.subTest(value=value):
+                body['surface_richness'] = value
+                Draft202012Validator(CARD_SCHEMA).validate(plan)
+                self.assertEqual(validator.is_valid(value), value >= 70)
+                if value < 70:
+                    with self.assertRaisesRegex(ValueError, 'surface richness'):
+                        validate_current_design(card, plan)
+                else:
+                    validate_current_design(card, plan)
 
     def test_dark_unboxed_and_answers_cannot_use_richness_control(self):
         card=reviewed_fixture()['cards'][2];plan=default_plan(card)

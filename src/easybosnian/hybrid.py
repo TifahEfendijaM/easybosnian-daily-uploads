@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 
 from .core import ROOT
-from .designs import (BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
+from .designs import (MIN_FRESH_SURFACE_RICHNESS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
                       FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, category_colours, panel_rule_colour, has_panel_rule, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
@@ -216,6 +216,11 @@ def validate_current_design(card, plan):
     if plan.get('design')!='hybrid' or (plan.get('photo_window') is not None
             and (card['kind']!='quiz' or card.get('quiz_format')!='visual_identification')):
         raise ValueError('Separate photo layouts are reserved for picture-identification quizzes')
+    for block in plan.get('blocks', ()):
+        if block.get('role') == 'body':
+            richness = block.get('surface_richness', 100)
+            if type(richness) not in (int, float) or not MIN_FRESH_SURFACE_RICHNESS <= richness <= 100:
+                raise ValueError('Fresh explanation surface richness must be between 70 and 100')
     if plan.get('heading_fade','standard')!='standard':
         raise ValueError('Fresh title shades require smooth edges')
     if any(b.get('style')=='overlay_light' for b in plan.get('blocks',())):
