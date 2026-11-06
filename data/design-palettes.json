@@ -5,7 +5,7 @@
   "blue-ice": {"ink":"#10324b","accent":"#a8dcf2","panel":"#dceef8","scrim":"#041625","dark_surface":"#164668","category_secondary":"#ffbd86","light_rule":"#b6763e","light_example_backing":"#165a7a"},
   "rose-ivory": {"ink":"#402036","accent":"#f3bfd3","panel":"#f8dfe9","scrim":"#200b19","dark_surface":"#582c4a","category_secondary":"#c8e796","light_rule":"#638136","light_example_backing":"#822f54"},
   "lavender-pearl": {"ink":"#2d2446","accent":"#d9c8f1","panel":"#ebdef8","scrim":"#150d25","dark_surface":"#3c305e","category_secondary":"#f2cf72","light_rule":"#ae7b21","light_example_backing":"#633387"},
-  "mint-linen": {"ink":"#123a35","accent":"#bce8d5","panel":"#daf3e7","scrim":"#041e18","dark_surface":"#1a554e","category_secondary":"#f4b48a","light_rule":"#b96f3c","light_example_backing":"#1c684d"},
+  "mint-linen": {"ink":"#123a35","accent":"#bce8d5","panel":"#daf3e7","scrim":"#041e18","dark_surface":"#1a554e","category_secondary":"#f4b48a","light_rule":"#d95710","light_example_backing":"#1c684d"},
   "coral-cream": {"ink":"#4a241e","accent":"#ff8f7a","panel":"#ffe2d3","scrim":"#260e09","dark_surface":"#633028","category_secondary":"#8fd9d3","light_example_backing":"#9b3622"},
   "slate-silver": {"ink":"#173957","accent":"#c9d6e7","panel":"#e1eaf4","scrim":"#0b1420","dark_surface":"#1e4b73","category_secondary":"#f7b58f","light_rule":"#b56b3f","light_example_backing":"#2b527a"},
   "plum-blush": {"ink":"#4b1c49","accent":"#e7c4df","panel":"#f1deed","scrim":"#1b091b","dark_surface":"#652662","category_secondary":"#92d8b8","light_rule":"#418c71","light_example_backing":"#7c316e"},
