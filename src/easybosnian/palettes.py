@@ -12,16 +12,22 @@ def current(name):return 'mulberry-mint' if name=='graphite-chalk' else name
 LIGHT_SURFACE_BACKING_GUIDANCE = (
     'For a LIGHT actual explanation-card MAIN SURFACE, compare the predefined same-family DARK '
     'light_example_backing, a suitable DARK version of a DIFFERENT hue already used in the chosen '
-    "palette's accent or actual category surface, and a freely chosen harmonious different-hue DARK backing. "
+    "palette's accent or actual category surface, and a freely chosen harmonious different-hue DARK backing "
+    'from OUTSIDE the chosen palette. '
     'Compare all these candidates on equal footing FROM THE START against the photograph and rendered composition. '
     'Do not try the darker main-surface hue first or treat the palette accent/category hue as a fallback. '
     'For the palette-related candidate, judge the actual accent/category hue relative to the actual body '
     'surface; a different role name alone does not make it a different hue. Choose a dark relative when '
     'the accent/category colour is bright, keeping readable white/warm-ivory example lettering. '
     'Palette membership alone does not establish harmony or give that candidate priority over a better fit. '
-    'Only AFTER that equal comparison, prefer the predefined same-family backing when alternatives fit EQUALLY or ALMOST EQUALLY WELL. '
-    'Choose a different hue when it gives a noticeable improvement in whole-image harmony, photographic '
-    'connection or visual balance, even if modest; a barely distinguishable subjective advantage is not enough. '
+    'Only AFTER that equal comparison, when the best candidates fit EQUALLY or ALMOST EQUALLY WELL, '
+    'prefer the most novel colour within this specific image-card: a harmonious OUTSIDE-PALETTE different '
+    'hue, then a different hue from the chosen palette, then the darker same-hue backing. Judge novelty '
+    'in the actual rendered composition, not merely by role names or hex distance. Whole-image harmony '
+    'means fitting the photograph, panel, lettering, accents and overall visual balance together, not just '
+    'harmonising with the panel surface in isolation. A noticeable improvement in harmony, photographic '
+    'connection, visual balance or readability wins over novelty; a barely distinguishable subjective '
+    'advantage does not override this near-equal-fit preference. '
     "The light_example_backing is curated for this palette's default light panel surface, NOT its ink or name. "
     'Check the ACTUAL selected main surface, including panel_tone and surface_richness. If a light accent '
     'surface has a different hue, do not mislabel the default-panel candidate as same-family: compare a '
@@ -58,5 +64,5 @@ DARK_SURFACE_BACKING_GUIDANCE = (
     'choice. Verify the actual blended result beside the panel in the phone-size finished-card '
     'review and revise a clear defect within the shared design budget. This preference applies '
     'ONLY to dark main surfaces; light surfaces retain their existing equal-consideration and '
-    'same-family near-equal-fit preference.'
+    'colour-novelty near-equal-fit preference.'
 )
