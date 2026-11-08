@@ -14,6 +14,8 @@ The remaining palettes already offer useful hue separation with deliberate role 
 
 Twenty-seven active palettes with weak accent/light-surface separation add a richer light_rule colour. The original accent remains selectable. The bounded panel rule_tone control changes only decorative lines, brackets, borders, small handles or folded decoration; it never changes the surface, lettering, answer badge, wide split rail, category, title, PRIMJER or geometry. Use contrast only for an eligible light decorated panel with an available light_rule that is clearer against the actual selected surface. Otherwise use accent. Dark panels retain their original strong accents. Existing plans without rule_tone retain exact original behaviour.
 
+Slate-silver uses vivid rich orange `#ee741b` for its light_rule (replacing muted brown-orange `#b56b3f`). Its pale blue panels, navy lettering, light blue badges and peach category_secondary stay unchanged. This updates fresh decorative rules only; retained finished cards remain unchanged.
+
 ChatGPT compares both against the actual photograph, selecting the clearer rule when it fits better rather than automatically darkening every accent. Decorative contrast does not replace mandatory text contrast. Rounded answers and undecorated styles have no eligible rule. Pillow validates availability, eligibility and improved contrast; element recovery can reset only an invalid control while preserving valid sibling choices.
 
 ## Photo-first selection and repetition
