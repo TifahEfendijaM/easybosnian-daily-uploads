@@ -21,7 +21,7 @@ def render_input(package):
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
-def artwork(store, package, expose=False, review_images=False, require_prepared=False, reused_backgrounds=None, frozen_cards=None, design_attempt_limit=3):
+def artwork(store, package, expose=False, review_images=False, require_prepared=False, reused_backgrounds=None, frozen_cards=None, design_attempt_limit=3, *, design_instructions=''):
     if not require_prepared:
         from .palettes import current
         package['design_palette']=current(package['design_palette'])
@@ -146,7 +146,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                                   'assigned_panel_opacity':opacity_choices[kind]}
             from .visual_history import recent_choices
             recent,recent_status=recent_choices()
-            proposal,status=review_compositions(package,candidates,recent)
+            proposal,status=review_compositions(package,candidates,recent,design_instructions=design_instructions)
             decisions={}
         for card in package['cards']:
             kind=card['kind']; background=output/f'{kind}-background.jpg'
@@ -187,7 +187,8 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                     nonlocal stage,design_proposals_used,design_service_failed
                     design_proposals_used+=1
                     stage='visual design repair'
-                    result,review_status=review_compositions(package,{kind:candidates[kind]},recent,feedback={kind:feedback})
+                    result,review_status=review_compositions(package,{kind:candidates[kind]},recent,
+                        feedback={kind:feedback},design_instructions=design_instructions)
                     if review_status!='reviewed':design_service_failed=True
                     stage='Pillow rendering'
                     return result['cards'][kind],review_status
@@ -216,7 +217,7 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 stage='rendered card design review'
                 metrics,harmony=improve(card,path,metrics,draw,used=design_proposals_used,limit=design_attempt_limit,
                     available=model_accepted and not design_service_failed and detail.get('status')!='rejected; safe hybrid fallback',recent=recent,
-                    batch_palettes=[d['palette'] for d in decisions.values()])
+                    batch_palettes=[d['palette'] for d in decisions.values()],design_instructions=design_instructions)
                 detail['design_harmony']=harmony
                 if metrics['palette']!=palette:
                     palette=metrics['palette']

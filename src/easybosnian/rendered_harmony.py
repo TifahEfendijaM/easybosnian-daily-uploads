@@ -11,7 +11,7 @@ STATUSES=('accepted','refined','budget_exhausted','unavailable','not_applicable'
 RESULTS=('accepted','applied','rejected','budget_exhausted','unavailable')
 
 
-def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palettes=()):
+def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palettes=(),design_instructions=''):
     from .cloud_prepare import run_codex
     from .visual_placement import composition_prompt, MODEL_CARD_SCHEMA
     from jsonschema import Draft202012Validator
@@ -26,7 +26,7 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
       'dark_panel_surface':metrics.get('dark_panel_surface'),'previous_rejection':feedback,
       'earlier_final_palettes_in_this_batch':list(batch_palettes)}
     rules=composition_prompt({'cards':[card],'design_palette':metrics['palette']},
-                             {card['kind']:{}},recent)
+                             {card['kind']:{}},recent,design_instructions=design_instructions)
     phone_path=path.with_name(path.stem+'-phone-review.jpg')
     with Image.open(path) as source:
         phone=source.convert('RGB')
@@ -116,7 +116,7 @@ def safe_harmony(value):
     return copy.deepcopy(value)
 
 
-def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,available=True,recent=(),batch_palettes=()):
+def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,available=True,recent=(),batch_palettes=(),design_instructions=''):
     """Share the original three-proposal budget; service errors never retry.
 
     Every candidate is re-rendered and independently validated. Rejected design
@@ -127,7 +127,8 @@ def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,avai
     current=metrics;checks=[];changed=False;feedback=None
     def finish(status):return current,safe_harmony({'status':status,'design_proposals':used,'checks':checks})
     if not available:return finish('skipped_review_unavailable')
-    review=review or (lambda *args,**kwargs:inspect(*args,**kwargs,recent=recent,batch_palettes=batch_palettes))
+    review=review or (lambda *args,**kwargs:inspect(*args,**kwargs,recent=recent,batch_palettes=batch_palettes,
+                                                   design_instructions=design_instructions))
     while True:
         can_revise=used<limit
         try:value=checked_verdict(review(card,path,current,can_revise=can_revise,feedback=feedback),can_revise)

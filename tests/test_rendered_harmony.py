@@ -33,7 +33,8 @@ class RenderedHarmonyTests(unittest.TestCase):
             card,path,metrics,_=self.fixture(Path(tmp));card.update(private_review='SECRET',answer_key='SECRET')
             original=path.read_bytes()
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
-                self.assertEqual(inspect(card,path,metrics,can_revise=True),ACCEPT)
+                self.assertEqual(inspect(card,path,metrics,can_revise=True,
+                                         design_instructions='Use a dark teal PRIMJER shade.'),ACCEPT)
             prompt=child.call_args.args[0];kwargs=child.call_args.kwargs
             self.assertNotIn('SECRET',prompt);self.assertIn('ACTUAL Pillow-rendered card',prompt)
             self.assertEqual(kwargs['images'][0],path);self.assertEqual(len(kwargs['images']),2)
@@ -44,6 +45,8 @@ class RenderedHarmonyTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(),original);self.assertTrue(kwargs['read_only'])
             self.assertFalse(kwargs['result_contract']['additionalProperties'])
             self.assertIn('actual opacity',prompt);self.assertIn('EXACT',prompt)
+            self.assertIn('Use a dark teal PRIMJER shade.',prompt)
+            self.assertIn('keep its intent when correcting a genuine defect',prompt)
             # A subsequent inspection must see the newly rendered card at both sizes.
             Image.new('RGB',(1080,1350),'#123456').save(path)
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
@@ -140,7 +143,9 @@ class RenderedHarmonyTests(unittest.TestCase):
         plans['cards']['word']['blocks'][-1]['photo_tone']='paper_dark'
         stream=io.BytesIO();Image.new('RGB',(1024,1024),'#888888').save(stream,'JPEG')
         provider=MagicMock();provider.generate.return_value=stream.getvalue();store=MagicMock();seen=[]
+        instructions='Use a green PRIMJER backing on Riječ dana.'
         def review(card,path,metrics,**kwargs):
+            self.assertEqual(kwargs['design_instructions'],instructions)
             seen.append((card['kind'],path.read_bytes()))
             return revision(metrics) if card['kind']=='word' and len([k for k,_ in seen if k=='word'])==1 else ACCEPT
         with tempfile.TemporaryDirectory() as tmp,contextlib.ExitStack() as stack:
@@ -149,15 +154,17 @@ class RenderedHarmonyTests(unittest.TestCase):
                 stack.enter_context(patch(target,return_value=value) if target.endswith('provider') else patch(target,value))
             stack.enter_context(patch('easybosnian.photo_quality.inspect_photos',side_effect=accepted_photo_review))
             stack.enter_context(patch('easybosnian.visual_history.recent_choices',return_value=([],'available')))
-            stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
+            initial=stack.enter_context(patch('easybosnian.visual_placement.review_compositions',return_value=(plans,'reviewed')))
             checker=stack.enter_context(patch('easybosnian.rendered_harmony.inspect',side_effect=review))
-            with contextlib.redirect_stdout(io.StringIO()):assets=artwork(store,package,review_images=True)
+            with contextlib.redirect_stdout(io.StringIO()):assets=artwork(store,package,review_images=True,design_instructions=instructions)
+            self.assertEqual(initial.call_args.kwargs['design_instructions'],instructions)
             self.assertEqual([k for k,_ in seen],['quiz','lesson','word','word'])
             selected=assets['word']['path'].read_bytes();self.assertNotEqual(seen[-2][1],selected)
             stored=[c.args[2] for c in store.put_file.call_args_list if c.args[1]=='word-card.jpg']
             self.assertEqual(stored,[selected])
             report=read_json(root/'build'/package['batch_id']/'image-placement-result.json')
             self.assertEqual(report['cards']['word']['design_harmony']['status'],'refined')
+            self.assertNotIn(instructions,str(report))
             from easybosnian.success_report import report_data,with_rendering,render_report
             from test_success_report import RUN,results
             public=with_rendering(report_data(package,results(),RUN),report)

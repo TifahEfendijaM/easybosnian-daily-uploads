@@ -18,6 +18,10 @@ on:
         type: choice
         options: [random, A1, A2, B1, B2, C1, C2]
         default: random
+      design_instructions:
+        description: 'Optional for daily or preview. Describe this batch’s feed layouts, colours, or details such as the PRIMJER shade.'
+        type: string
+        default: ''
       custom_theme:
         description: 'Custom only: if left empty, the theme from the selected saved batch remains'
         type: string

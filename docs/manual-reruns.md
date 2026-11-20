@@ -27,6 +27,8 @@ Instagram image Stories require two consecutive FINISHED container reads five se
 
 # Layout selection
 
+In **Run workflow**, use the optional `design_instructions` text field in `preview` or `daily`. For example, enter “Use a folded-corner layout for the Pitanje dana answers. Put the Riječ dana explanation on the upper left and give its PRIMJER a soft dark teal shade.” Name the card or element when it matters. Codex uses the closest suitable approved choices for this batch, skips directions it cannot interpret, and chooses normally for the rest. Cards marked `same_image&design` retain their exact saved rendering.
+
 After FLUX photographs exist, ChatGPT chooses a approved Pillow design and palette per card, plus declarative block placement and bounded typography. Preparation no longer chooses one of the old eight layouts. Pillow draws the header, explanation/answer panels and exact text; PRIMJER is always unboxed Lora Italic over the photo/neutral contrast fade or on an editorial footer. Stories keep the complete separate photograph, Inter explanations and an italic example footer. Feed typography follows role-specific safe ranges, actual measured fit/contrast and unchanged Bosnian diacritics; fallback and Stories keep trusted presets. See [visual-style-contract.md](visual-style-contract.md). The chosen final design is visible in GitHub's successful-run report.
 
 # Historical migration-0005 rollout (already completed)

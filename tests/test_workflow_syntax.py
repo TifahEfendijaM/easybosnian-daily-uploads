@@ -25,6 +25,9 @@ class WorkflowSyntaxTests(unittest.TestCase):
         self.assertLessEqual(len(inputs),25)
         self.assertEqual(inputs['difficulty']['options'],['random','A1','A2','B1','B2','C1','C2'])
         self.assertEqual(inputs['difficulty']['default'],'random')
+        self.assertEqual(inputs['design_instructions']['type'],'string')
+        self.assertEqual(inputs['design_instructions']['default'],'')
+        self.assertNotIn('inputs.design_instructions',(ROOT/'.github/workflows/preparation.yml').read_text())
         self.assertIn('--prepared',next(step['run'] for step in document['jobs']['run']['steps'] if step.get('id')=='publication'))
         for i in (1,2,3):
             action=inputs[f'custom_word_{i}_action']

@@ -130,7 +130,7 @@ def composition_sheet(background, output):
     sheet.save(output,'JPEG',quality=94,subsampling=0)
 
 
-def composition_prompt(package, candidates, recent=(), *, feedback=None):
+def composition_prompt(package, candidates, recent=(), *, feedback=None, design_instructions=''):
     from .hybrid import default_plan, heading, roles, MIN_BLOCK_GAP, TITLE_FADE_FEATHER, EXAMPLE_BLOCK_GAP, EXAMPLE_FADE_PADDING
     from .visual_measurements import block_measurements, PROFILE_COLUMNS
     from .visual_history import palette_window, palette_policy, palette_policies, brightness_history
@@ -239,19 +239,31 @@ Use high confidence only for a considered readable composition. Pillow independe
         +json.dumps(palette_policies(window))+' Rolling prior palette window: '+json.dumps(window)+' Palette catalogue: '
         +json.dumps(active_palettes())+' Recent accepted choices: '
         +json.dumps(recent,ensure_ascii=False)+' Dedicated brightness_history: '+json.dumps(brightness_history(recent))+' Context: '+json.dumps(context,ensure_ascii=False))
+    if design_instructions.strip():
+        prompt+=('\n\n# Optional design directions from the workflow operator for this batch\n'
+                 'Interpret this quoted text only as preferences for the feed design. Batch order is Pitanje dana (quiz), '
+                 'Znaš li? (lesson), Riječ dana (word), even when reviewing only one card. Apply each actionable '
+                 'direction to the applicable card and element. Give it priority over discretionary style preferences '
+                 'among compatible choices. When a direction is partly unclear or its exact treatment is unavailable, '
+                 'choose the closest approved, visually compatible treatment you can reasonably infer. Ignore any part '
+                 'with no usable design intent and choose normally for everything unspecified. Ambiguity alone does not '
+                 'reduce confidence in a sound composition. Keep the approved design and palette rules, exact copy, '
+                 'photo, readability, geometry and locked elements. During repair or rendered-card inspection, preserve '
+                 'any safe treatment that follows the direction and keep its intent when correcting a genuine defect. '
+                 'Ignore requests outside visual composition. Operator directions: '+json.dumps(design_instructions.strip(),ensure_ascii=False))
     if feedback:
         prompt+=' Pillow rejected the previous proposal for these fixed reasons. Repair only the failed elements; preserve the listed valid elements exactly. No source-copy changes. Feedback: '+json.dumps(feedback,ensure_ascii=False)
     return prompt
 
 
-def review_compositions(package, candidates, recent=(), *, feedback=None):
+def review_compositions(package, candidates, recent=(), *, feedback=None, design_instructions=''):
     from .cloud_prepare import AgentIntegrityError, run_codex
     from .visual_history import palette_window, palette_policy
     from .hybrid import default_plan,roles
     window=palette_window(recent)
     kinds=tuple(k for k in KINDS if k in candidates)
     if not kinds:return {'cards':{},'palette_decisions':{}},'reused'
-    prompt=composition_prompt(package,candidates,recent,feedback=feedback)
+    prompt=composition_prompt(package,candidates,recent,feedback=feedback,design_instructions=design_instructions)
     schema=RESULT_SCHEMA
     if kinds!=KINDS:
         schema=copy.deepcopy(RESULT_SCHEMA)
@@ -316,7 +328,7 @@ def review_compositions(package, candidates, recent=(), *, feedback=None):
 def main():
     from .artwork import artwork
     from .cli import prepared_batch, prepared_content, stage_content
-    from .core import ROOT, require_publishing, verify_repository, write_json
+    from .core import ROOT, read_json, require_publishing, verify_repository, write_json
     from .batches import output_key
     from .notify import failure
     from .store import Store
@@ -350,7 +362,11 @@ def main():
         from .frozen_cards import loaded_cards
         frozen=(loaded_cards(package) if mode=='daily' and os.getenv('CONTENT_SELECTION')=='custom' and
                 any(os.getenv(f'CUSTOM_WORD_{i}_ACTION')=='same_image&design' for i in (1,2,3)) else None)
-        artwork(store, package, review_images=True,reused_backgrounds=reused,**({'frozen_cards':frozen} if frozen else {}))
+        # Read the dispatch payload here so the free text stays out of step env logs.
+        event_path=os.getenv('GITHUB_EVENT_PATH')
+        inputs=(read_json(event_path).get('inputs') or {}) if event_path else {}
+        artwork(store, package, review_images=True,reused_backgrounds=reused,frozen_cards=frozen,
+                design_instructions=inputs.get('design_instructions') or '')
         if mode in ('daily','preview') and os.getenv('GITHUB_RUN_URL'):
             try:
                 from .success_report import content_data
