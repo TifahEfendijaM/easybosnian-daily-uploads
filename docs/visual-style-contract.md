@@ -64,13 +64,14 @@ Fit profiles include exact text/width/font/leading, complete height, line count,
 | notebook_margin | accent margin, ruled edge ticks outside glyphs/badge | hybrid body/answer |
 | top_ribbon | accent top ribbon, fine inset bottom rule | hybrid body/answer |
 | corner_brackets | four inset accent brackets, no continuous frame | hybrid body/answer |
-| soft_corner | round top-left/top-right/bottom-right, square lower-left | hybrid body/answer |
+| soft_corner | round top-left/top-right/bottom-right, square lower-left, inset accent | hybrid body, archived answers |
+| soft_corner_plain | same asymmetric shape with a clean answer badge | hybrid answer |
 | pill | capsule with fully rounded ends | answers only, at most two measured lines |
 | folded_corner | clipped/folded top-right slip | answers only |
 
 Fresh body and answer catalogues consolidate overlay_light/minimal_rule into minimal_rule (Underline panel). Retired overlay_light stays readable/renderable unchanged for saved plans and exact same_image&design retention; initial proposals, repairs and local recovery must not reintroduce it. A stale proposal may replace only that block with minimal_rule while preserving its compatible colour/geometry/typography. Clean rounded panel (rounded_plain) adds a fully rounded surface without an accent stripe or decorative rule. Plain panel is the displayed name of the existing overlay_dark ID; its renderer and automatic default remain compatible, and its name never requires a dark surface. All six category designs remain unchanged.
 
-Every ID has materially distinct Pillow drawing behavior. Hybrid body/answers MUST be bounded panels, never unboxed text over photos/fades. Former caption is invalid. PRIMJER never uses this catalogue. Answer panel style and badge shape are independent; any answer treatment may combine with circle/rounded_square/square/triangle. Coordinated choices are often appealing; coherent mixtures remain allowed. Never signal the correct answer through design.
+Every ID has materially distinct Pillow drawing behavior. Hybrid body/answers MUST be bounded panels, never unboxed text over photos/fades. Former caption is invalid. PRIMJER never uses this catalogue. Answer panel style and badge shape are independent; any answer treatment may combine with circle/rounded_square/square/triangle. Fresh badges have clean edges in every style. Top ribbons, bottom rules and option frames stay available. Earlier `soft_corner` quiz plans survive for exact archived rendering. Coordinated choices are often appealing; coherent mixtures remain allowed. Never signal the correct answer through design.
 
 Answers have independent x/y/width and typography, ordered A→D by y then x. Staggered regions/left-right arrangements remain valid; do not mechanically stack or snap to grids. Intentional shared rows use exactly equal y and coordinated font/leading. Pillow uses a shared measured font cell to align equal-font/equal-line-count panels/baselines despite accents/descenders; unequal line counts can need unequal heights. A 2×2 grid requires four existing choices; three need an intentional three-card arrangement, not an accidentally missing fourth. The visual reviewer cannot invent/remove/rewrite choices.
 

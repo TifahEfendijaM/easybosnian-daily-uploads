@@ -31,6 +31,30 @@ class CatalogueCleanupTests(unittest.TestCase):
     validate_current_design(card,plan)
   self.assertEqual(len(REVIEW_BODY_STYLES),13);self.assertEqual(len(REVIEW_ANSWER_STYLES),15)
   self.assertEqual(CATEGORY_STYLES,('rounded','pill','ribbon','underlined','outlined','tab'))
+ def test_every_fresh_quiz_style_has_clean_badges_and_keeps_panel_edge_options(self):
+  palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
+  block={'role':'A','x':64,'y':80,'width':400,'height':144,'bounds':[64,80,464,224],
+         'padding':30,'panel_opacity':100,'panel_tone':'ink_paper','marker_style':'circle'}
+  edge_samples={'top_ribbon':(200,82),'minimal_rule':(200,222),'outlined':(64,152),'double_frame':(64,152)}
+  accent=Image.new('RGBA',(1,1),palette['accent']).getpixel((0,0))
+  self.assertTrue(set(edge_samples)<=set(REVIEW_ANSWER_STYLES))
+  for style in REVIEW_ANSWER_STYLES:
+   with self.subTest(style=style):
+    image=Image.new('RGBA',(540,320),'#808080')
+    draw_panel(image,{**block,'style':style},palette)
+    self.assertEqual(image.getpixel((80,152)),image.getpixel((82,152)))
+    if style in edge_samples:self.assertEqual(image.getpixel(edge_samples[style]),accent)
+  old=Image.new('RGBA',(540,320),'#808080')
+  draw_panel(old,{**block,'style':'soft_corner'},palette)
+  self.assertNotEqual(old.getpixel((80,152)),old.getpixel((82,152)))
+  quiz=reviewed_fixture()['cards'][0];plan=dict(default_plan(quiz),palette='gold-cream')
+  plan['blocks'][0]['style']='soft_corner'
+  self.assertFalse(list(Draft202012Validator(CARD_SCHEMA).iter_errors(plan)))
+  self.assertTrue(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)))
+  with self.assertRaisesRegex(ValueError,'soft_corner_plain'):validate_current_design(quiz,plan)
+  plan['blocks'][0]['style']='soft_corner_plain'
+  self.assertFalse(list(Draft202012Validator(MODEL_CARD_SCHEMA).iter_errors(plan)))
+  validate_current_design(quiz,plan)
  def test_plain_rounded_has_smooth_corners_and_no_accent_stripe_in_either_tone(self):
   palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
   for tone,surface in (('ink_paper',palette['panel']),('paper_ink',palette['dark_surface'])):

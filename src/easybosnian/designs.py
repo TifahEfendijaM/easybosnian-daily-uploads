@@ -8,14 +8,14 @@ BODY_STYLES = ('rounded', 'rounded_plain', 'outlined', 'plain', 'overlay_dark', 
                'double_frame', 'notebook_margin', 'top_ribbon', 'corner_brackets', 'soft_corner')
 EXAMPLE_STYLES = ('italic_photo', 'italic_photo_fade', 'italic_footer')
 PANEL_STYLES = tuple(s for s in BODY_STYLES if s != 'plain')
-ANSWER_STYLES = (*PANEL_STYLES, 'pill', 'folded_corner')
-PANEL_STYLES = (*PANEL_STYLES, 'pill', 'folded_corner')
+ANSWER_STYLES = (*PANEL_STYLES, 'pill', 'folded_corner', 'soft_corner_plain')
+PANEL_STYLES = ANSWER_STYLES
 # Archive readers retain every original ID/drawing. Fresh reviews see one
 # underline design instead of the two near-duplicates.
 REVIEW_BODY_STYLES = tuple(s for s in BODY_STYLES if s not in ('plain','overlay_light'))
-REVIEW_ANSWER_STYLES = tuple(s for s in ANSWER_STYLES if s!='overlay_light')
+REVIEW_ANSWER_STYLES = tuple(s for s in ANSWER_STYLES if s not in ('overlay_light','soft_corner'))
 STYLE_LABELS = {'overlay_dark':'Plain panel', 'rounded_plain':'Clean rounded panel',
-                'minimal_rule':'Underline panel'}
+                'minimal_rule':'Underline panel', 'soft_corner_plain':'Clean asymmetric panel'}
 
 CATEGORY_STYLES = ('rounded', 'pill', 'ribbon', 'underlined', 'outlined', 'tab')
 PHOTO_TONES = ('auto', 'paper_dark', 'ink_light', 'paper_ink', 'ink_paper', 'accent_ink',
@@ -81,7 +81,8 @@ STYLE_CATALOGUE = {
     'notebook_margin': 'Paper panel with a thin accent margin and small ruled edge ticks, inspired by the former notebook treatment; decoration stays outside the glyphs and answer badge.',
     'top_ribbon': 'Paper panel with a full-width accent top ribbon and a fine ink bottom rule, inspired by the former ribbon treatment; independent approved answer badge.',
     'corner_brackets': 'Paper panel with four inset accent corner brackets instead of a continuous outline; independent approved answer badge.',
-    'soft_corner': 'Asymmetric card: rounded top-left, top-right and bottom-right, square bottom-left, thin inset accent rule; independent approved answer badge.',
+    'soft_corner': 'Asymmetric explanation panel with three rounded corners, a square lower-left corner and an inset accent rule. Earlier quiz versions are archive-only.',
+    'soft_corner_plain': 'Answer-only asymmetric panel with three rounded corners and a square lower-left corner. The surface and badge are undecorated.',
     'folded_corner': 'Answer-only slip with a clipped/folded top-right corner and fine accent fold; any independently chosen approved badge.',
     'pill': 'Answer-only paper capsule with fully rounded ends, any independent approved badge, and at most two measured text lines. Not valid for body or examples.',
     'italic_photo': 'Unboxed approved Lora Italic example and PRIMJER label directly on photograph. No fade: reject if actual glyph contrast fails.',

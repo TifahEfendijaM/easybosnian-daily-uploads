@@ -228,6 +228,8 @@ def validate_current_design(card, plan):
         raise ValueError('Fresh title shades require smooth edges')
     if any(b.get('style')=='overlay_light' for b in plan.get('blocks',())):
         raise ValueError('Fresh underline panels use minimal_rule; overlay_light is archive-only')
+    if card['kind']=='quiz' and any(b.get('style')=='soft_corner' for b in plan.get('blocks',())):
+        raise ValueError('Fresh asymmetric quiz panels use soft_corner_plain')
     if any(b.get('role')=='example' and b.get('style')=='italic_photo_fade'
            and b.get('fade_style')=='sharp_top' for b in plan.get('blocks',())) and not reverse_example_fade_allowed(card,plan):
         raise ValueError('Crisp-top PRIMJER shade requires an above-body example near the title')
@@ -662,7 +664,7 @@ def draw_panel(image, block, palette):
     elif style=='bottom_sheet':
         paint.rounded_rectangle((x,y,right,bottom),radius=54,fill=fill)
         paint.rectangle((x,y+54,right,bottom),fill=fill)
-    elif style=='soft_corner':
+    elif style in ('soft_corner','soft_corner_plain'):
         paint.rounded_rectangle((x,y,right,bottom),radius=46,fill=fill)
         paint.rectangle((x,y+46,x+46,bottom),fill=fill)
     elif style=='folded_corner':
