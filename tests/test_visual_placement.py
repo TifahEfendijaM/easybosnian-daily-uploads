@@ -46,6 +46,23 @@ class HybridCompositionTests(unittest.TestCase):
         prompt=child.call_args.args[0]
         self.assertIn('Choose each block x,y,width freely',prompt);self.assertIn('AFTER assessing',prompt)
         self.assertNotIn('correct_option',prompt);self.assertNotIn('private_review',prompt)
+        self.assertNotIn('Optional design directions',prompt)
+
+    def test_operator_directions_reach_initial_review_and_single_card_repair(self):
+        instructions='Use a soft teal PRIMJER shade on Riječ dana.\nTry "more air" above the lesson panel.'
+        for kinds,feedback in ((KINDS,None),(('word',),{'word':{'locked':['body']}})):
+            with self.subTest(kinds=kinds):
+                candidates={k:self.candidates()[k] for k in kinds}
+                result={'cards':{k:self.decision()['cards'][k] for k in kinds}}
+                with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(result)) as child:
+                    _,status=review_compositions(reviewed_fixture(),candidates,feedback=feedback,
+                                                 design_instructions=instructions)
+                self.assertEqual(status,'reviewed')
+                prompt=child.call_args.args[0]
+                self.assertIn(json.dumps(instructions,ensure_ascii=False),prompt)
+                self.assertIn('closest approved, visually compatible treatment',prompt)
+                self.assertIn('no usable design intent',prompt)
+                if feedback:self.assertIn('preserve the listed valid elements exactly',prompt)
 
     def test_invalid_unavailable_review_never_retries_or_logs_freeform_text(self):
         bad=self.decision();bad['cards']['word']['private']='private-provider-text'
@@ -337,6 +354,25 @@ class PreparedArtworkTests(unittest.TestCase):
         with patch.dict(os.environ,{'MODE':'daily'}),patch('easybosnian.core.verify_repository'),patch('easybosnian.core.require_publishing',side_effect=ValueError('disabled')),patch('easybosnian.notify.failure',return_value='test-only'),patch('easybosnian.artwork.artwork') as generate:
             with self.assertRaises(RuntimeError):main()
             generate.assert_not_called()
+
+    def test_artwork_entry_reads_dispatch_directions_without_staging_them_in_content(self):
+        package=reviewed_fixture();package['batch_id']='b-'+'a'*32
+        instructions='Riječ dana: dark green PRIMJER shade.'
+        with tempfile.TemporaryDirectory() as temp,contextlib.ExitStack() as stack:
+            path=Path(temp)/'event.json'
+            stack.enter_context(patch.dict(os.environ,{'MODE':'preview','GITHUB_EVENT_PATH':str(path)},clear=True))
+            stack.enter_context(patch('easybosnian.core.verify_repository'))
+            stack.enter_context(patch('easybosnian.store.Store'))
+            stack.enter_context(patch('easybosnian.validate.validate'))
+            stack.enter_context(patch('easybosnian.cli.prepared_batch',return_value=(package['date'],package['batch_id'],None)))
+            stack.enter_context(patch('easybosnian.cli.prepared_content',return_value=package))
+            stage=stack.enter_context(patch('easybosnian.cli.stage_content'))
+            generate=stack.enter_context(patch('easybosnian.artwork.artwork'))
+            for inputs,expected in (({'design_instructions':instructions},instructions),({},'')):
+                write_json(path,{'inputs':inputs})
+                main()
+                self.assertEqual(generate.call_args.kwargs['design_instructions'],expected)
+                self.assertNotIn('design_instructions',stage.call_args.args[0])
 
     def test_workflow_reviews_before_persist_and_reuses_only_prepared_artwork(self):
         workflow=yaml.load((ROOT/'.github/workflows/preparation.yml').read_text(),Loader=yaml.BaseLoader)
