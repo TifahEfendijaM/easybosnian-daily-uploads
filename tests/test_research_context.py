@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.core import PROJECT,write_json
-from easybosnian.research_context import context_pages,context_index,main,reading_instructions,review_context
+from easybosnian.research_context import context_pages,context_index,main,research_prompt_context,review_context
 from easybosnian.selection import novelty_history
 from easybosnian.validate import validate
 from test_project import reviewed_fixture
@@ -87,9 +87,13 @@ class ResearchContextTests(unittest.TestCase):
             validate(package,novelty_history(context['history'],package['date'],{'choice':'new'}),include_today=True)
         self.assertEqual(context['history'],original)
 
-    def test_prompt_states_page_count_and_requires_inspection_rather_than_only_parsing(self):
-        instructions=reading_instructions(self.context())
-        self.assertIn('"review_pages":',instructions)
-        self.assertIn('one page per tool call',instructions)
-        self.assertIn('max_output_tokens=10000',instructions)
-        self.assertIn('read through review_pages',instructions)
+    def test_prompt_supplies_the_complete_review_view_without_tool_output(self):
+        context=self.context()
+        prompt=research_prompt_context(context)
+        payload=prompt.split('\n<review_context>\n')[1].split('\n</review_context>\n')[0]
+        self.assertGreater(len(payload.encode('utf-8')),10*context_index(context)['page_bytes'])
+        self.assertEqual(json.loads(payload),review_context(context))
+        self.assertIn('34 history rows',prompt)
+        self.assertIn('đak',payload)
+        self.assertIn('review every history row',prompt)
+        self.assertNotIn('review_pages',prompt)

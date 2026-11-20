@@ -29,6 +29,8 @@ class CloudPreparationTests(unittest.TestCase):
                 if args[0]=="codex":
                     seen.append(kwargs["env"])
                     self.assertIn("--output-schema",args)
+                    self.assertEqual(args[-1],"-")
+                    self.assertEqual(kwargs["input"],"Reply READY")
                     (root/"build/cloud-agent-last.secret").write_text("READY\n")
                 return subprocess.CompletedProcess(args,0,stdout="")
             with patch("easybosnian.cloud_prepare.ROOT",root), patch("easybosnian.cloud_prepare.auth_file",return_value=path), patch("easybosnian.cloud_prepare.verify_repository"), patch("easybosnian.cloud_prepare.subprocess.run",side_effect=fake_run), patch.dict(os.environ,{"GH_TOKEN":"private","INSTAGRAM_ACCESS_TOKEN":"private","INSTAGRAM_FACEBOOK_ACCESS_TOKEN":"private","INSTAGRAM_FACEBOOK_USER_ID":"private","INSTAGRAM_FACEBOOK_EXPIRES_AT":"private","OPENAI_API_KEY":"paid"}):
@@ -89,11 +91,14 @@ class CloudPreparationTests(unittest.TestCase):
     def test_verify_only_reads_history_and_writes_private_probe(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            def agent(*args,**kwargs):
+            def agent(prompt,**kwargs):
+                self.assertIn('len(history.days) is 1',prompt)
+                self.assertNotIn('private teaching copy',prompt)
+                self.assertNotIn('review_pages',prompt)
                 write_json(root/'build/cloud-file-probe.json',{'status':'ready','reason':'none'})
                 return '{"status":"ready","reason":"none"}'
             with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.prepare') as save,patch('easybosnian.cloud_prepare.require_publishing') as live:
-                store.return_value.history.return_value={'project':PROJECT,'days':[]}
+                store.return_value.history.return_value={'project':PROJECT,'days':[{'content':{'caption':'private teaching copy'}}]}
                 result=cloud_run('verify')
                 save.assert_not_called();live.assert_not_called();store.return_value.save_content.assert_not_called()
                 self.assertEqual(result['status'],'cloud connection verified')
@@ -116,9 +121,13 @@ class CloudPreparationTests(unittest.TestCase):
         date='2026-10-03';order=[]
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
-            def agent(*args):
+            def agent(prompt):
                 order.append('research');package={'date':date,'cards':[{'kind':x} for x in ('quiz','lesson','word')]}
-                package['cards'][0]['quiz_format']=read_json(root/'build/preparation-context.json')['selection']['quiz_format_target']
+                context=read_json(root/'build/preparation-context.json')
+                inline=json.loads(prompt.split('\n<review_context>\n')[1].split('\n</review_context>\n')[0])
+                self.assertEqual(inline['selection'],context['selection'])
+                self.assertEqual(inline['history'],context['history'])
+                package['cards'][0]['quiz_format']=context['selection']['quiz_format_target']
                 write_json(root/f'build/preparation/{date}.json',package)
                 return '{"status":"ready","reason":"none"}'
             with patch('easybosnian.cloud_prepare.ROOT',root),patch('easybosnian.cloud_prepare.today',return_value=date),patch('easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch('easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',side_effect=agent),patch('easybosnian.cloud_prepare.validate',side_effect=lambda *a,**k:order.append('validate')),patch('easybosnian.cloud_prepare.fit_check',side_effect=lambda *a:order.append('fit')),patch('easybosnian.cloud_prepare.prepare',side_effect=lambda *a,**k:order.append('save')):

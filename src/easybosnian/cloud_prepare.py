@@ -15,14 +15,14 @@ from .store import Store
 from .validate import validate
 from .selection import selection_context, check_selection, novelty_history, word_levels, quiz_format_target
 from .levels import select_run_level
-from .research_context import reading_instructions
+from .research_context import research_prompt_context
 from .batches import identity, plan_batch
 from .codex_diagnostics import CodexExecutionError, execution_diagnostic
 
 
 AGENT_FAILURES = {
     "repository_guard": "The research agent could not accept the wrapper's verified repository boundary; inspect the cloud task instructions.",
-    "history_access": "The research agent could not read the complete private history context; check the runner's context file.",
+    "history_access": "The agent reported that it could not review the complete private history.",
     "research_sources": "Reliable source opening or Bosnian research was incomplete; review source access before deliberately running daily mode.",
     "semantic_novelty": "A ChatGPT-selected theme or word could not be verified as semantically new against history. Explicit custom and retained choices may repeat.",
     "text_fit": "The reviewed text did not pass measured fit; revise the unreserved draft without truncation.",
@@ -153,7 +153,7 @@ def run_codex(prompt, timeout=420, *, result_contract=None, images=(), read_only
     with events.open("w", encoding="utf-8") as private_log:
         events.chmod(0o600)
         try:
-            result = subprocess.run(args, input=prompt, text=True, env=child_env, cwd=ROOT,
+            result = subprocess.run(args, input=prompt, encoding='utf-8', env=child_env, cwd=ROOT,
                                     stdout=private_log, stderr=subprocess.STDOUT, timeout=timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
@@ -230,12 +230,14 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
                 'Connection verification ONLY. The wrapper verified the exact pinned repository. '
-                'Read AGENTS.md and docs/cloud-agent-task.md, then every bounded review-context page. '
+                'Read AGENTS.md and docs/cloud-agent-task.md. Use Python to parse '
+                f'build/preparation-context.json and confirm history.project is {PROJECT}, '
+                f'history.days is a list, and len(history.days) is {len(history["days"])}. Do not print the history. '
                 'Do not follow content preparation instructions, choose words, call provider APIs, '
                 'write history, generate images or publish. Write exactly '
                 '{"status":"ready","reason":"none"} to build/cloud-file-probe.json. '
                 'Return that object only after the file exists. Do not inspect credentials or files '
-                'outside this checkout.'+reading_instructions(read_json(ROOT/'build/preparation-context.json')),timeout=180))
+                'outside this checkout.',timeout=180))
             if not probe.is_file() or read_json(probe)!={'status':'ready','reason':'none'}:
                 raise ValueError('ChatGPT did not write its required workspace probe')
             result={'date':date,'status':'cloud connection verified','private_history_read':True,
@@ -255,7 +257,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 chosen['quiz_format_target']=quiz_format_target(chosen)
                 for key in ('quiz_option_target','quiz_format_target'):context['selection'][key]=chosen[key]
                 write_json(ROOT/'build/preparation-context.json',context)
-                prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)+reading_instructions(context)
+                prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)+research_prompt_context(context)
                 require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
