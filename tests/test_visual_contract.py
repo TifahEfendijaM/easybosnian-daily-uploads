@@ -29,7 +29,7 @@ class DeclarativeVisualContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Unsupported explanation/answer style'):
             block_spec(card,'body',952,'caption')
         self.assertNotIn('caption',BODY_STYLES)
-        self.assertEqual(set(BODY_STYLES)-{'plain'},set(PANEL_STYLES)-{'pill','folded_corner'})
+        self.assertEqual(set(BODY_STYLES)-{'plain'},set(PANEL_STYLES)-{'pill','folded_corner','soft_corner_plain'})
         plan['blocks'][0]['style']='plain'
         with self.assertRaisesRegex(ValueError,'Paper styles require the editorial design'):
             measured_plan(card,plan)

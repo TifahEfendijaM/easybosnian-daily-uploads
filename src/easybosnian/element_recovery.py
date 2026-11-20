@@ -54,6 +54,8 @@ def replacement(card,old,base,window,design,background,faithful):
         if block['role']=='example':block['style']='italic_footer' if design=='editorial' else ('italic_photo' if old.get('style')=='italic_photo' else 'italic_photo_fade')
         elif design=='editorial':block.update(style='plain',panel_tone='auto',panel_opacity=100,surface_richness=100,rule_tone='accent')
         elif old.get('style')=='overlay_light':block['style']='minimal_rule'
+        elif card['kind']=='quiz' and old.get('style')=='soft_corner':
+            block.update(style='soft_corner_plain',rule_tone='accent')
     # The requested position remains the search target even when other fields fail.
     for key in ('x','y'):
         if type(old.get(key)) is int and -2700<=old[key]<=2700:

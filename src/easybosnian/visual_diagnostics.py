@@ -189,6 +189,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Fresh title shades require smooth edges',
     'Fresh title colour richness must be between 40 and 100',
     'Fresh underline panels use minimal_rule; overlay_light is archive-only',
+    'Fresh asymmetric quiz panels use soft_corner_plain',
     'Crisp-top PRIMJER shade requires an above-body example near the title',
     'Separate-photo quiz answers require non-dark panel surfaces',
     'Answer badge text fails measured contrast',
