@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator
 from PIL import Image
 
 from easybosnian.core import ROOT, read_json
-from easybosnian.designs import PANEL_OPACITIES, PANEL_STYLES, panel_alpha, valid_panel_opacity
+from easybosnian.designs import BODY_STYLES, PANEL_OPACITIES, PANEL_STYLES, panel_alpha, valid_panel_opacity
 from easybosnian.hybrid import block_spec, default_plan, draw_panel, editorial_plan, measured_plan, render_hybrid
 from easybosnian.success_report import decision_lines
 from easybosnian.visual_diagnostics import rejection_diagnostic
@@ -57,7 +57,8 @@ class PanelOpacityTests(unittest.TestCase):
     def test_every_panel_style_composites_surface_but_keeps_rules_and_badges_opaque(self):
         package=reviewed_fixture();palette=read_json(ROOT/'data/design-palettes.json')['gold-cream']
         for style in PANEL_STYLES:
-            card=package['cards'][0 if style in ('pill','folded_corner') else 2];role='A' if style in ('pill','folded_corner') else 'body'
+            answer_only=style not in BODY_STYLES
+            card=package['cards'][0 if answer_only else 2];role='A' if answer_only else 'body'
             for preset,alpha in [*PANEL_OPACITIES.items(),(70,178),(73.5,187),(87,222),(100,255)]:
                 with self.subTest(style=style,preset=preset):
                     spec=block_spec(card,role,952,style,font_size=36)
@@ -76,8 +77,8 @@ class PanelOpacityTests(unittest.TestCase):
 
     def test_legacy_omissions_keep_previous_surfaces_and_geometry(self):
         card=reviewed_fixture()['cards'][2]
-        for style in PANEL_STYLES:
-            if style in ('pill','folded_corner'):continue
+        for style in BODY_STYLES:
+            if style=='plain':continue
             block={**block_spec(card,'body',952,style,font_size=36),'role':'body',
                    'x':64,'y':750,'width':952}
             block['bounds']=[64,750,1016,750+block['height']]
