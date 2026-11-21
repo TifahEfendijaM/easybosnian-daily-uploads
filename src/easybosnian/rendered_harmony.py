@@ -6,12 +6,12 @@ from .design_repair import ATTEMPT_LIMIT
 from .hybrid import validate_current_design
 from .visual_diagnostics import review_failure,REVIEW_FAILURES,rejection_diagnostic
 
-REASONS=('harmonious','disconnected_colour','poor_palette_harmony','excessive_visual_weight','poor_readability','poor_placement','inconsistent_design')
+REASONS=('harmonious','disconnected_colour','poor_palette_harmony','excessive_visual_weight','poor_readability','poor_placement','inconsistent_design','face_obscured')
 STATUSES=('accepted','refined','budget_exhausted','unavailable','not_applicable','skipped_review_unavailable')
 RESULTS=('accepted','applied','rejected','budget_exhausted','unavailable')
 
 
-def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palettes=(),design_instructions=''):
+def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palettes=(),design_instructions='',photo_reference=None):
     from .cloud_prepare import run_codex
     from .visual_placement import composition_prompt, MODEL_CARD_SCHEMA
     from jsonschema import Draft202012Validator
@@ -37,7 +37,12 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
       'all quiz option surfaces/badges, category, title colour/shading, PRIMJER colour/strength/edges and placement. '
       'When revising the shared quiz option richness, include every answer in the affected elements. '
       'Judge actual opacity and combined visual weight, not isolated swatches or contrast alone. '
-      'Both attachments show the SAME finished card: first full resolution, then a phone-size copy. '
+      'The first two attachments show the SAME finished card: first full resolution, then a phone-size copy. '
+      'Check for a face hidden by any foreground text panel or heavy shade. If a bare photo sheet is attached third, '
+      'compare its right-hand feed crop with the rendered card to find even fully covered faces. '
+      'Treat unjustified coverage of a visible face as a face_obscured defect. Keep a purposeful exceptional placement '
+      'only if it genuinely serves this composition or clearly beats every readable face-clear alternative. Move the offending element '
+      'to a readable face-clear position, preserving unaffected elements. '
       'Use the phone-size view to judge the blended PRIMJER band beside the explanation panel and '
       'the whole composition, and the original for detail. Check whether its actual hue, saturation '
       'and applied opacity create a disconnected stripe or disproportionate visual emphasis. '
@@ -56,7 +61,10 @@ def inspect(card,path,metrics,*,can_revise,feedback=None,recent=(),batch_palette
       json.dumps(context,ensure_ascii=False)+' Apply these same selection rules when correcting a defect: '+rules.replace(
           'Sheets follow context kind order: complete original photo LEFT, exact 1080x1350 feed crop RIGHT. No rendered card, layout or style reference is provided.',
           'The attached image is the actual finished card. Inspect the photograph as it appears beneath the rendered design.'))
-    result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=[path,phone_path],read_only=True))
+    images=[path,phone_path]
+    if photo_reference is not None:
+        images.append(photo_reference)
+    result=json.loads(run_codex(prompt,timeout=180,result_contract=schema,images=images,read_only=True))
     if list(Draft202012Validator(schema).iter_errors(result)):raise ValueError('Invalid visual composition')
     return checked_verdict(result,can_revise)
 
@@ -116,7 +124,7 @@ def safe_harmony(value):
     return copy.deepcopy(value)
 
 
-def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,available=True,recent=(),batch_palettes=(),design_instructions=''):
+def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,available=True,recent=(),batch_palettes=(),design_instructions='',photo_reference=None):
     """Share the original three-proposal budget; service errors never retry.
 
     Every candidate is re-rendered and independently validated. Rejected design
@@ -128,7 +136,8 @@ def improve(card,path,metrics,draw,*,used=1,limit=ATTEMPT_LIMIT,review=None,avai
     def finish(status):return current,safe_harmony({'status':status,'design_proposals':used,'checks':checks})
     if not available:return finish('skipped_review_unavailable')
     review=review or (lambda *args,**kwargs:inspect(*args,**kwargs,recent=recent,batch_palettes=batch_palettes,
-                                                   design_instructions=design_instructions))
+                                                   design_instructions=design_instructions,
+                                                   photo_reference=photo_reference))
     while True:
         can_revise=used<limit
         try:value=checked_verdict(review(card,path,current,can_revise=can_revise,feedback=feedback),can_revise)

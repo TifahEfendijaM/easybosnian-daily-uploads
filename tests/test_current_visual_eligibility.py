@@ -23,7 +23,7 @@ class CurrentVisualEligibilityTests(unittest.TestCase):
             if card['kind']=='quiz':
                 for kind in ('other','visual_identification'):
                     card['quiz_format']=kind
-                    if kind=='visual_identification':validate_current_design(card,candidate)
+                    if kind=='visual_identification':validate_current_design(card,default_plan(card))
                     else:
                         with self.assertRaisesRegex(ValueError,'picture-identification'):validate_current_design(card,candidate)
             else:

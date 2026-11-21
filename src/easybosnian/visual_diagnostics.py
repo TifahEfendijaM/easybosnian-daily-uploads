@@ -196,6 +196,7 @@ TRUSTED_REJECTION_MESSAGES = frozenset((
     'Non-quiz title cannot remain readable within its shade limit',
     'Visual quiz answers require consistent widths and typography',
     'Visual quiz answers require aligned groups and consistent spacing',
+    'Visual quiz answers require at least two options side by side',
     'Unknown approved palette',
     'Unshaded photo text fails measured contrast',
     'Unsupported answer badge',

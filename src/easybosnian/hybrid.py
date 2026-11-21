@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageChops
 
 from .core import ROOT
-from .designs import (MIN_FRESH_TITLE_RICHNESS, MIN_FRESH_SURFACE_RICHNESS, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
+from .designs import (MIN_FRESH_TITLE_RICHNESS, MIN_FRESH_SURFACE_RICHNESS, FONT_RANGES, BODY_STYLES, ANSWER_STYLES, EXAMPLE_STYLES, PANEL_STYLES,
                       MARKER_STYLES, CATEGORY_STYLES, PHOTO_TONES,
                       FADE_STYLES, panel_alpha, panel_colours, dark_panel_surface, light_surface_colour, category_colours, panel_rule_colour, has_panel_rule, typography)
 from .render import (HEIGHT, WIDTH, LABELS, centered, contrast, density,
@@ -131,17 +131,17 @@ def block_spec(card, role, width, style=None, font_size=None, line_spacing=1.30,
             'text_cell_height':text_height,'text_cell_offset':text_offset}
 
 
-def fallback_spec(card,role,width=952,style=None):
+def fallback_spec(card,role,width=952,style=None,*,font_size=None):
     """Measured safe leading for renderer-owned defaults; never repair model intent."""
     for leading in (1.30,1.35,1.40,1.45,1.50,1.55):
-        try:return block_spec(card,role,width,style,line_spacing=leading)
+        try:return block_spec(card,role,width,style,font_size,line_spacing=leading)
         except ValueError as error:
             if str(error)!='Requested leading collides with measured glyphs':raise
     raise ValueError('No approved fallback leading fits measured glyphs')
 
 
 def declared_block(card,role,width=952,style=None,**geometry):
-    spec=fallback_spec(card,role,width,style)
+    spec=fallback_spec(card,role,width,style,font_size=geometry.get('font_size'))
     return {'role':role,'style':spec['style'],'width':width,'font_size':spec['size'],
             **({'panel_opacity':100} if role!='example' else {}),
             **({'panel_tone':'auto','rule_tone':'accent'} if role!='example' else {}),
@@ -156,11 +156,33 @@ def default_plan(card):
     y=heading(card)[2]+28;blocks=[];window=None
     if card.get('quiz_format')=='visual_identification':
         y=max(250,y)
-        specs=[fallback_spec(card,role,952) for role in roles(card)]
-        height=min(510,1170-y-28-sum(s['height'] for s in specs)-16*(len(specs)-1))
-        if height<240:raise ValueError('Visual quiz cannot preserve complete photo and exact copy')
-        window={'y':y,'height':height,'fit':'contain'};y+=height+28
-    for role in roles(card):
+        width=464
+        answers=roles(card)
+        # Uniform type keeps the cells aligned even when a long answer needs
+        # the compact font. Every fresh fallback has at least one pair.
+        rows=[answers[i:i+2] for i in range(0,len(answers),2)]
+        for size in range(density(card)[0],FONT_RANGES['answer'][0]-1,-1):
+            try:
+                leading=max(fallback_spec(card,role,width,font_size=size)['line_spacing'] for role in answers)
+                row_heights=[max(block_spec(card,role,width,'rounded',size,leading)['height'] for role in row)
+                             for row in rows]
+            except ValueError as error:
+                if str(error) not in ('An unbreakable word exceeds the available width',
+                                    'Actual glyphs exceed block width','No approved fallback leading fits measured glyphs'):
+                    raise
+                continue
+            height=min(510,1170-y-28-sum(row_heights)-16*(len(rows)-1))
+            if height>=240:break
+        else:
+            raise ValueError('Visual quiz cannot preserve complete photo and exact copy')
+        window={'y':y,'height':height,'fit':'contain'};answer_y=y+height+28
+        for row,row_height in zip(rows,row_heights):
+            anchors=(64,552) if len(row)==2 else (308,)
+            for role,x in zip(row,anchors):
+                blocks.append(declared_block(card,role,width,'rounded',x=x,y=round(answer_y),
+                                             font_size=size,line_spacing=leading))
+            answer_y+=row_height+16
+    for role in roles(card) if window is None else ():
         spec=fallback_spec(card,role,952)
         if role=='example':
             # Bottom-biased, measured and logo-safe; never model repair or truncation.
@@ -257,6 +279,8 @@ def validate_visual_answers(card, blocks):
                           block['line_spacing'],block.get('max_lines'),block.get('wrapping','balanced'))['height']
         rows.setdefault(block['y'],[]).append({**block,'bottom':block['y']+height})
     groups=list(rows.values());centres=[]
+    if all(len(group)==1 for group in groups):
+        raise ValueError('Visual quiz answers require at least two options side by side')
     for group in groups:
         xs=[b['x'] for b in group]
         gaps=[b-a-first['width'] for a,b in zip(xs,xs[1:])]
