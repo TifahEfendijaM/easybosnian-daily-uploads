@@ -17,7 +17,7 @@ from .store import wait_for_image
 
 def render_input(package):
     # Ephemeral artwork-cache provenance, not immutable history or publication state.
-    return {'rendering_version':63, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
+    return {'rendering_version':64, **{key:package.get(key) for key in ('batch_id','date','design_palette','background_source','background_sources','rendered_sources')},
             'cards':[{key:value for key,value in card.items() if key!='design_template'} for card in package['cards']]}
 
 
@@ -217,7 +217,8 @@ def artwork(store, package, expose=False, review_images=False, require_prepared=
                 stage='rendered card design review'
                 metrics,harmony=improve(card,path,metrics,draw,used=design_proposals_used,limit=design_attempt_limit,
                     available=model_accepted and not design_service_failed and detail.get('status')!='rejected; safe hybrid fallback',recent=recent,
-                    batch_palettes=[d['palette'] for d in decisions.values()],design_instructions=design_instructions)
+                    batch_palettes=[d['palette'] for d in decisions.values()],design_instructions=design_instructions,
+                    photo_reference=candidates[kind]['sheet'] if plan.get('photo_window') is None else None)
                 detail['design_harmony']=harmony
                 if metrics['palette']!=palette:
                     palette=metrics['palette']

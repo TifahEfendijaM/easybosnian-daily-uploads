@@ -32,12 +32,17 @@ class RenderedHarmonyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             card,path,metrics,_=self.fixture(Path(tmp));card.update(private_review='SECRET',answer_key='SECRET')
             original=path.read_bytes()
+            reference=path.with_name('photo.jpg')
             with patch('easybosnian.cloud_prepare.run_codex',return_value=json.dumps(ACCEPT)) as child:
                 self.assertEqual(inspect(card,path,metrics,can_revise=True,
-                                         design_instructions='Use a dark teal PRIMJER shade.'),ACCEPT)
+                                         design_instructions='Use a dark teal PRIMJER shade.',
+                                         photo_reference=reference),ACCEPT)
             prompt=child.call_args.args[0];kwargs=child.call_args.kwargs
             self.assertNotIn('SECRET',prompt);self.assertIn('ACTUAL Pillow-rendered card',prompt)
-            self.assertEqual(kwargs['images'][0],path);self.assertEqual(len(kwargs['images']),2)
+            self.assertEqual(kwargs['images'][0],path);self.assertEqual(len(kwargs['images']),3)
+            self.assertEqual(kwargs['images'][2],reference)
+            self.assertIn('fully covered faces',prompt)
+            self.assertIn('face_obscured',prompt)
             phone_path=kwargs['images'][1]
             with Image.open(phone_path) as phone:
                 self.assertEqual(phone.size,(432,540))

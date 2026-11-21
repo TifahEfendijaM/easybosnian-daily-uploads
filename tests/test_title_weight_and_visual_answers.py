@@ -72,9 +72,25 @@ class TitleWeightAndVisualAnswersTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'aligned groups'):validate_current_design(card,plan)
   card,plan=self.quiz_plan(4);plan['blocks'][1]['font_size']=40
   with self.assertRaisesRegex(ValueError,'consistent widths and typography'):validate_current_design(card,plan)
-  card,plan=self.quiz_plan(3)
-  for n,b in enumerate(plan['blocks']):b.update(x=64,width=952,y=700+n*155+(10 if n==2 else 0))
+  card,plan=self.quiz_plan(4)
+  plan['blocks'][2].update(x=320,y=855)
+  plan['blocks'][3].update(x=320,y=1020)
   with self.assertRaisesRegex(ValueError,'consistent spacing'):validate_current_design(card,plan)
+ def test_single_column_is_rejected_and_the_fallback_pairs_options(self):
+  for count in (2,3,4):
+   with self.subTest(count=count):
+    card,plan=self.quiz_plan(count)
+    for index,block in enumerate(plan['blocks']):
+     block.update(x=320,y=700+index*120)
+    with self.assertRaisesRegex(ValueError,'at least two options side by side'):
+     validate_current_design(card,plan)
+    fallback=default_plan(card)
+    validate_current_design(card,fallback)
+    blocks=fallback['blocks']
+    self.assertEqual(blocks[0]['y'],blocks[1]['y'])
+    self.assertLess(blocks[0]['x'],blocks[1]['x'])
+    if count==3:self.assertEqual(blocks[2]['x'],(blocks[0]['x']+blocks[1]['x'])//2)
+    if count==4:self.assertEqual(blocks[2]['y'],blocks[3]['y'])
  def test_full_photo_quiz_staggering_is_unchanged(self):
   card,plan=self.quiz_plan(3);card['quiz_format']='other';plan['photo_window']=None;plan['blocks'][2]['x']+=35
   validate_current_design(card,plan)

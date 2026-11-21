@@ -2,6 +2,7 @@ from test_project import accepted_photo_review
 import contextlib
 import copy
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -125,16 +126,22 @@ class FrozenCardTests(unittest.TestCase):
         from easybosnian.cloud_prepare import cloud_run
         from easybosnian.core import PROJECT,write_json
         from test_photo_reuse import fresh
-        for index,kind in enumerate(('quiz','lesson','word')):
-            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as tmp,contextlib.ExitStack() as stack:
+        for kind,redesign in (('quiz',False),('lesson',False),('word',False),('word',True)):
+            index=('quiz','lesson','word').index(kind)
+            with self.subTest(kind=kind,redesign=redesign),tempfile.TemporaryDirectory() as tmp,contextlib.ExitStack() as stack:
                 root=Path(tmp);(root/'docs').mkdir();(root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
                 old,store,cache,photo=self.fixture(root,kind)
                 old['bosnian_level']='A2'
                 store.history.return_value={'project':PROJECT,'days':[{'batch_id':A,'date':old['date'],'content':old}]}
                 store.publications_for_date.return_value=[]
                 def agent(prompt,**kwargs):
+                    if kwargs.get('read_only'):
+                        self.assertTrue(redesign)
+                        return json.dumps({role:{'action':'redesign' if role==kind else 'unchanged','word':None}
+                                           for role in ('quiz','lesson','word')})
                     context=read_json(root/'build/preparation-context.json')
-                    self.assertEqual(context['frozen_card_kinds'],[kind])
+                    self.assertEqual(context['frozen_card_kinds'],[] if redesign else [kind])
+                    self.assertEqual(context['retained_copy_kinds'],[kind])
                     self.assertNotIn('rendered_sources',context['selection']['previous'])
                     self.assertTrue(all('rendered_sources' not in row['content'] for row in context['history']['days']))
                     draft=fresh(old);draft.pop('rendered_sources',None)
@@ -153,6 +160,8 @@ class FrozenCardTests(unittest.TestCase):
                 stack.enter_context(patch('easybosnian.cloud_prepare.select_run_level',return_value='A2'))
                 stack.enter_context(patch('easybosnian.cloud_prepare.secrets.choice',return_value=3))
                 stack.enter_context(patch('easybosnian.cloud_prepare.run_codex',side_effect=agent))
+                stack.enter_context(patch('easybosnian.custom_instructions.workflow_instructions',
+                                          return_value='Use a plum shade on Riječ dana.' if redesign else ''))
                 stack.enter_context(patch('easybosnian.photo_reuse.prepare_photos',return_value={'paths':{kind:photo}}))
                 stack.enter_context(patch('easybosnian.photo_reuse.seal_photos',return_value={'background_sources':{kind:{'batch_id':A,'artwork_id':'r-'+'1'*32}}}))
                 for name in ('check_infrastructure','require_publishing','validate','fit_check','prepare'):
@@ -161,7 +170,8 @@ class FrozenCardTests(unittest.TestCase):
                 cloud_run('daily','custom',custom_actions=actions,batch_target='none')
                 staged=read_json(root/'build/reviewed-content.secret')['content']
                 self.assertEqual(staged['cards'][index],old['cards'][index])
-                self.assertEqual(staged['rendered_sources'],old['rendered_sources'])
+                if redesign:self.assertNotIn('rendered_sources',staged)
+                else:self.assertEqual(staged['rendered_sources'],old['rendered_sources'])
                 if kind=='quiz':self.assertEqual(staged['private_review']['correct_option'],old['private_review']['correct_option'])
                 store.save_content.assert_not_called();store.expose.assert_not_called()
 

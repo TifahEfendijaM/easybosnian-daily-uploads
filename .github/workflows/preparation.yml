@@ -19,7 +19,7 @@ on:
         options: [random, A1, A2, B1, B2, C1, C2]
         default: random
       design_instructions:
-        description: 'Optional for daily or preview. Describe this batch’s feed layouts, colours, or details such as the PRIMJER shade.'
+        description: 'Optional batch directions. Clear choices override conflicting per-card reuse settings in daily mode. Name the affected card.'
         type: string
         default: ''
       custom_theme:

@@ -7,13 +7,14 @@ from .batches import identity, latest_record
 
 CHOICES = ('new', 'same_theme', 'same_words', 'same_images', 'custom')
 WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered', 'same_image', 'same_image&design')
-PHOTO_ACTIONS = ('same_image','same_image&design')
+REDESIGN = 'same_image_redesign'  # Internal override: exact previous content and photo, fresh rendering.
+PHOTO_ACTIONS = ('same_image','same_image&design',REDESIGN)
 WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
 
 
 def quiz_format_target(selection):
     """One 40/60 draw per fresh quiz; an explicitly frozen quiz never redraws."""
-    if 'quiz' in frozen_kinds(selection):
+    if 'quiz' in retained_copy_kinds(selection):
         return selection['previous']['cards'][0].get('quiz_format','other')
     return 'visual_identification' if randbelow(5)<2 else 'other'
 
@@ -41,7 +42,7 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         words = [word.strip() for word in (custom_words or ['', '', ''])]
         if len(words) != 3: raise ValueError('Custom content requires exactly three word fields')
         actions = custom_actions or ['entered' if word else 'keep_today' for word in words]
-        if len(actions) != 3 or any(action not in WORD_ACTIONS for action in actions):
+        if len(actions) != 3 or any(action not in (*WORD_ACTIONS, REDESIGN) for action in actions):
             raise ValueError('Choose keep_today, chatgpt, entered, same_image or same_image&design for each custom word')
         if any(a in PHOTO_ACTIONS for a in actions) and not previous:
             raise ValueError('same_image requires a complete saved source batch')
@@ -91,6 +92,11 @@ def frozen_kinds(selection):
                  if selection['choice']=='custom' and action=='same_image&design')
 
 
+def retained_copy_kinds(selection):
+    return tuple(kind for kind,action in zip(('quiz','lesson','word'),selection.get('word_actions',()))
+                 if selection['choice']=='custom' and action in ('same_image&design', REDESIGN))
+
+
 def check_selection(package, selection):
     target=selection.get('quiz_format_target')
     if target is not None:
@@ -112,10 +118,10 @@ def check_selection(package, selection):
             if index in replacements: continue
             if (requested is not None and normalise(word['lemma']) != normalise(requested)) or (pinned and not retained_metadata(word,pinned,previous)):
                 raise ValueError('Custom word or reused equivalence metadata differs from the requested selection')
-        frozen=frozen_kinds(selection)
+        frozen=retained_copy_kinds(selection)
         for kind in frozen:
             if next(c for c in package['cards'] if c['kind']==kind)!=next(c for c in previous['cards'] if c['kind']==kind):
-                raise ValueError('same_image&design must keep the exact saved card text and photograph prompt')
+                raise ValueError('Keep the exact saved card text and photograph prompt')
         if previous: check_fresh_copy(package,previous,preserve_kinds=reused_kinds(selection),frozen_kinds=frozen)
         return
     if package['theme'] != previous['theme']:

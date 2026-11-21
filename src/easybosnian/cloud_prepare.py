@@ -197,11 +197,20 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         publication_ids=store.publications_for_date(run_date) if mode!='verify' and batch_target=='all_today' else []
         plan=plan_batch(history,run_date,batch_target,publication_batch_ids=[item['batch_id'] for item in publication_ids]) if mode!='verify' else None
         if plan:date=plan['date']
-        chosen=selection_context(history,date,selection if mode=='daily' else 'new',custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
+        from .custom_instructions import resolve, workflow_instructions
+        instructions=workflow_instructions() if mode=='daily' else ''
+        effective_choice=selection if mode=='daily' else 'new'
+        if instructions:
+            stage='custom card instruction selection'
+            previous=next((row['content'] for row in history['days'] if identity(row)==plan['source_batch_id']),None)
+            effective_choice,custom_words,custom_actions=resolve(
+                instructions,effective_choice,custom_words,custom_actions,previous,run_codex)
+        chosen=selection_context(history,date,effective_choice,custom_theme,custom_words,custom_actions,source_batch_id=plan['source_batch_id']) if plan else {'choice':'new','previous':None}
         reused=None
-        from .selection import reused_kinds, frozen_kinds
+        from .selection import reused_kinds, frozen_kinds, retained_copy_kinds
         photo_kinds=reused_kinds(chosen) if mode=='daily' else ()
         fixed_kinds=frozen_kinds(chosen) if mode=='daily' else ()
+        copy_kinds=retained_copy_kinds(chosen) if mode=='daily' else ()
         frozen_sources={}
         if photo_kinds:
             from .photo_reuse import prepare_photos
@@ -214,8 +223,10 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                                          fixed_kinds,reused['paths'])
         existing=next((x for x in history['days'] if identity(x)==plan['batch_id']),None) if plan else None
         saved_preview=mode=='preview' and existing and existing['content'].get('schema_version')==1
+        level_selection=(dict(chosen,choice=selection) if mode=='daily' and selection in ('same_words','same_images')
+                         else chosen)
         level=(existing['content'].get('bosnian_level') if saved_preview else
-               select_run_level(chosen,difficulty) if mode!='verify' else None)
+               select_run_level(level_selection,difficulty) if mode!='verify' else None)
         if level is not None:chosen['target_cefr']=level
         # Exact-cache snapshots are parent-owned provenance, not research/design
         # recommendations. Keep all published copy/novelty metadata in context.
@@ -225,7 +236,9 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
         if context_selection.get('previous'):context_selection['previous'].pop('rendered_sources',None)
         write_json(ROOT/'build/preparation-context.json',{'history':context_history,'selection':context_selection,'target_cefr':level,
                                                        'batch_date':date,'run_date':run_date,'batch_target':batch_target,'batch':plan,
-                                                       'reused_photo_kinds':list(photo_kinds),'frozen_card_kinds':list(fixed_kinds)})
+                                                       'reused_photo_kinds':list(photo_kinds),'frozen_card_kinds':list(fixed_kinds),
+                                                       'retained_copy_kinds':list(copy_kinds),
+                                                       **({'operator_instructions':instructions} if instructions else {})})
         if mode=='verify':
             stage='cloud ChatGPT workspace verification';probe=ROOT/'build/cloud-file-probe.json';probe.unlink(missing_ok=True)
             require_agent_ready(run_codex(
@@ -252,7 +265,7 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 # One independent, uniform draw for this research attempt. Do
                 # not redraw after failure; genuinely binary questions use two.
                 chosen['quiz_option_target']=(chosen['previous']['private_review'].get('quiz_choice_review',{}).get('target',
-                                              len(chosen['previous']['cards'][0]['options'])) if 'quiz' in fixed_kinds else secrets.choice((2,3,4)))
+                                              len(chosen['previous']['cards'][0]['options'])) if 'quiz' in copy_kinds else secrets.choice((2,3,4)))
                 context=read_json(ROOT/'build/preparation-context.json')
                 chosen['quiz_format_target']=quiz_format_target(chosen)
                 for key in ('quiz_option_target','quiz_format_target'):context['selection'][key]=chosen[key]
@@ -263,18 +276,19 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 package=read_json(draft)
                 if any(key in package for key in ('background_source','background_sources','rendered_sources')):
                     raise ValueError('Photo provenance must be assigned by the trusted wrapper')
-                if fixed_kinds:
+                if copy_kinds:
                     previous=chosen['previous']
                     for index,card in enumerate(previous['cards']):
-                        if card['kind'] in fixed_kinds:
+                        if card['kind'] in copy_kinds:
                             package['cards'][index]=copy.deepcopy(card)
                             package['words'][index]=copy.deepcopy(previous['words'][index])
-                    if 'quiz' in fixed_kinds:
+                    if 'quiz' in copy_kinds:
                         for key in ('correct_option','correct_text','explanation','answer_aliases','identifying_hints','quiz_choice_review'):
                             if key in previous['private_review']:package['private_review'][key]=copy.deepcopy(previous['private_review'][key])
                         if 'quiz_choice_review' not in package['private_review']:
                             package['private_review']['quiz_choice_review']={'target':chosen['quiz_option_target'],'binary':False,
-                                'reason':'Answer count retained from the explicitly frozen, previously reviewed quiz.'}
+                                'reason':'Answer count retained from the saved, previously reviewed quiz.'}
+                if fixed_kinds:
                     package['rendered_sources']=frozen_sources
                 if reused:
                     from .photo_reuse import seal_photos
