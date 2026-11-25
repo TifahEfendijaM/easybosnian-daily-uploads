@@ -20,6 +20,9 @@ NEXT={
 
 def next_step(stage,error):
     from .codex_diagnostics import CodexExecutionError
+    from .research_context import DraftCheckError
+    if isinstance(error,DraftCheckError):
+        return 'Review the indicated draft check or missing handoff before deliberately starting another run. No automatic retry exists.'
     if isinstance(error,CodexExecutionError):
         if error.reason in ('authentication','refresh_token_reused'):
             return 'Renew only the dedicated cloud ChatGPT sign-in and save it privately. Do not copy a desktop session. No automatic retry or paid fallback is sent.'
@@ -59,6 +62,9 @@ def next_step(stage,error):
 
 def failure(date,stage,error,publication,run_url=None):
     action=next_step(stage,error)
+    from .research_context import DraftCheckError
+    if isinstance(error,DraftCheckError):
+        error='Research draft check: '+str(error)
     text=f'Batch: {date}\nFailed stage: {stage}\nError: {redact(error,limit=None)}\nPublication: {publication}\nRun/logs: {run_url or "No GitHub run exists for this invocation."}\nNext step: {action}\n'
     text=redact(text,limit=None)
     path=ROOT/'build/failure.txt';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8')

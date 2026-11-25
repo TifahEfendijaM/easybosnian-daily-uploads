@@ -32,7 +32,7 @@ on:
         options: [keep_today, same_image, 'same_image&design', chatgpt, entered]
         default: keep_today
       custom_word_1:
-        description: 'Custom only: Pitanje dana word; fill only when its action is entered'
+        description: 'Custom entered quiz: a Bosnian word or a meaning question such as “What does državnost mean?”'
         type: string
         default: ''
       custom_word_2_action:

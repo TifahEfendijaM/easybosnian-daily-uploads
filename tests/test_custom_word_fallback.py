@@ -6,8 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from easybosnian.cli import fit_check
-from easybosnian.core import PROJECT, write_json, read_json
-from easybosnian.selection import check_selection, novelty_history, selection_context, word_levels
+from easybosnian.core import PROJECT, ROOT, write_json, read_json
+from easybosnian.research_context import DraftCheckError, check_draft
+from easybosnian.selection import check_selection, novelty_history, quiz_format_target, selection_context, word_levels
 from easybosnian.validate import validate,caption_language
 from test_project import reviewed_fixture
 
@@ -42,6 +43,51 @@ class CustomWordFallbackTests(unittest.TestCase):
             'word_index':index,'requested_word':requested,
             'chosen_word':chosen or package['words'][index]['lemma'],'cause':cause,
             'reason':'Test-only researched decision: the requested seed failed its word check.'}]
+
+    def test_definition_question_keeps_the_term_and_passes_preparation_checks(self):
+        date='2026-11-25'; batch_id='b-'+'a'*32
+        history={'project':PROJECT,'days':[]}
+        plain=selection_context(history,date,'custom','Dan Državnosti',['državnost','','Antifašizam'],
+                                ['entered','chatgpt','entered'])
+        with patch('easybosnian.selection.randbelow',return_value=0):
+            self.assertEqual(quiz_format_target(plain),'visual_identification')
+        for entered in ('What does državnost mean','Šta znači „državnost”?'):
+            selection=selection_context(history,date,'custom','Dan Državnosti',[entered,'','Antifašizam'],
+                                        ['entered','chatgpt','entered'])
+            self.assertEqual(selection['requested_words'],['državnost',None,'Antifašizam'])
+            with patch('easybosnian.selection.randbelow') as draw:
+                self.assertEqual(quiz_format_target(selection),'other')
+                draw.assert_not_called()
+        selection.update(quiz_format_target='other',quiz_option_target=3,target_cefr='B1')
+        package=reviewed_fixture()
+        package.update(batch_id=batch_id,date=date,bosnian_level='B1',caption_language='bs',
+                       theme={'name':'Dan Državnosti','equivalence_keys':['Statehood day']},
+                       caption='Na nivou B1 razgovaramo o prazniku i historiji.\nIstraži nove riječi na EasyBosnian.\n👉easybosnian.com')
+        package['words']=[dict(lemma=lemma,bosnian_level='B1',equivalence_keys=[equivalent])
+                          for lemma,equivalent in (('državnost','statehood'),('praznik','public holiday'),
+                                                    ('antifašizam','antifascism'))]
+        quiz,lesson,word=package['cards']
+        quiz.update(word='državnost',question='Šta znači državnost?',quiz_format='other',question_language='bs',
+                    options=[{'label':'A','text':'Status države'},{'label':'B','text':'Vrsta izbora'},
+                             {'label':'C','text':'Lokalni običaj'}])
+        lesson.update(word='praznik',heading='Razgovor o prazniku',body='Pitajte prijatelja kako obilježava praznik.',
+                      example='Kako obilježavaš praznik?',body_language='bs')
+        word.update(word='antifašizam',heading='Antifašizam',body='Suprotstavljanje fašizmu.',
+                    example='Razgovaramo o antifašizmu.',body_language='bs')
+        package['private_review'].update(correct_option='A',correct_text='Status države',
+            answer_aliases=['državni status'],identifying_hints=['prvi ponuđeni opis'],language_policy_checked=True,
+            quiz_choice_review={'target':3,'binary':False,'reason':'Tri različita opisa za provjeru značenja riječi.'})
+        context={'history':history,'selection':selection,'batch_date':date,'batch':{'batch_id':batch_id},'target_cefr':'B1'}
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);draft=root/'build'/'preparation'/f'{date}.json'
+            (root/'data').symlink_to(ROOT/'data',target_is_directory=True)
+            write_json(draft,package)
+            with patch('easybosnian.cli.ROOT',root):
+                check_draft(context,draft)
+            quiz['quiz_format']='visual_identification'
+            write_json(draft,package)
+            with self.assertRaisesRegex(DraftCheckError,'quiz format'):
+                check_draft(context,draft)
 
     def test_exact_misspelling_is_corrected_before_alternative_and_uses_own_level(self):
         package=self.market();chosen=self.choice(['Tezga','Cijenkati se',''],['entered','entered','chatgpt'])
