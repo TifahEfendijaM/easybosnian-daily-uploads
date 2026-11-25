@@ -28,6 +28,8 @@ Actions apply independently in quiz/lesson/word order. Blank theme retains the s
 | keep_today | keep selected word/metadata and write fresh content/photo/design; a changed theme makes the wrapper delegate it to chatgpt |
 | chatgpt | choose a semantically new distinct seed at target_cefr |
 | entered | research the matching text field, assess its individual level and write fresh content |
+
+In the Pitanje dana field, an explicit meaning question such as “What does državnost mean?” or “Šta znači državnost?” sets the selected word to `državnost` and requests a definition quiz. Use that Bosnian word in the question, word the question in the assessed level's language and offer Bosnian descriptions or situations as answers. Preserve quiz secrecy, thematic fit and the assigned answer count. The wrapper selects `other` for this request. A plain entered word uses the normal format draw.
 | same_image | keep word/metadata/original photo/exact prompt; write fresh copy/design |
 | same_image&design | keep the complete word/card, original photo and exact feed/Story JPEGs; see preparation-task.md and element-design-recovery.md |
 

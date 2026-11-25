@@ -1,5 +1,6 @@
 """Selection-aware novelty: manual/retained terms may repeat; model choices must be new."""
 import copy
+import re
 from secrets import randbelow
 from datetime import date as calendar_date
 from .validate import instructional, normalise
@@ -10,12 +11,15 @@ WORD_ACTIONS = ('keep_today', 'chatgpt', 'entered', 'same_image', 'same_image&de
 REDESIGN = 'same_image_redesign'  # Internal override: exact previous content and photo, fresh rendering.
 PHOTO_ACTIONS = ('same_image','same_image&design',REDESIGN)
 WORD_FALLBACK_CAUSES = ('spelling_correction', 'theme_mismatch', 'invalid_bosnian', 'word_overlap', 'unusable_seed')
+QUIZ_DEFINITION = re.compile(r'(?:what\s+does\s+(.+?)\s+mean|(?:šta|što|sta|sto)\s+znači\s+(.+?))', re.IGNORECASE)
 
 
 def quiz_format_target(selection):
     """One 40/60 draw per fresh quiz; an explicitly frozen quiz never redraws."""
     if 'quiz' in retained_copy_kinds(selection):
         return selection['previous']['cards'][0].get('quiz_format','other')
+    if selection.get('quiz_intent')=='definition':
+        return 'other'
     return 'visual_identification' if randbelow(5)<2 else 'other'
 
 
@@ -51,6 +55,9 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         for i, action in enumerate(actions):
             if action != 'entered' and words[i]:
                 raise ValueError('Clear the word field for keep_today/chatgpt/same_image, or select entered to use it')
+        definition=QUIZ_DEFINITION.fullmatch(words[0].removesuffix('?').rstrip()) if actions[0]=='entered' else None
+        if definition:
+            words[0]=(definition[1] or definition[2]).strip().strip('"“”„‘’\'').strip()
         theme = theme or previous['theme']['name']
         theme_changed = bool(previous and normalise(theme) != normalise(previous['theme']['name']))
         # Keeping an old-theme word is not a request to force it into a new theme.
@@ -76,6 +83,8 @@ def selection_context(history, date, choice, custom_theme='', custom_words=None,
         pinned_words = [next((w for w in old_words if normalise(w['lemma']) == normalise(word)), None) if word is not None else None for word in words]
         result.update(requested_theme=theme, requested_words=words,
                       pinned_theme=pinned_theme, pinned_words=pinned_words, word_actions=effective_actions, theme_changed=theme_changed)
+        if definition and effective_actions[0]=='entered':
+            result['quiz_intent']='definition'
         if input_fallbacks: result['word_input_fallbacks']=input_fallbacks
     return result
 
@@ -103,6 +112,8 @@ def check_selection(package, selection):
         if target not in ('visual_identification','other'):
             raise ValueError('Invalid trusted quiz format target')
         if package['cards'][0].get('quiz_format','other')!=target:
+            if selection.get('quiz_intent')=='definition':
+                raise ValueError('A requested definition quiz cannot use picture-identification format')
             raise ValueError('Quiz format differs from the trusted random target')
     choice = selection['choice']; previous = selection['previous']
     if choice != 'custom' and package.get('private_review',{}).get('word_replacements'):

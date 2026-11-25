@@ -88,6 +88,24 @@ class CloudPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Reliable source opening"):
             require_agent_ready('{"status":"blocked","reason":"research_sources"}')
 
+    def test_blocked_validation_reports_missing_draft_without_staging_or_retry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); (root/'docs').mkdir()
+            (root/'docs/cloud-agent-task.md').write_text('Prepare {{DATE}}')
+            with patch('easybosnian.cloud_prepare.ROOT',root),patch.dict(os.environ,{'GITHUB_EVENT_PATH':''}), patch(
+                    'easybosnian.cloud_prepare.require_publishing'),patch('easybosnian.cloud_prepare.check_infrastructure'),patch(
+                    'easybosnian.cloud_prepare.Store') as store,patch('easybosnian.cloud_prepare.run_codex',
+                    return_value='{"status":"blocked","reason":"validation"}') as agent,patch(
+                    'easybosnian.cloud_prepare.failure',return_value='safe failure') as failure,patch(
+                    'easybosnian.cloud_prepare.prepare') as prepare:
+                store.return_value.history.return_value={'project':PROJECT,'days':[]}
+                with self.assertRaisesRegex(RuntimeError,'cloud ChatGPT research/review'):
+                    cloud_run('daily',batch_target='none')
+                self.assertEqual(str(failure.call_args.args[2]),'draft JSON could not be read or was not saved')
+                agent.assert_called_once()
+                prepare.assert_not_called()
+                store.return_value.save_content.assert_not_called()
+
     def test_verify_only_reads_history_and_writes_private_probe(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)

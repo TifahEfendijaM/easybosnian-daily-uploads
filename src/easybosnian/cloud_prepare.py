@@ -15,7 +15,7 @@ from .store import Store
 from .validate import validate
 from .selection import selection_context, check_selection, novelty_history, word_levels, quiz_format_target
 from .levels import select_run_level
-from .research_context import research_prompt_context
+from .research_context import DraftCheckError, check_draft, research_prompt_context
 from .batches import identity, plan_batch
 from .codex_diagnostics import CodexExecutionError, execution_diagnostic
 
@@ -47,6 +47,12 @@ class AgentIntegrityError(ValueError):
     """Tracked-file changes cannot be downgraded into a cosmetic-review fallback."""
 
 
+class AgentBlocked(ValueError):
+    def __init__(self, reason):
+        super().__init__(AGENT_FAILURES[reason])
+        self.reason = reason
+
+
 def require_agent_ready(text):
     # Never put free-form model output, quiz answers or raw events in an issue/log.
     try:
@@ -59,7 +65,7 @@ def require_agent_ready(text):
             raise ValueError()
     except (ValueError, TypeError):
         raise ValueError("ChatGPT returned no valid completion result; check the cloud result contract. No batch was approved.") from None
-    raise ValueError(AGENT_FAILURES[result["reason"]])
+    raise AgentBlocked(result["reason"])
 
 
 def managed_auth(text):
@@ -271,7 +277,17 @@ def cloud_run(mode, selection='new', custom_theme='', custom_words=None, custom_
                 for key in ('quiz_option_target','quiz_format_target'):context['selection'][key]=chosen[key]
                 write_json(ROOT/'build/preparation-context.json',context)
                 prompt=(ROOT/'docs/cloud-agent-task.md').read_text().replace('{{DATE}}',date)+research_prompt_context(context)
-                require_agent_ready(run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {})))
+                response=run_codex(prompt,**({'images':list(reused['paths'].values())} if reused else {}))
+                try:
+                    require_agent_ready(response)
+                except AgentBlocked as error:
+                    if error.reason not in ('validation', 'text_fit'):
+                        raise
+                    try:
+                        check_draft(dict(context, history=history, selection=chosen), draft)
+                    except DraftCheckError as check:
+                        raise DraftCheckError(str(check)) from None
+                    raise DraftCheckError('the draft passed local checks, but the agent did not confirm its review') from None
                 if not draft.is_file(): raise ValueError('ChatGPT returned ready without creating the required draft')
                 package=read_json(draft)
                 if any(key in package for key in ('background_source','background_sources','rendered_sources')):
